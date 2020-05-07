@@ -12,9 +12,6 @@ services:
       - LETSENCRYPT_HOST=lisa.burdukov.by
       - LETSENCRYPT_EMAIL=chippcheg@gmail.com
     restart: unless-stopped
-volumes:
-  db:
-    driver: local
 networks:
   default:
     external:

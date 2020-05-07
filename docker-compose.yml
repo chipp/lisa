@@ -1,0 +1,21 @@
+version: "3"
+services:
+  reader:
+    build: .
+    image: docker.pkg.github.com/chipp/lisa/lisa:latest
+    expose:
+      - 8080
+    entrypoint: ["./lisa"]
+    environment:
+      - VIRTUAL_HOST=lisa.burdukov.by
+      - VIRTUAL_PORT=8080
+      - LETSENCRYPT_HOST=lisa.burdukov.by
+      - LETSENCRYPT_EMAIL=chippcheg@gmail.com
+    restart: unless-stopped
+volumes:
+  db:
+    driver: local
+networks:
+  default:
+    external:
+      name: nginxproxy_default

@@ -18,10 +18,12 @@ RUN cargo build --release && \
 RUN cargo build && \
   cargo clean -p lisa && \
   cargo clean -p alice && \
-  rm src/lisa/*.rs && \
-  rm src/alice/*.rs
+  rm ./lisa/src/*.rs && \
+  rm ./alice/src/*.rs
 
-COPY ./src ./src
+COPY ./lisa/src ./lisa/src
+COPY ./alice/src ./alice/src
+
 RUN cargo test && rm -rf target/debug/
 RUN cargo build --release
 

@@ -37,6 +37,7 @@ async fn hello(request: Request<Body>) -> Result<Response<Body>> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    pretty_env_logger::init();
 
     let make_svc = make_service_fn(|_conn| async { Ok::<_, ErasedError>(service_fn(hello)) });
 

@@ -7,6 +7,7 @@ services:
       - 8080
     entrypoint: ["./lisa"]
     environment:
+      - RUST_LOG=debug
       - VIRTUAL_HOST=lisa.burdukov.by
       - VIRTUAL_PORT=8080
       - LETSENCRYPT_HOST=lisa.burdukov.by

@@ -5,7 +5,12 @@
       "type": "cargo",
       "subcommand": "run",
       "problemMatcher": ["$rustc"],
-      "label": "Rust: cargo run - lisa"
+      "label": "Rust: cargo run - lisa",
+      "options": {
+        "env": {
+          "RUST_LOG": "debug"
+        }
+      }
     },
     {
       "type": "cargo",
@@ -13,6 +18,12 @@
       "problemMatcher": ["$rustc"],
       "group": "test",
       "label": "Rust: cargo test - lisa"
+    },
+    {
+      "type": "cargo",
+      "subcommand": "clean",
+      "problemMatcher": ["$rustc"],
+      "label": "Rust: cargo clean - lisa"
     }
   ]
 }

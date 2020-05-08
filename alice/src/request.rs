@@ -18,7 +18,7 @@ pub struct RequestMeta {
     pub locale: String,
     pub timezone: String,
     pub client_id: String,
-    pub interfaces: HashMap<String, ()>,
+    pub interfaces: HashMap<String, HashMap<String, ()>>,
 }
 
 #[derive(Deserialize)]

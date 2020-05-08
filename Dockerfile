@@ -2,16 +2,24 @@ FROM docker.pkg.github.com/chipp/base-image/build.rust.x86_64.musl:latest AS bui
 
 WORKDIR /home/rust/src
 RUN USER=rust cargo init --lib /home/rust/src
+RUN USER=rust cargo new --bin /home/rust/src/lisa
+RUN USER=rust cargo new --lib /home/rust/src/alice
+
+COPY ./alice/Cargo.toml ./alice/Cargo.toml
+COPY ./lisa/Cargo.toml ./lisa/Cargo.toml
 
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
 RUN cargo build --release && \
-  cargo clean --release -p lisa
+  cargo clean --release -p lisa && \
+  cargo clean --release -p alice
 
 RUN cargo build && \
   cargo clean -p lisa && \
-  rm src/*.rs
+  cargo clean -p alice && \
+  rm src/lisa/*.rs && \
+  rm src/alice/*.rs
 
 COPY ./src ./src
 RUN cargo test && rm -rf target/debug/

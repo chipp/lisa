@@ -23,8 +23,8 @@ pub struct RequestMeta {
 
 #[derive(Deserialize)]
 pub struct RequestSession {
+    pub message_id: u8,
     pub session_id: String,
-    pub message_id: String,
     pub skill_id: String,
 
     pub application: RequestApplication,

@@ -13,7 +13,10 @@ dependencies = [
 name = "alice"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "hyper",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -263,10 +266,8 @@ name = "lisa"
 version = "0.1.0"
 dependencies = [
  "alice",
- "bytes",
  "hyper",
  "pretty_env_logger",
- "serde_json",
  "tokio",
 ]
 

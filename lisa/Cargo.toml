@@ -12,6 +12,3 @@ alice = { path = "../alice" }
 hyper = "0.13"
 pretty_env_logger = "0.4"
 tokio = { version = "0.2", features = ["macros"] }
-bytes = "*"
-
-serde_json = "1.0"

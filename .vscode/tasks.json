@@ -24,6 +24,13 @@
       "subcommand": "clean",
       "problemMatcher": ["$rustc"],
       "label": "Rust: cargo clean - lisa"
+    },
+    {
+      "type": "cargo",
+      "subcommand": "build",
+      "problemMatcher": ["$rustc"],
+      "group": "build",
+      "label": "Rust: cargo build - lisa"
     }
   ]
 }

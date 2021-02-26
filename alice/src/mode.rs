@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{de::value, de::IntoDeserializer, Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -28,5 +30,11 @@ impl std::str::FromStr for Mode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::deserialize(s.into_deserializer())
+    }
+}
+
+impl fmt::Display for Mode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.serialize(f)
     }
 }

@@ -1,0 +1,17 @@
+[package]
+name = "isabel"
+version = "0.1.0"
+authors = ["Vladimir Burdukov <chippcheg@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+elisheva = { path = "../elisheva" }
+
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util", "net", "time"] }
+
+bytes = "0.5"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# http_client = { git = "https://github.com/chipp/http_client", tag = "0.4.7" }

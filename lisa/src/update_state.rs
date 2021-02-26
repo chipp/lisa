@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use crate::DeviceId;
 use crate::DeviceType::*;
@@ -7,9 +7,14 @@ use alice::{
     ModeFunction, StateCapability, StateUpdateResult, UpdateStateCapability, UpdateStateDevice,
     UpdatedDeviceState,
 };
+use elisheva::Command;
 use log::debug;
+use tokio::sync::Mutex;
 
-pub fn update_devices_state(devices: Vec<UpdateStateDevice>) -> Vec<UpdatedDeviceState> {
+pub async fn update_devices_state<'a>(
+    devices: Vec<UpdateStateDevice<'a>>,
+    cmd: Arc<Mutex<crate::Commander>>,
+) -> Vec<UpdatedDeviceState> {
     let mut rooms = vec![];
     let mut state = None;
     let mut cleanup_mode = None;
@@ -41,6 +46,26 @@ pub fn update_devices_state(devices: Vec<UpdateStateDevice>) -> Vec<UpdatedDevic
 
     if rooms.is_empty() {
         return vec![];
+    }
+
+    {
+        let mut cmd = cmd.lock_owned().await;
+
+        if let Some(ref cleanup_mode) = cleanup_mode {
+            cmd.send_command(Command::SetMode {
+                mode: cleanup_mode.to_string(),
+            })
+            .await
+            .unwrap();
+        }
+
+        if let Some(true) = state {
+            let room_ids = rooms.iter().map(crate::Room::id).collect();
+
+            cmd.send_command(Command::Start { rooms: room_ids })
+                .await
+                .unwrap();
+        }
     }
 
     let mut devices = vec![];

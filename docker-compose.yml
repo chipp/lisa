@@ -5,6 +5,8 @@ services:
     image: ghcr.io/chipp/lisa:latest
     expose:
       - 8080
+    ports:
+      - 8081:8081
     entrypoint: ["./lisa"]
     environment:
       - RUST_LOG=debug

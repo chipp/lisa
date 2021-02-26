@@ -1,13 +1,16 @@
-IMAGE_ID="ghcr.io/chipp/lisa:latest"
+.PHONY: lisa isabel
 
-build:
-	docker build . -t $(IMAGE_ID)
+LISA_ID="ghcr.io/chipp/lisa:latest"
+ISABEL_ID="ghcr.io/chipp/isabel:latest"
 
-push: build
-	docker push $(IMAGE_ID)
+lisa:
+	docker build . -f Dockerfile.lisa -t $(LISA_ID)
 
-deploy: build
-	docker image save -o lisa.tar $(IMAGE_ID)
+push: lisa
+	docker push $(LISA_ID)
+
+deploy: lisa
+	docker image save -o lisa.tar $(LISA_ID)
 	scp Makefile docker-compose.yml lisa.tar ezio:web/lisa
 	ssh ezio "cd web/lisa; make install; docker-compose logs -f"
 
@@ -15,9 +18,12 @@ logs:
 	ssh ezio "cd web/lisa; docker-compose logs -f"
 
 install:
+# 	docker pull $(LISA_ID)
 	docker-compose down || true
-	docker image rm ghcr.io/chipp/lisa:latest
+	docker image rm $(LISA_ID)
 	docker image load -i lisa.tar
 	docker-compose up -d
 
-# 	docker pull ghcr.io/chipp/lisa:latest
+isabel:
+	docker build . -f Dockerfile.isabel -t $(ISABEL_ID) -o build
+	scp build/root/isabel pi:

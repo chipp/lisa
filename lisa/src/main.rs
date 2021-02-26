@@ -1,19 +1,29 @@
 use std::{borrow::Cow, str::FromStr};
+use std::{net::SocketAddr, sync::Arc};
 
-use bytes::buf::Buf;
+use log::{info, trace};
+
+use bytes::Buf;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{header, Body, Method, Request, Response, Server, StatusCode};
-use log::trace;
+use url::Url;
+
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_urlencoded::de;
-use url::Url;
+
+use tokio::{
+    io::{AsyncBufReadExt, BufReader, BufWriter, ReadHalf},
+    net::{TcpListener, TcpStream},
+    sync::Mutex,
+    task,
+};
 
 use alice::{Device, DeviceCapability, DeviceProperty, DeviceType, Mode, ModeFunction};
 use alice::{StateRequest, StateResponse};
 use alice::{UpdateStateRequest, UpdateStateResponse};
 
-use lisa::{state_for_device, update_devices_state, DeviceId, Room};
+use lisa::{state_for_device, update_devices_state, Commander, DeviceId, Room};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -22,19 +32,94 @@ type Result<T> = std::result::Result<T, ErasedError>;
 async fn main() -> Result<()> {
     pretty_env_logger::init();
 
-    let make_svc =
-        make_service_fn(|_| async { Ok::<_, ErasedError>(service_fn(move |req| service(req))) });
+    let commander = Arc::from(Mutex::from(Commander::new()));
+
+    let (server, tcp) = tokio::try_join!(
+        task::spawn(listen_api(commander.clone())),
+        task::spawn(listen_tcp(commander.clone()))
+    )?;
+
+    server?;
+    tcp?;
+
+    Ok(())
+}
+
+async fn listen_api(cmd: Arc<Mutex<Commander>>) -> Result<()> {
+    let cmd = cmd.clone();
+
+    let make_svc = make_service_fn(move |_| {
+        let cmd = cmd.clone();
+        async move {
+            Ok::<_, ErasedError>(service_fn(move |req| {
+                let cmd = cmd.clone();
+                async move { service(req, cmd).await }
+            }))
+        }
+    });
 
     let addr = ([0, 0, 0, 0], 8080).into();
     let server = Server::bind(&addr).serve(make_svc);
-    println!("Listening http://{}", addr);
+    info!("Listening http://{}", addr);
 
     server.await?;
 
     Ok(())
 }
 
-pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
+async fn listen_tcp(cmd: Arc<Mutex<Commander>>) -> Result<()> {
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8081));
+    let tcp_listener = TcpListener::bind(addr).await?;
+
+    info!("Listening socket {}", addr);
+
+    let mut handles = vec![];
+
+    loop {
+        match tcp_listener.accept().await {
+            Ok((stream, _)) => {
+                let (read, write) = tokio::io::split(stream);
+                let mut cmd = cmd.clone().lock_owned().await;
+                cmd.set_stream(BufWriter::new(write));
+
+                handles.push(task::spawn(read_from_socket(read)))
+            }
+            Err(error) => eprintln!("{}", error),
+        }
+    }
+}
+
+async fn read_from_socket(stream: ReadHalf<TcpStream>) -> Result<()> {
+    let mut reader = BufReader::new(stream);
+
+    loop {
+        trace!("waiting for message...");
+
+        let mut buffer = vec![];
+        let bytes_count = reader.read_until(b'\n', &mut buffer).await?;
+
+        trace!("received some bytes {}", bytes_count);
+
+        if bytes_count == 0 {
+            break;
+        }
+
+        unsafe {
+            println!("{}", std::str::from_utf8_unchecked(&buffer));
+        }
+
+        match serde_json::from_slice::<elisheva::SensorData>(&buffer) {
+            Ok(value) => println!("{:?}", value),
+            Err(error) => eprintln!("{}", error),
+        }
+    }
+
+    trace!("Finished session");
+
+    Ok(())
+}
+
+async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<Response<Body>> {
     match (request.uri().path(), request.method()) {
         ("/auth", &Method::GET) => {
             let response;
@@ -57,10 +142,10 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
         ("/auth", &Method::POST) => {
             let body = hyper::body::aggregate(request).await?;
 
-            let credentials = de::from_bytes(body.bytes()).unwrap();
+            let credentials = de::from_bytes(body.chunk()).unwrap();
 
             if verify_credentials(credentials) {
-                let auth_params = de::from_bytes(body.bytes()).unwrap();
+                let auth_params = de::from_bytes(body.chunk()).unwrap();
                 let redirect_url = get_redirect_url_from_params(auth_params).unwrap();
 
                 Ok(Response::builder()
@@ -79,7 +164,7 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
             println!("{:?}", request.headers());
 
             let body = hyper::body::aggregate(request).await?;
-            let client_creds: ClientCreds = de::from_bytes(body.bytes()).unwrap();
+            let client_creds: ClientCreds = de::from_bytes(body.chunk()).unwrap();
 
             if !validate_client_creds(&client_creds) {
                 return Ok(Response::builder()
@@ -89,14 +174,14 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
 
             match client_creds.grant_type {
                 GrantType::AuthorizationCode => {
-                    let auth_code: AuthorizationCode = de::from_bytes(body.bytes()).unwrap();
+                    let auth_code: AuthorizationCode = de::from_bytes(body.chunk()).unwrap();
 
                     if validate_token(auth_code.value) {
                         let json = json!({
                             "access_token": create_token_with_expiration_in(chrono::Duration::minutes(10)),
                             "refresh_token": create_token_with_expiration_in(chrono::Duration::days(1)),
                             "token_type": "Bearer",
-                            "expires_in": chrono::Duration::days(1).num_seconds()
+                            "expires_in": chrono::Duration::minutes(10).num_seconds()
                         });
 
                         Ok(Response::builder()
@@ -109,7 +194,7 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
                     }
                 }
                 GrantType::RefreshToken => {
-                    let refresh_token: RefreshToken = de::from_bytes(body.bytes()).unwrap();
+                    let refresh_token: RefreshToken = de::from_bytes(body.chunk()).unwrap();
 
                     if validate_token(refresh_token.value) {
                         // TODO: increment token version
@@ -170,10 +255,10 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
 
             let body = hyper::body::aggregate(request).await?;
             unsafe {
-                trace!("[query]: {}", std::str::from_utf8_unchecked(body.bytes()));
+                trace!("[query]: {}", std::str::from_utf8_unchecked(body.chunk()));
             }
 
-            let query: StateRequest = serde_json::from_slice(body.bytes())?;
+            let query: StateRequest = serde_json::from_slice(body.chunk())?;
             let devices = query
                 .devices
                 .iter()
@@ -194,11 +279,11 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
 
             let body = hyper::body::aggregate(request).await?;
             unsafe {
-                println!("[action]: {}", std::str::from_utf8_unchecked(body.bytes()));
+                println!("[action]: {}", std::str::from_utf8_unchecked(body.chunk()));
             }
 
-            let action: UpdateStateRequest = serde_json::from_slice(body.bytes())?;
-            let devices = update_devices_state(action.payload.devices);
+            let action: UpdateStateRequest = serde_json::from_slice(body.chunk())?;
+            let devices = update_devices_state(action.payload.devices, cmd).await;
 
             let response = UpdateStateResponse::new(request_id, devices);
 
@@ -210,7 +295,7 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
             println!("{:?}", request);
 
             let body = hyper::body::aggregate(request).await?;
-            println!("{}", std::str::from_utf8(body.bytes()).unwrap());
+            println!("{}", std::str::from_utf8(body.chunk()).unwrap());
 
             let response = Response::builder()
                 .status(StatusCode::BAD_REQUEST)

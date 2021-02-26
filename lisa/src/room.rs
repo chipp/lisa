@@ -27,6 +27,18 @@ impl Room {
             Room::LivingRoom => "Зал",
         }
     }
+
+    pub fn id(&self) -> u8 {
+        match self {
+            Room::Hallway => 13,
+            Room::Corridor => 15,
+            Room::Bathroom => 10,
+            Room::Nursery => 16,
+            Room::Bedroom => 14,
+            Room::Kitchen => 12,
+            Room::LivingRoom => 11,
+        }
+    }
 }
 
 impl fmt::Display for Room {

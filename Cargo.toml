@@ -1,6 +1,8 @@
 [workspace]
 
 members = [
+  "isabel",
   "alice",
-  "lisa"
+  "lisa",
+  "elisheva",
 ]

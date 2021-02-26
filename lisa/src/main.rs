@@ -79,20 +79,20 @@ async fn listen_tcp(cmd: Arc<Mutex<Commander>>) -> Result<()> {
     loop {
         match tcp_listener.accept().await {
             Ok((stream, addr)) => {
-                info!("Got a new client {}", addr);
-
                 let (read, write) = tokio::io::split(stream);
                 let mut cmd = cmd.clone().lock_owned().await;
                 cmd.set_stream(BufWriter::new(write));
 
-                handles.push(task::spawn(read_from_socket(read)))
+                handles.push(task::spawn(read_from_socket(read, addr)))
             }
             Err(error) => eprintln!("{}", error),
         }
     }
 }
 
-async fn read_from_socket(stream: ReadHalf<TcpStream>) -> Result<()> {
+async fn read_from_socket(stream: ReadHalf<TcpStream>, addr: SocketAddr) -> Result<()> {
+    info!("Got a new client {}", addr);
+
     let mut reader = BufReader::new(stream);
 
     loop {
@@ -117,7 +117,7 @@ async fn read_from_socket(stream: ReadHalf<TcpStream>) -> Result<()> {
         }
     }
 
-    trace!("Finished session");
+    info!("Client did disconnect {}", addr);
 
     Ok(())
 }

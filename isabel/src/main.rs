@@ -1,7 +1,9 @@
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
+use std::time::Duration;
 
 use hex_literal::hex;
+use log::error;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
@@ -24,25 +26,36 @@ async fn main() -> Result<()> {
     let mut addrs = "lisa.burdukov.by:8081".to_socket_addrs()?;
     let addr = addrs.next().unwrap();
 
-    println!("connecting to {}", addr);
+    loop {
+        let vacuum = Arc::clone(&vacuum);
 
-    let stream = TcpStream::connect(addr).await.unwrap();
-    let (read, write) = tokio::io::split(stream);
+        println!("connecting to {}", addr);
 
-    println!("connected to {}", addr);
+        match TcpStream::connect(addr).await {
+            Ok(stream) => {
+                let (read, write) = tokio::io::split(stream);
 
-    let read = BufReader::new(read);
-    let write = BufWriter::new(write);
+                println!("connected to {}", addr);
 
-    let (read, write) = tokio::try_join!(
-        task::spawn(timer_report_data(write)),
-        task::spawn(read_remote_commands(read, vacuum))
-    )?;
+                let read = BufReader::new(read);
+                let write = BufWriter::new(write);
 
-    read?;
-    write?;
+                let (read, write) = tokio::try_join!(
+                    task::spawn(timer_report_data(write)),
+                    task::spawn(read_remote_commands(read, vacuum))
+                )?;
 
-    Ok(())
+                read?;
+                write?;
+
+                println!("disconnected from {}", addr);
+            }
+            Err(_) => {
+                error!("unable to connect to {}", addr);
+                tokio::time::sleep(Duration::from_secs(20)).await
+            }
+        }
+    }
 }
 
 async fn read_remote_commands(
@@ -55,7 +68,10 @@ async fn read_remote_commands(
 
     loop {
         let mut buffer = vec![];
-        stream.read_until(b'\n', &mut buffer).await?;
+        let size = stream.read_until(b'\n', &mut buffer).await?;
+        if size == 0 {
+            return Ok(());
+        }
 
         match serde_json::from_slice::<Command>(&buffer) {
             Ok(Command::Start { rooms }) => {

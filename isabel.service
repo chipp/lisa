@@ -1,0 +1,12 @@
+[Unit]
+Description=Isabel - Lisa's counterpart
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/local/bin/isabel
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target

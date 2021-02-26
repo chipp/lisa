@@ -26,4 +26,6 @@ install:
 
 isabel:
 	docker build . -f Dockerfile.isabel -t $(ISABEL_ID) -o build
-	scp build/root/isabel pi:
+	ssh pi "sudo systemctl stop isabel.service"
+	scp build/root/isabel pi:/usr/local/bin
+	ssh pi "sudo systemctl start isabel.service"

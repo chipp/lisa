@@ -176,8 +176,8 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
             let devices = query
                 .devices
                 .iter()
-                .filter_map(|s| DeviceId::from_str(s).ok())
-                .filter_map(|d| state_for_device(d))
+                .filter_map(|device| DeviceId::from_str(device.id).ok())
+                .filter_map(|id| state_for_device(id))
                 .collect();
 
             let response = StateResponse::new(request_id, devices);
@@ -233,7 +233,7 @@ fn vacuum_cleaner_device(room: Room) -> Device {
         capabilities: vec![
             DeviceCapability::on_off(false).retrievable(),
             DeviceCapability::mode(
-                ModeFunction::FanSpeed,
+                ModeFunction::CleanupMode,
                 vec![Mode::Quiet, Mode::Medium, Mode::High, Mode::Turbo],
             )
             .retrievable(),

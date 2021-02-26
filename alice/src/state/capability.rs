@@ -76,13 +76,13 @@ mod tests {
 
         assert_eq!(
             to_value(&Capability::Mode {
-                function: ModeFunction::FanSpeed,
+                function: ModeFunction::CleanupMode,
                 mode: Mode::Medium
             })
             .unwrap(),
             json!({
                 "type": "devices.capabilities.mode",
-                "state": {"instance": "fan_speed", "value": "medium"}
+                "state": {"instance": "cleanup_mode", "value": "medium"}
             })
         );
     }

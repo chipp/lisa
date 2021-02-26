@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn test_mode_capability() {
         let capability = Capability::Mode {
-            function: ModeFunction::FanSpeed,
+            function: ModeFunction::CleanupMode,
             modes: vec![Mode::Quiet, Mode::High],
             reportable: true,
             retreivable: false,
@@ -178,7 +178,7 @@ mod tests {
                 "reportable": true,
                 "retreivable": false,
                 "parameters": {
-                    "instance": "fan_speed",
+                    "instance": "cleanup_mode",
                     "modes": [
                         {"value": "quiet"},
                         {"value": "high"}

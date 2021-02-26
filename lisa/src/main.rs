@@ -8,8 +8,11 @@ use serde_json::json;
 use serde_urlencoded::de;
 use url::Url;
 
-// use alice::service;
-// use lisa::handler;
+use alice::{
+    Device, DeviceCapability, DeviceMode, DeviceModeFunction, DeviceModeParameters,
+    DeviceOnOffParameters, DeviceProperty, DevicePropertyParameters, DevicePropertyType,
+    DeviceType, HumidityUnit, TemperatureUnit,
+};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -89,8 +92,8 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
 
                     if validate_token(auth_code.value) {
                         let json = json!({
-                            "access_token": create_token_with_expiration_in(chrono::Duration::days(1)),
-                            "refresh_token": create_token_with_expiration_in(chrono::Duration::days(10)),
+                            "access_token": create_token_with_expiration_in(chrono::Duration::minutes(10)),
+                            "refresh_token": create_token_with_expiration_in(chrono::Duration::days(1)),
                             "token_type": "Bearer",
                             "expires_in": chrono::Duration::days(1).num_seconds()
                         });
@@ -128,6 +131,37 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
                 }
             }
         }
+        ("/v1.0", &Method::HEAD) => Ok(Response::builder()
+            .status(StatusCode::OK)
+            .body(Body::empty())?),
+        ("/v1.0/user/devices", &Method::GET) => {
+            let request_id =
+                std::str::from_utf8(request.headers().get("X-Request-Id").unwrap().as_bytes())
+                    .unwrap();
+
+            let json = json!({
+                "request_id": request_id,
+                "payload": {
+                    "user_id": "chipp",
+                    "devices": [
+                        sensor_device(Room::Bedroom),
+                        sensor_device(Room::LivingRoom),
+                        sensor_device(Room::Nursery),
+                        vacuum_cleaner_device(Room::Hallway),
+                        vacuum_cleaner_device(Room::Corridor),
+                        vacuum_cleaner_device(Room::Bathroom),
+                        vacuum_cleaner_device(Room::Nursery),
+                        vacuum_cleaner_device(Room::Bedroom),
+                        vacuum_cleaner_device(Room::Kitchen),
+                        vacuum_cleaner_device(Room::LivingRoom),
+                    ]
+                }
+            });
+
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(serde_json::to_vec(&json)?))?)
+        }
         _ => {
             println!("{:?}", request);
 
@@ -139,6 +173,104 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
                 .body(Body::from("invalid request"))?;
 
             Ok(response)
+        }
+    }
+}
+
+// Request { method: POST, uri: /v1.0/user/unlink, version: HTTP/1.1, headers: {"host": "lisa.burdukov.by", "connection": "close", "x-real-ip": "37.9.87.110", "x-forwarded-for": "37.9.87.110", "x-forwarded-proto": "https", "x-forwarded-ssl": "on", "x-forwarded-port": "443", "content-length": "0", "authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ5YW5kZXgiLCJleHAiOjE2MTMyNTAyMDB9.zNVe2gc7xuA6oVjPYAh4kAOiM-6ZyK7MNSRS6NqhMei1OUjvgWKfKD4uiKLmz4iY_VK28c7r55TH-MXDHIvgPw", "x-request-id": "6e76e639-b535-4001-8069-8cd5413638e1", "user-agent": "Yandex LLC", "accept-encoding": "gzip"}, body: Body(Empty) }
+
+fn sensor_device(room: Room) -> Device {
+    Device {
+        id: format!("temp-sensor/{}", room.id()),
+        name: "Датчик температуры".to_string(),
+        description: format!("в {}", room.name()),
+        room: room.name().to_string(),
+        device_type: DeviceType::Sensor,
+        properties: vec![
+            DeviceProperty {
+                property_type: DevicePropertyType::Float,
+                retrievable: true,
+                reportable: true,
+                parameters: DevicePropertyParameters::Humidity {
+                    unit: HumidityUnit::Percent,
+                },
+            },
+            DeviceProperty {
+                property_type: DevicePropertyType::Float,
+                retrievable: true,
+                reportable: true,
+                parameters: DevicePropertyParameters::Temperature {
+                    unit: TemperatureUnit::Celsius,
+                },
+            },
+        ],
+        capabilities: vec![],
+    }
+}
+
+fn vacuum_cleaner_device(room: Room) -> Device {
+    Device {
+        id: format!("vacuum-cleaner/{}", room.id()),
+        name: "Джордан".to_string(),
+        description: format!("в {}", room.name()),
+        room: room.name().to_string(),
+        device_type: DeviceType::VacuumCleaner,
+        properties: vec![],
+        capabilities: vec![
+            DeviceCapability::OnOff {
+                reportable: true,
+                retreivable: true,
+                parameters: DeviceOnOffParameters { split: false },
+            },
+            DeviceCapability::Mode {
+                reportable: false,
+                retreivable: true,
+                parameters: DeviceModeParameters {
+                    instance: DeviceModeFunction::FanSpeed,
+                    modes: vec![
+                        DeviceMode::Quiet,
+                        DeviceMode::Medium,
+                        DeviceMode::High,
+                        DeviceMode::Turbo,
+                    ],
+                },
+            },
+        ],
+    }
+}
+
+enum Room {
+    Hallway,
+    Corridor,
+    Bathroom,
+    Nursery,
+    Bedroom,
+    Kitchen,
+    LivingRoom,
+}
+
+impl Room {
+    fn id(&self) -> &'static str {
+        match self {
+            Room::Hallway => "hall",
+            Room::Corridor => "corridor",
+            Room::Bathroom => "bathroom",
+            Room::Nursery => "nursery",
+            Room::Bedroom => "bedroom",
+            Room::Kitchen => "kitchen",
+            Room::LivingRoom => "living-room",
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            Room::Hallway => "Прихожая",
+            Room::Corridor => "Коридор",
+            Room::Bathroom => "Ванная",
+            Room::Nursery => "Детская",
+            Room::Bedroom => "Спальня",
+            Room::Kitchen => "Кухня",
+            Room::LivingRoom => "Зал",
         }
     }
 }

@@ -13,8 +13,6 @@ dependencies = [
 name = "alice"
 version = "0.1.0"
 dependencies = [
- "bytes 0.5.6",
- "hyper",
  "serde",
  "serde_json",
 ]
@@ -378,6 +376,7 @@ dependencies = [
  "chrono",
  "hyper",
  "jsonwebtoken",
+ "log",
  "pretty_env_logger",
  "serde",
  "serde_json",

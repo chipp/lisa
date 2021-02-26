@@ -1,7 +1,7 @@
-mod request;
-mod response;
-mod service;
-
-pub use request::{Request, RequestMeta, RequestPayload, RequestSession};
-pub use response::{Response, ResponseButton, ResponsePayload};
-pub use service::service;
+mod device;
+pub use device::{
+    Capability as DeviceCapability, Device, DeviceType, HumidityUnit, Mode as DeviceMode,
+    ModeFunction as DeviceModeFunction, ModeParameters as DeviceModeParameters,
+    OnOffParameters as DeviceOnOffParameters, Parameters as DevicePropertyParameters,
+    Property as DeviceProperty, PropertyType as DevicePropertyType, TemperatureUnit,
+};

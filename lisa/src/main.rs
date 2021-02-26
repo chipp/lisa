@@ -11,8 +11,9 @@ use url::Url;
 
 use alice::{Device, DeviceCapability, DeviceProperty, DeviceType, Mode, ModeFunction};
 use alice::{StateRequest, StateResponse};
+use alice::{UpdateStateRequest, UpdateStateResponse};
 
-use lisa::{state_for_device, DeviceId, Room};
+use lisa::{state_for_device, update_devices_state, DeviceId, Room};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -181,6 +182,25 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
                 .collect();
 
             let response = StateResponse::new(request_id, devices);
+
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(serde_json::to_vec(&response)?))?)
+        }
+        ("/v1.0/user/devices/action", &Method::POST) => {
+            let request_id = String::from(std::str::from_utf8(
+                request.headers().get("X-Request-Id").unwrap().as_bytes(),
+            )?);
+
+            let body = hyper::body::aggregate(request).await?;
+            unsafe {
+                println!("[action]: {}", std::str::from_utf8_unchecked(body.bytes()));
+            }
+
+            let action: UpdateStateRequest = serde_json::from_slice(body.bytes())?;
+            let devices = update_devices_state(action.payload.devices);
+
+            let response = UpdateStateResponse::new(request_id, devices);
 
             Ok(Response::builder()
                 .status(StatusCode::OK)

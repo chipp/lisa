@@ -1,7 +1,15 @@
+mod action;
 mod device;
 mod mode;
 mod property_type;
 mod state;
+
+pub use action::{
+    ActionResult as StateUpdateResult, Capability as UpdateStateCapability,
+    Error as UpdateStateError, ErrorCode as UpdateStateErrorCode, Request as UpdateStateRequest,
+    RequestDevice as UpdateStateDevice, Response as UpdateStateResponse,
+    ResponseDevice as UpdatedDeviceState,
+};
 
 pub use device::Capability as DeviceCapability;
 pub use device::Property as DeviceProperty;

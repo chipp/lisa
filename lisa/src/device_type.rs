@@ -3,7 +3,7 @@ use std::{fmt, str::FromStr};
 use serde::de::{value, IntoDeserializer};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceType {
     TemperatureSensor,

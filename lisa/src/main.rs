@@ -1,14 +1,18 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, str::FromStr};
 
 use bytes::buf::Buf;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{header, Body, Method, Request, Response, Server, StatusCode};
+use log::trace;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_urlencoded::de;
 use url::Url;
 
-use alice::{Device, DeviceCapability, DeviceMode, DeviceModeFunction, DeviceProperty, DeviceType};
+use alice::{Device, DeviceCapability, DeviceProperty, DeviceType, Mode, ModeFunction};
+use alice::{StateRequest, StateResponse};
+
+use lisa::{state_for_device, DeviceId, Room};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -158,6 +162,30 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
                 .status(StatusCode::OK)
                 .body(Body::from(serde_json::to_vec(&json)?))?)
         }
+        ("/v1.0/user/devices/query", &Method::POST) => {
+            let request_id = String::from(std::str::from_utf8(
+                request.headers().get("X-Request-Id").unwrap().as_bytes(),
+            )?);
+
+            let body = hyper::body::aggregate(request).await?;
+            unsafe {
+                trace!("[query]: {}", std::str::from_utf8_unchecked(body.bytes()));
+            }
+
+            let query: StateRequest = serde_json::from_slice(body.bytes())?;
+            let devices = query
+                .devices
+                .iter()
+                .filter_map(|s| DeviceId::from_str(s).ok())
+                .filter_map(|d| state_for_device(d))
+                .collect();
+
+            let response = StateResponse::new(request_id, devices);
+
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(serde_json::to_vec(&response)?))?)
+        }
         _ => {
             println!("{:?}", request);
 
@@ -176,11 +204,13 @@ pub async fn service(request: Request<Body>) -> Result<Response<Body>> {
 // Request { method: POST, uri: /v1.0/user/unlink, version: HTTP/1.1, headers: {"host": "lisa.burdukov.by", "connection": "close", "x-real-ip": "37.9.87.110", "x-forwarded-for": "37.9.87.110", "x-forwarded-proto": "https", "x-forwarded-ssl": "on", "x-forwarded-port": "443", "content-length": "0", "authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ5YW5kZXgiLCJleHAiOjE2MTMyNTAyMDB9.zNVe2gc7xuA6oVjPYAh4kAOiM-6ZyK7MNSRS6NqhMei1OUjvgWKfKD4uiKLmz4iY_VK28c7r55TH-MXDHIvgPw", "x-request-id": "6e76e639-b535-4001-8069-8cd5413638e1", "user-agent": "Yandex LLC", "accept-encoding": "gzip"}, body: Body(Empty) }
 
 fn sensor_device(room: Room) -> Device {
+    let room_name = room.name().to_string();
+
     Device {
-        id: format!("temp-sensor/{}", room.id()),
+        id: DeviceId::temperature_sensor_at_room(room).to_string(),
         name: "Датчик температуры".to_string(),
-        description: format!("в {}", room.name()),
-        room: room.name().to_string(),
+        description: format!("в {}", room_name),
+        room: room_name,
         device_type: DeviceType::Sensor,
         properties: vec![
             DeviceProperty::humidity().retrievable().reportable(),
@@ -191,62 +221,23 @@ fn sensor_device(room: Room) -> Device {
 }
 
 fn vacuum_cleaner_device(room: Room) -> Device {
+    let room_name = room.name().to_string();
+
     Device {
-        id: format!("vacuum-cleaner/{}", room.id()),
+        id: DeviceId::vacuum_cleaner_at_room(room).to_string(),
         name: "Джордан".to_string(),
-        description: format!("в {}", room.name()),
-        room: room.name().to_string(),
+        description: format!("в {}", room_name),
+        room: room_name,
         device_type: DeviceType::VacuumCleaner,
         properties: vec![],
         capabilities: vec![
             DeviceCapability::on_off(false).retrievable(),
             DeviceCapability::mode(
-                DeviceModeFunction::FanSpeed,
-                vec![
-                    DeviceMode::Quiet,
-                    DeviceMode::Medium,
-                    DeviceMode::High,
-                    DeviceMode::Turbo,
-                ],
+                ModeFunction::FanSpeed,
+                vec![Mode::Quiet, Mode::Medium, Mode::High, Mode::Turbo],
             )
             .retrievable(),
         ],
-    }
-}
-
-enum Room {
-    Hallway,
-    Corridor,
-    Bathroom,
-    Nursery,
-    Bedroom,
-    Kitchen,
-    LivingRoom,
-}
-
-impl Room {
-    fn id(&self) -> &'static str {
-        match self {
-            Room::Hallway => "hall",
-            Room::Corridor => "corridor",
-            Room::Bathroom => "bathroom",
-            Room::Nursery => "nursery",
-            Room::Bedroom => "bedroom",
-            Room::Kitchen => "kitchen",
-            Room::LivingRoom => "living-room",
-        }
-    }
-
-    fn name(&self) -> &str {
-        match self {
-            Room::Hallway => "Прихожая",
-            Room::Corridor => "Коридор",
-            Room::Bathroom => "Ванная",
-            Room::Nursery => "Детская",
-            Room::Bedroom => "Спальня",
-            Room::Kitchen => "Кухня",
-            Room::LivingRoom => "Зал",
-        }
     }
 }
 

@@ -1,6 +1,8 @@
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 
+use crate::{Mode, ModeFunction};
+
 #[derive(Debug)]
 pub enum Capability {
     OnOff {
@@ -80,7 +82,7 @@ impl serde::ser::Serialize for Capability {
     where
         S: serde::Serializer,
     {
-        let mut property = serializer.serialize_struct("Property", 4)?;
+        let mut property = serializer.serialize_struct("Capability", 4)?;
 
         match self {
             Capability::OnOff {
@@ -105,9 +107,14 @@ impl serde::ser::Serialize for Capability {
                 reportable,
             } => {
                 #[derive(Serialize)]
+                struct ModeWrapper<'a> {
+                    value: &'a Mode,
+                }
+
+                #[derive(Serialize)]
                 struct Parameters<'a> {
                     instance: &'a ModeFunction,
-                    modes: &'a [Mode],
+                    modes: Vec<ModeWrapper<'a>>,
                 }
 
                 property.serialize_field("type", "devices.capabilities.mode")?;
@@ -117,7 +124,7 @@ impl serde::ser::Serialize for Capability {
                     "parameters",
                     &Parameters {
                         instance: function,
-                        modes,
+                        modes: modes.iter().map(|m| ModeWrapper { value: m }).collect(),
                     },
                 )?;
             }
@@ -127,41 +134,12 @@ impl serde::ser::Serialize for Capability {
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ModeFunction {
-    FanSpeed,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "value", rename_all = "snake_case")]
-pub enum Mode {
-    Quiet,
-    Medium,
-    High,
-    Turbo,
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::{Mode, ModeFunction};
+
     use super::*;
     use serde_json::{json, to_value};
-
-    #[test]
-    fn test_modes() {
-        assert_eq!(to_value(&Mode::Quiet).unwrap(), json!({"value": "quiet"}));
-        assert_eq!(to_value(&Mode::Medium).unwrap(), json!({"value": "medium"}));
-        assert_eq!(to_value(&Mode::High).unwrap(), json!({"value": "high"}));
-        assert_eq!(to_value(&Mode::Turbo).unwrap(), json!({"value": "turbo"}));
-    }
-
-    #[test]
-    fn test_mode_functions() {
-        assert_eq!(
-            to_value(&ModeFunction::FanSpeed).unwrap(),
-            json!("fan_speed")
-        );
-    }
 
     #[test]
     fn test_on_off_capability() {

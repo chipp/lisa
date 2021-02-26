@@ -1,7 +1,7 @@
 mod capability;
 mod property;
 
-pub use capability::{Capability, Mode, ModeFunction};
+pub use capability::Capability;
 pub use property::{HumidityUnit, Property, TemperatureUnit};
 
 use serde::{Deserialize, Serialize};

@@ -10,8 +10,7 @@ use url::Url;
 
 use alice::{
     Device, DeviceCapability, DeviceMode, DeviceModeFunction, DeviceModeParameters,
-    DeviceOnOffParameters, DeviceProperty, DevicePropertyParameters, DevicePropertyType,
-    DeviceType, HumidityUnit, TemperatureUnit,
+    DeviceOnOffParameters, DeviceProperty, DeviceType,
 };
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
@@ -187,22 +186,8 @@ fn sensor_device(room: Room) -> Device {
         room: room.name().to_string(),
         device_type: DeviceType::Sensor,
         properties: vec![
-            DeviceProperty {
-                property_type: DevicePropertyType::Float,
-                retrievable: true,
-                reportable: true,
-                parameters: DevicePropertyParameters::Humidity {
-                    unit: HumidityUnit::Percent,
-                },
-            },
-            DeviceProperty {
-                property_type: DevicePropertyType::Float,
-                retrievable: true,
-                reportable: true,
-                parameters: DevicePropertyParameters::Temperature {
-                    unit: TemperatureUnit::Celsius,
-                },
-            },
+            DeviceProperty::humidity().retrievable().reportable(),
+            DeviceProperty::temperature().retrievable().reportable(),
         ],
         capabilities: vec![],
     }

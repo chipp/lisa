@@ -1,10 +1,8 @@
 mod capability;
-mod parameters;
 mod property;
 
 pub use capability::{Capability, Mode, ModeFunction, ModeParameters, OnOffParameters};
-pub use parameters::{HumidityUnit, Parameters, TemperatureUnit};
-pub use property::{Property, PropertyType};
+pub use property::{HumidityUnit, Property, TemperatureUnit};
 
 use serde::{Deserialize, Serialize};
 
@@ -35,9 +33,8 @@ pub enum DeviceType {
 
 #[cfg(test)]
 mod tests {
-    use super::parameters::{HumidityUnit, Parameters};
-    use super::property::PropertyType;
     use super::*;
+
     use serde_json::{from_value, json, to_value};
 
     #[test]
@@ -70,14 +67,7 @@ mod tests {
                 description: "Test Description".to_string(),
                 room: "Test Room".to_string(),
                 device_type: DeviceType::Sensor,
-                properties: vec![Property {
-                    property_type: PropertyType::Float,
-                    retrievable: true,
-                    reportable: false,
-                    parameters: Parameters::Humidity {
-                        unit: HumidityUnit::Percent,
-                    },
-                }],
+                properties: vec![Property::humidity().retrievable()],
                 capabilities: vec![],
             })
             .unwrap(),

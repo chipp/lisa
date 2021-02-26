@@ -108,17 +108,19 @@ async fn read_remote_commands(
     }
 }
 
-async fn timer_report_data(stream: BufWriter<WriteHalf<TcpStream>>) -> Result<()> {
-    let mut stream = stream;
-    let mut timer = tokio::time::interval(std::time::Duration::from_secs(60));
+async fn timer_report_data(_stream: BufWriter<WriteHalf<TcpStream>>) -> Result<()> {
+    Ok(())
 
-    loop {
-        timer.tick().await;
-        report_data(&mut stream).await?;
-    }
+    // let mut stream = stream;
+    // let mut timer = tokio::time::interval(std::time::Duration::from_secs(60));
+
+    // loop {
+    //     timer.tick().await;
+    //     report_data(&mut stream).await?;
+    // }
 }
 
-async fn report_data(stream: &mut BufWriter<WriteHalf<TcpStream>>) -> Result<()> {
+async fn _report_data(stream: &mut BufWriter<WriteHalf<TcpStream>>) -> Result<()> {
     let data = SensorData {
         temperature: 25.5,
         humidity: 52.0,

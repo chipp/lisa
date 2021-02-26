@@ -1,7 +1,8 @@
-use std::{borrow::Cow, str::FromStr};
+use std::{borrow::Cow, fmt, str::FromStr};
 use std::{net::SocketAddr, sync::Arc};
 
-use log::{info, trace};
+use chrono::Duration;
+use log::{error, info, trace};
 
 use bytes::Buf;
 use hyper::service::{make_service_fn, service_fn};
@@ -161,8 +162,6 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
             }
         }
         ("/token", &Method::POST) => {
-            println!("{:?}", request.headers());
-
             let body = hyper::body::aggregate(request).await?;
             let client_creds: ClientCreds = de::from_bytes(body.chunk()).unwrap();
 
@@ -176,17 +175,12 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
                 GrantType::AuthorizationCode => {
                     let auth_code: AuthorizationCode = de::from_bytes(body.chunk()).unwrap();
 
-                    if validate_token(auth_code.value) {
-                        let json = json!({
-                            "access_token": create_token_with_expiration_in(chrono::Duration::minutes(10)),
-                            "refresh_token": create_token_with_expiration_in(chrono::Duration::days(1)),
-                            "token_type": "Bearer",
-                            "expires_in": chrono::Duration::minutes(10).num_seconds()
-                        });
+                    if is_valid_token(auth_code.value, TokenType::Code) {
+                        // TODO: save token version
 
                         Ok(Response::builder()
                             .status(StatusCode::OK)
-                            .body(Body::from(serde_json::to_vec(&json)?))?)
+                            .body(Body::from(serde_json::to_vec(&TokenResponse::new())?))?)
                     } else {
                         Ok(Response::builder()
                             .status(StatusCode::FORBIDDEN)
@@ -196,19 +190,12 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
                 GrantType::RefreshToken => {
                     let refresh_token: RefreshToken = de::from_bytes(body.chunk()).unwrap();
 
-                    if validate_token(refresh_token.value) {
+                    if is_valid_token(refresh_token.value, TokenType::Refresh) {
                         // TODO: increment token version
-
-                        let json = json!({
-                            "access_token": create_token_with_expiration_in(chrono::Duration::days(1)),
-                            "refresh_token": create_token_with_expiration_in(chrono::Duration::days(10)),
-                            "token_type": "Bearer",
-                            "expires_in": chrono::Duration::days(1).num_seconds()
-                        });
 
                         Ok(Response::builder()
                             .status(StatusCode::OK)
-                            .body(Body::from(serde_json::to_vec(&json)?))?)
+                            .body(Body::from(serde_json::to_vec(&TokenResponse::new())?))?)
                     } else {
                         Ok(Response::builder()
                             .status(StatusCode::FORBIDDEN)
@@ -221,81 +208,94 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
             .status(StatusCode::OK)
             .body(Body::empty())?),
         ("/v1.0/user/devices", &Method::GET) => {
-            let request_id =
-                std::str::from_utf8(request.headers().get("X-Request-Id").unwrap().as_bytes())
-                    .unwrap();
+            validate_autorization(request, |request| async move {
+                let request_id =
+                    std::str::from_utf8(request.headers().get("X-Request-Id").unwrap().as_bytes())
+                        .unwrap();
 
-            let json = json!({
-                "request_id": request_id,
-                "payload": {
-                    "user_id": "chipp",
-                    "devices": [
-                        sensor_device(Room::Bedroom),
-                        sensor_device(Room::LivingRoom),
-                        sensor_device(Room::Nursery),
-                        vacuum_cleaner_device(Room::Hallway),
-                        vacuum_cleaner_device(Room::Corridor),
-                        vacuum_cleaner_device(Room::Bathroom),
-                        vacuum_cleaner_device(Room::Nursery),
-                        vacuum_cleaner_device(Room::Bedroom),
-                        vacuum_cleaner_device(Room::Kitchen),
-                        vacuum_cleaner_device(Room::LivingRoom),
-                    ]
-                }
-            });
+                let json = json!({
+                    "request_id": request_id,
+                    "payload": {
+                        "user_id": "chipp",
+                        "devices": [
+                            sensor_device(Room::Bedroom),
+                            sensor_device(Room::LivingRoom),
+                            sensor_device(Room::Nursery),
+                            vacuum_cleaner_device(Room::Hallway),
+                            vacuum_cleaner_device(Room::Corridor),
+                            vacuum_cleaner_device(Room::Bathroom),
+                            vacuum_cleaner_device(Room::Nursery),
+                            vacuum_cleaner_device(Room::Bedroom),
+                            vacuum_cleaner_device(Room::Kitchen),
+                            vacuum_cleaner_device(Room::LivingRoom),
+                        ]
+                    }
+                });
 
-            Ok(Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(serde_json::to_vec(&json)?))?)
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Body::from(serde_json::to_vec(&json)?))?)
+            })
+            .await
         }
         ("/v1.0/user/devices/query", &Method::POST) => {
-            let request_id = String::from(std::str::from_utf8(
-                request.headers().get("X-Request-Id").unwrap().as_bytes(),
-            )?);
+            validate_autorization(request, |request| async move {
+                let request_id = String::from(std::str::from_utf8(
+                    request.headers().get("X-Request-Id").unwrap().as_bytes(),
+                )?);
 
-            let body = hyper::body::aggregate(request).await?;
-            unsafe {
-                trace!("[query]: {}", std::str::from_utf8_unchecked(body.chunk()));
-            }
+                let body = hyper::body::aggregate(request).await?;
+                unsafe {
+                    trace!("[query]: {}", std::str::from_utf8_unchecked(body.chunk()));
+                }
 
-            let query: StateRequest = serde_json::from_slice(body.chunk())?;
-            let devices = query
-                .devices
-                .iter()
-                .filter_map(|device| DeviceId::from_str(device.id).ok())
-                .filter_map(|id| state_for_device(id))
-                .collect();
+                let query: StateRequest = serde_json::from_slice(body.chunk())?;
+                let devices = query
+                    .devices
+                    .iter()
+                    .filter_map(|device| DeviceId::from_str(device.id).ok())
+                    .filter_map(|id| state_for_device(id))
+                    .collect();
 
-            let response = StateResponse::new(request_id, devices);
+                let response = StateResponse::new(request_id, devices);
 
-            Ok(Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(serde_json::to_vec(&response)?))?)
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Body::from(serde_json::to_vec(&response)?))?)
+            })
+            .await
         }
         ("/v1.0/user/devices/action", &Method::POST) => {
-            let request_id = String::from(std::str::from_utf8(
-                request.headers().get("X-Request-Id").unwrap().as_bytes(),
-            )?);
+            validate_autorization(request, |request| async move {
+                let request_id = String::from(std::str::from_utf8(
+                    request.headers().get("X-Request-Id").unwrap().as_bytes(),
+                )?);
 
-            let body = hyper::body::aggregate(request).await?;
-            unsafe {
-                println!("[action]: {}", std::str::from_utf8_unchecked(body.chunk()));
-            }
+                let body = hyper::body::aggregate(request).await?;
+                unsafe {
+                    println!("[action]: {}", std::str::from_utf8_unchecked(body.chunk()));
+                }
 
-            let action: UpdateStateRequest = serde_json::from_slice(body.chunk())?;
-            let devices = update_devices_state(action.payload.devices, cmd).await;
+                let action: UpdateStateRequest = serde_json::from_slice(body.chunk())?;
+                let devices = update_devices_state(action.payload.devices, cmd).await;
 
-            let response = UpdateStateResponse::new(request_id, devices);
+                let response = UpdateStateResponse::new(request_id, devices);
 
-            Ok(Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(serde_json::to_vec(&response)?))?)
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Body::from(serde_json::to_vec(&response)?))?)
+            })
+            .await
         }
         _ => {
-            println!("{:?}", request);
+            error!("Unsupported request: {:?}", request);
 
             let body = hyper::body::aggregate(request).await?;
-            println!("{}", std::str::from_utf8(body.chunk()).unwrap());
+
+            match std::str::from_utf8(body.chunk()) {
+                Ok(body) if !body.is_empty() => error!("Body {}", body),
+                _ => (),
+            }
 
             let response = Response::builder()
                 .status(StatusCode::BAD_REQUEST)
@@ -388,7 +388,7 @@ fn verify_credentials(credentials: Credentials) -> bool {
 fn get_redirect_url_from_params(auth: AuthParams) -> Option<Url> {
     let mut url = Url::parse(auth.redirect_uri.as_ref()).ok()?;
 
-    let code = create_token_with_expiration_in(chrono::Duration::seconds(30))?;
+    let code = create_token_with_expiration_in(Duration::seconds(30), TokenType::Code);
     url.query_pairs_mut()
         .append_pair("state", &auth.state)
         .append_pair("code", &code);
@@ -433,13 +433,78 @@ fn validate_client_creds(client_creds: &ClientCreds) -> bool {
     client_creds.client_id == "tbd" && client_creds.client_secret == "tbd" && redirect_uri_valid
 }
 
-fn validate_token(token: Cow<str>) -> bool {
+use std::future::Future;
+
+async fn validate_autorization<F, T>(request: Request<Body>, success: F) -> Result<Response<Body>>
+where
+    F: FnOnce(Request<Body>) -> T,
+    T: Future<Output = Result<Response<Body>>>,
+{
+    match extract_token_from_headers(&request.headers()) {
+        Some(token) if is_valid_token(token, TokenType::Access) => success(request).await,
+        Some(_) => {
+            let response = Response::builder()
+                .status(StatusCode::UNAUTHORIZED)
+                .header(
+                    "WWW-Authenticate",
+                    r#"Bearer 
+                        error="invalid_token" 
+                        error_description="The access token has expired"
+                    "#,
+                )
+                .body(Body::from("invalid token"))?;
+
+            Ok(response)
+        }
+        None => {
+            let response = Response::builder()
+                        .status(StatusCode::UNAUTHORIZED)
+                        .header("WWW-Authenticate", r#"Bearer error="invalid_token" error_description="No access token has been provided""#)
+                        .body(Body::from("invalid token"))?;
+
+            Ok(response)
+        }
+    }
+}
+
+const BEARER: &str = "Bearer ";
+fn extract_token_from_headers<'a>(headers: &'a header::HeaderMap) -> Option<&'a str> {
+    let authorization = headers.get("Authorization")?;
+    let authorization = std::str::from_utf8(&authorization.as_bytes()).ok()?;
+
+    if authorization.starts_with(BEARER) {
+        Some(&authorization[BEARER.len()..])
+    } else {
+        None
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum TokenType {
+    Code,
+    Access,
+    Refresh,
+}
+
+impl fmt::Display for TokenType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.serialize(f)
+    }
+}
+
+fn is_valid_token<T: AsRef<str>>(token: T, token_type: TokenType) -> bool {
     use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
     let mut validation = Validation::new(Algorithm::HS512);
     validation.sub = Some("yandex".to_owned());
+    validation.set_audience(&[token_type.to_string()]);
 
-    let decoded = decode::<Claims>(&token, &DecodingKey::from_secret(b"123456"), &validation);
+    let decoded = decode::<Claims>(
+        token.as_ref(),
+        &DecodingKey::from_secret(b"123456"),
+        &validation,
+    );
 
     decoded.is_ok()
 }
@@ -448,9 +513,10 @@ fn validate_token(token: Cow<str>) -> bool {
 struct Claims {
     sub: String,
     exp: usize,
+    aud: Vec<String>,
 }
 
-fn create_token_with_expiration_in(expiration: chrono::Duration) -> Option<String> {
+fn create_token_with_expiration_in(expiration: Duration, token_type: TokenType) -> String {
     use chrono::Utc;
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
@@ -462,8 +528,56 @@ fn create_token_with_expiration_in(expiration: chrono::Duration) -> Option<Strin
     let claims = Claims {
         sub: "yandex".to_owned(),
         exp: expiration as usize,
+        aud: vec![token_type.to_string()],
     };
 
     let header = Header::new(Algorithm::HS512);
-    encode(&header, &claims, &EncodingKey::from_secret(b"123456")).ok()
+    encode(&header, &claims, &EncodingKey::from_secret(b"123456")).unwrap()
+}
+
+#[derive(Serialize)]
+struct TokenResponse {
+    access_token: String,
+    refresh_token: String,
+    token_type: String,
+
+    #[serde(serialize_with = "duration_ser::serialize")]
+    expires_in: Duration,
+}
+
+impl TokenResponse {
+    fn access_token_exp() -> Duration {
+        Duration::minutes(1)
+    }
+
+    fn refresh_token_exp() -> Duration {
+        Duration::hours(1)
+    }
+
+    fn new() -> TokenResponse {
+        TokenResponse {
+            access_token: create_token_with_expiration_in(
+                Self::access_token_exp(),
+                TokenType::Access,
+            ),
+            refresh_token: create_token_with_expiration_in(
+                Self::refresh_token_exp(),
+                TokenType::Refresh,
+            ),
+            token_type: "Bearer".to_string(),
+            expires_in: Self::access_token_exp(),
+        }
+    }
+}
+
+mod duration_ser {
+    use chrono::Duration;
+    use serde::ser;
+
+    pub fn serialize<S>(dur: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        serializer.serialize_i64(dur.num_seconds())
+    }
 }

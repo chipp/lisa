@@ -8,7 +8,7 @@ use alice::{
     UpdatedDeviceState,
 };
 use elisheva::Command;
-use log::debug;
+use log::{debug, info};
 use tokio::sync::Mutex;
 
 pub async fn update_devices_state<'a>(
@@ -44,6 +44,11 @@ pub async fn update_devices_state<'a>(
         }
     }
 
+    info!(
+        "update state rooms {:?}\nstate {:?}\ncleanup_mode {:?}",
+        rooms, state, cleanup_mode
+    );
+
     if rooms.is_empty() {
         return vec![];
     }
@@ -59,12 +64,19 @@ pub async fn update_devices_state<'a>(
             .unwrap();
         }
 
-        if let Some(true) = state {
-            let room_ids = rooms.iter().map(crate::Room::id).collect();
+        match state {
+            Some(true) => {
+                let room_ids = rooms.iter().map(crate::Room::id).collect();
 
-            cmd.send_command(Command::Start { rooms: room_ids })
-                .await
-                .unwrap();
+                cmd.send_command(Command::Start { rooms: room_ids })
+                    .await
+                    .unwrap();
+            }
+            Some(false) => {
+                cmd.send_command(Command::Stop).await.unwrap();
+                cmd.send_command(Command::GoHome).await.unwrap();
+            }
+            None => (),
         }
     }
 
@@ -75,7 +87,7 @@ pub async fn update_devices_state<'a>(
 
         match (&state, &cleanup_mode) {
             (Some(state), Some(mode)) => {
-                debug!("room: {}, state: {}, mode: {:?}", room, state, mode);
+                debug!("room: {}, state: {}, mode: {}", room, state, mode);
 
                 capabilities = vec![
                     UpdateStateCapability::on_off(StateUpdateResult::Ok),
@@ -88,7 +100,7 @@ pub async fn update_devices_state<'a>(
                 capabilities = vec![UpdateStateCapability::on_off(StateUpdateResult::Ok)];
             }
             (None, Some(mode)) => {
-                debug!("room: {}, mode: {:?}", room, mode);
+                debug!("room: {}, mode: {}", room, mode);
 
                 capabilities = vec![UpdateStateCapability::mode(
                     ModeFunction::CleanupMode,

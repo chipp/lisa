@@ -440,6 +440,7 @@ dependencies = [
  "pretty_env_logger",
  "serde",
  "serde_json",
+ "serde_repr",
  "tokio",
 ]
 
@@ -783,6 +784,16 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_repr"
+version = "0.1.6"
+source = "git+https://github.com/chipp/serde-repr?branch=master#41637449bfac1098be00ece651df49ef8e66a9ad"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

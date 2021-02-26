@@ -1,21 +1,25 @@
 use std::net::ToSocketAddrs;
+use std::sync::Arc;
 
 use hex_literal::hex;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use tokio::task;
 
 use elisheva::{Command, SensorData};
-use isabel::{Device, Result};
+use isabel::{FanSpeed, Result, Vacuum};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-    pretty_env_logger::init();
+    pretty_env_logger::init_timed();
 
-    let mut device = Device::new([10, 0, 1, 150], hex!("59565144447659713237774434425a7a"));
-    device
-        .send("get_prop", vec!["battary_life".into(), "s_time".into()])
-        .await?;
+    let mut vacuum = Vacuum::new([10, 0, 1, 150], hex!("59565144447659713237774434425a7a"));
+    let status = vacuum.status().await?;
+
+    let vacuum = Arc::from(Mutex::from(vacuum));
+
+    println!("status {}", status);
 
     let mut addrs = "lisa.burdukov.by:8081".to_socket_addrs()?;
     let addr = addrs.next().unwrap();
@@ -32,7 +36,7 @@ async fn main() -> Result<()> {
 
     let (read, write) = tokio::try_join!(
         task::spawn(timer_report_data(write)),
-        task::spawn(read_remote_commands(read))
+        task::spawn(read_remote_commands(read, vacuum))
     )?;
 
     read?;
@@ -41,17 +45,64 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn read_remote_commands(stream: BufReader<ReadHalf<TcpStream>>) -> Result<()> {
+async fn read_remote_commands(
+    stream: BufReader<ReadHalf<TcpStream>>,
+    vacuum: Arc<Mutex<Vacuum>>,
+) -> Result<()> {
     println!("waiting for commands...");
 
     let mut stream = stream;
+
     loop {
         let mut buffer = vec![];
         stream.read_until(b'\n', &mut buffer).await?;
 
         match serde_json::from_slice::<Command>(&buffer) {
-            Ok(Command::Start { rooms }) => println!("start cleaning {:?}", rooms),
-            Ok(Command::SetMode { mode }) => println!("set mode {}", mode),
+            Ok(Command::Start { rooms }) => {
+                let vacuum = Arc::clone(&vacuum);
+                let mut vacuum = vacuum.lock_owned().await;
+
+                match vacuum.start(rooms).await {
+                    Ok(_) => println!("ok start"),
+                    Err(_) => eprintln!("err start"),
+                }
+            }
+            Ok(Command::Stop) => {
+                println!("got stop");
+
+                let vacuum = Arc::clone(&vacuum);
+                let mut vacuum = vacuum.lock_owned().await;
+
+                println!("sending stop");
+
+                match vacuum.stop().await {
+                    Ok(_) => println!("ok stop"),
+                    Err(_) => eprintln!("err stop"),
+                }
+            }
+            Ok(Command::GoHome) => {
+                println!("got home");
+
+                let vacuum = Arc::clone(&vacuum);
+                let mut vacuum = vacuum.lock_owned().await;
+
+                println!("sending home");
+
+                match vacuum.go_home().await {
+                    Ok(_) => println!("ok home"),
+                    Err(_) => eprintln!("err home"),
+                }
+            }
+            Ok(Command::SetMode { mode }) => {
+                let vacuum = Arc::clone(&vacuum);
+                let mut vacuum = vacuum.lock_owned().await;
+
+                let mode = FanSpeed::from(mode);
+                match vacuum.set_fan_speed(mode).await {
+                    Ok(_) => println!("ok set mode"),
+                    Err(_) => eprintln!("err set mode"),
+                }
+            }
             Err(err) => eprintln!("{}", err),
         }
     }

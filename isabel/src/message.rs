@@ -80,8 +80,6 @@ impl Message {
     }
 
     pub fn read_from(bytes: &[u8]) -> Message {
-        println!("{:?}", bytes);
-
         let header = Header::read_from(bytes);
 
         let mut checksum = [0; 16];

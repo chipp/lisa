@@ -6,11 +6,12 @@ mod update_state;
 
 pub use device_id::DeviceId;
 pub use device_type::DeviceType;
-use elisheva::Command;
 pub use room::Room;
 
 pub use state::state_for_device;
 pub use update_state::update_devices_state;
+
+use elisheva::Command;
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -35,7 +36,6 @@ impl Commander {
 
     pub async fn send_command(&mut self, command: Command) -> Result<()> {
         let bytes = serde_json::to_vec(&command)?;
-        println!("{:?}", command);
 
         if let Some(ref mut stream) = self.stream {
             stream.write_all(&bytes).await?;

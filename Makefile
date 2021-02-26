@@ -1,10 +1,14 @@
 build:
-	docker build . -t docker.pkg.github.com/chipp/lisa/lisa:latest
+	docker build . -t ghcr.io/chipp/lisa:latest
 
 push: build
-	docker push docker.pkg.github.com/chipp/lisa/lisa:latest
+	docker push ghcr.io/chipp/lisa:latest
+
+deploy:
+	scp Makefile docker-compose.yml ezio:web/lisa
+	ssh ezio "cd web/lisa; make install; docker-compose logs -f"
 
 install:
 	docker-compose down || true
-	docker pull docker.pkg.github.com/chipp/lisa/lisa:latest
+	docker pull ghcr.io/chipp/lisa:latest
 	docker-compose up -d

@@ -2,7 +2,7 @@ version: "3"
 services:
   reader:
     build: .
-    image: docker.pkg.github.com/chipp/lisa/lisa:latest
+    image: ghcr.io/chipp/lisa:latest
     expose:
       - 8080
     entrypoint: ["./lisa"]

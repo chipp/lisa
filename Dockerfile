@@ -1,4 +1,4 @@
-FROM docker.pkg.github.com/chipp/base-image/build.rust.x86_64.musl:latest AS builder
+FROM ghcr.io/chipp/build.rust.x86_64.musl:latest AS builder
 
 WORKDIR /home/rust/src
 RUN USER=rust cargo init --lib /home/rust/src

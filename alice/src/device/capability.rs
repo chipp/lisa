@@ -1,32 +1,130 @@
+use serde::ser::SerializeStruct;
 use serde::Serialize;
 
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
+#[derive(Debug)]
 pub enum Capability {
-    #[serde(rename = "devices.capabilities.on_off")]
     OnOff {
-        reportable: bool,
+        split: bool,
         retreivable: bool,
-        parameters: OnOffParameters,
+        reportable: bool,
     },
-
-    #[serde(rename = "devices.capabilities.mode")]
     Mode {
-        reportable: bool,
+        function: ModeFunction,
+        modes: Vec<Mode>,
         retreivable: bool,
-        parameters: ModeParameters,
+        reportable: bool,
     },
 }
 
-#[derive(Debug, Serialize)]
-pub struct OnOffParameters {
-    pub split: bool,
+impl Capability {
+    pub fn on_off(split: bool) -> Capability {
+        Capability::OnOff {
+            split,
+            retreivable: false,
+            reportable: false,
+        }
+    }
+
+    pub fn mode(function: ModeFunction, modes: Vec<Mode>) -> Capability {
+        Capability::Mode {
+            function,
+            modes,
+            retreivable: false,
+            reportable: false,
+        }
+    }
+
+    pub fn retrievable(self) -> Capability {
+        let mut value = self;
+
+        match value {
+            Capability::OnOff {
+                split: _,
+                ref mut retreivable,
+                reportable: _,
+            } => *retreivable = true,
+            Capability::Mode {
+                function: _,
+                modes: _,
+                ref mut retreivable,
+                reportable: _,
+            } => *retreivable = true,
+        }
+
+        value
+    }
+
+    pub fn reportable(self) -> Capability {
+        let mut value = self;
+
+        match value {
+            Capability::OnOff {
+                split: _,
+                retreivable: _,
+                ref mut reportable,
+            } => *reportable = true,
+            Capability::Mode {
+                function: _,
+                modes: _,
+                retreivable: _,
+                ref mut reportable,
+            } => *reportable = true,
+        }
+
+        value
+    }
 }
 
-#[derive(Debug, Serialize)]
-pub struct ModeParameters {
-    pub instance: ModeFunction,
-    pub modes: Vec<Mode>,
+impl serde::ser::Serialize for Capability {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut property = serializer.serialize_struct("Property", 4)?;
+
+        match self {
+            Capability::OnOff {
+                split,
+                retreivable,
+                reportable,
+            } => {
+                #[derive(Serialize)]
+                struct Parameters<'a> {
+                    split: &'a bool,
+                }
+
+                property.serialize_field("type", "devices.capabilities.on_off")?;
+                property.serialize_field("retreivable", retreivable)?;
+                property.serialize_field("reportable", reportable)?;
+                property.serialize_field("parameters", &Parameters { split })?;
+            }
+            Capability::Mode {
+                function,
+                modes,
+                retreivable,
+                reportable,
+            } => {
+                #[derive(Serialize)]
+                struct Parameters<'a> {
+                    instance: &'a ModeFunction,
+                    modes: &'a [Mode],
+                }
+
+                property.serialize_field("type", "devices.capabilities.mode")?;
+                property.serialize_field("retreivable", retreivable)?;
+                property.serialize_field("reportable", reportable)?;
+                property.serialize_field(
+                    "parameters",
+                    &Parameters {
+                        instance: function,
+                        modes,
+                    },
+                )?;
+            }
+        }
+
+        property.end()
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -66,29 +164,11 @@ mod tests {
     }
 
     #[test]
-    fn test_mode_parameters() {
-        assert_eq!(
-            to_value(&ModeParameters {
-                instance: ModeFunction::FanSpeed,
-                modes: vec![Mode::Quiet, Mode::High],
-            })
-            .unwrap(),
-            json!({
-                "instance": "fan_speed",
-                "modes": [
-                    {"value": "quiet"},
-                    {"value": "high"}
-                ]
-            })
-        );
-    }
-
-    #[test]
     fn test_on_off_capability() {
         let capability = Capability::OnOff {
+            split: false,
             reportable: true,
             retreivable: false,
-            parameters: OnOffParameters { split: false },
         };
 
         assert_eq!(
@@ -107,12 +187,10 @@ mod tests {
     #[test]
     fn test_mode_capability() {
         let capability = Capability::Mode {
+            function: ModeFunction::FanSpeed,
+            modes: vec![Mode::Quiet, Mode::High],
             reportable: true,
             retreivable: false,
-            parameters: ModeParameters {
-                instance: ModeFunction::FanSpeed,
-                modes: vec![Mode::Quiet, Mode::High],
-            },
         };
 
         assert_eq!(

@@ -8,10 +8,7 @@ use serde_json::json;
 use serde_urlencoded::de;
 use url::Url;
 
-use alice::{
-    Device, DeviceCapability, DeviceMode, DeviceModeFunction, DeviceModeParameters,
-    DeviceOnOffParameters, DeviceProperty, DeviceType,
-};
+use alice::{Device, DeviceCapability, DeviceMode, DeviceModeFunction, DeviceProperty, DeviceType};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -202,24 +199,17 @@ fn vacuum_cleaner_device(room: Room) -> Device {
         device_type: DeviceType::VacuumCleaner,
         properties: vec![],
         capabilities: vec![
-            DeviceCapability::OnOff {
-                reportable: true,
-                retreivable: true,
-                parameters: DeviceOnOffParameters { split: false },
-            },
-            DeviceCapability::Mode {
-                reportable: false,
-                retreivable: true,
-                parameters: DeviceModeParameters {
-                    instance: DeviceModeFunction::FanSpeed,
-                    modes: vec![
-                        DeviceMode::Quiet,
-                        DeviceMode::Medium,
-                        DeviceMode::High,
-                        DeviceMode::Turbo,
-                    ],
-                },
-            },
+            DeviceCapability::on_off(false).retrievable(),
+            DeviceCapability::mode(
+                DeviceModeFunction::FanSpeed,
+                vec![
+                    DeviceMode::Quiet,
+                    DeviceMode::Medium,
+                    DeviceMode::High,
+                    DeviceMode::Turbo,
+                ],
+            )
+            .retrievable(),
         ],
     }
 }

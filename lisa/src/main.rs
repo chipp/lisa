@@ -352,8 +352,8 @@ fn vacuum_cleaner_device(room: Room) -> Device {
         capabilities: vec![
             DeviceCapability::on_off(false).retrievable(),
             DeviceCapability::mode(
-                ModeFunction::CleanupMode,
-                vec![Mode::Quiet, Mode::Medium, Mode::High, Mode::Turbo],
+                ModeFunction::WorkSpeed,
+                vec![Mode::Quiet, Mode::Normal, Mode::Medium, Mode::Turbo],
             )
             .retrievable(),
         ],

@@ -158,14 +158,14 @@ mod tests {
 
         assert_eq!(
             to_value(&Capability::Mode {
-                function: ModeFunction::CleanupMode,
+                function: ModeFunction::WorkSpeed,
                 result: ActionResult::Ok
             })
             .unwrap(),
             json!({
                 "type": "devices.capabilities.mode",
                 "state": {
-                    "instance": "cleanup_mode",
+                    "instance": "work_speed",
                     "action_result": {"status": "DONE"}
                 }
             })

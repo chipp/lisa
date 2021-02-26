@@ -82,8 +82,8 @@ impl From<String> for FanSpeed {
     fn from(string: String) -> Self {
         match string.as_str() {
             "quiet" => Self::Silent,
-            "medium" => Self::Standard,
-            "high" => Self::Medium,
+            "normal" => Self::Standard,
+            "medium" => Self::Medium,
             "turbo" => Self::Turbo,
             _ => panic!("invalid FanSpeed string {}", string),
         }
@@ -94,7 +94,7 @@ impl fmt::Display for FanSpeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             FanSpeed::Silent => write!(f, "silent"),
-            FanSpeed::Standard => write!(f, "standard"),
+            FanSpeed::Standard => write!(f, "normal"),
             FanSpeed::Medium => write!(f, "medium"),
             FanSpeed::Turbo => write!(f, "turbo"),
         }

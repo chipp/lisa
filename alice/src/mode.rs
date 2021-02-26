@@ -5,7 +5,7 @@ use serde::{de::value, de::IntoDeserializer, Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeFunction {
-    CleanupMode,
+    WorkSpeed,
 }
 
 impl std::str::FromStr for ModeFunction {
@@ -20,8 +20,8 @@ impl std::str::FromStr for ModeFunction {
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
     Quiet,
+    Normal,
     Medium,
-    High,
     Turbo,
 }
 

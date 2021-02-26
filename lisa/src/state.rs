@@ -32,49 +32,49 @@ pub fn state_for_device(device_id: DeviceId) -> Option<StateDevice> {
             device_id.to_string(),
             vec![
                 StateCapability::on_off(false),
-                StateCapability::mode(ModeFunction::CleanupMode, Mode::Quiet),
+                StateCapability::mode(ModeFunction::WorkSpeed, Mode::Quiet),
             ],
         )),
         (Corridor, VacuumCleaner) => Some(StateDevice::new_with_capabilities(
             device_id.to_string(),
             vec![
                 StateCapability::on_off(false),
-                StateCapability::mode(ModeFunction::CleanupMode, Mode::Quiet),
+                StateCapability::mode(ModeFunction::WorkSpeed, Mode::Quiet),
             ],
         )),
         (Bathroom, VacuumCleaner) => Some(StateDevice::new_with_capabilities(
             device_id.to_string(),
             vec![
                 StateCapability::on_off(false),
-                StateCapability::mode(ModeFunction::CleanupMode, Mode::Quiet),
+                StateCapability::mode(ModeFunction::WorkSpeed, Mode::Quiet),
             ],
         )),
         (Nursery, VacuumCleaner) => Some(StateDevice::new_with_capabilities(
             device_id.to_string(),
             vec![
                 StateCapability::on_off(false),
-                StateCapability::mode(ModeFunction::CleanupMode, Mode::Quiet),
+                StateCapability::mode(ModeFunction::WorkSpeed, Mode::Quiet),
             ],
         )),
         (Bedroom, VacuumCleaner) => Some(StateDevice::new_with_capabilities(
             device_id.to_string(),
             vec![
                 StateCapability::on_off(false),
-                StateCapability::mode(ModeFunction::CleanupMode, Mode::Quiet),
+                StateCapability::mode(ModeFunction::WorkSpeed, Mode::Quiet),
             ],
         )),
         (Kitchen, VacuumCleaner) => Some(StateDevice::new_with_capabilities(
             device_id.to_string(),
             vec![
                 StateCapability::on_off(false),
-                StateCapability::mode(ModeFunction::CleanupMode, Mode::Quiet),
+                StateCapability::mode(ModeFunction::WorkSpeed, Mode::Quiet),
             ],
         )),
         (LivingRoom, VacuumCleaner) => Some(StateDevice::new_with_capabilities(
             device_id.to_string(),
             vec![
                 StateCapability::on_off(false),
-                StateCapability::mode(ModeFunction::CleanupMode, Mode::Quiet),
+                StateCapability::mode(ModeFunction::WorkSpeed, Mode::Quiet),
             ],
         )),
         _ => None,

@@ -36,7 +36,7 @@ pub async fn update_devices_state<'a>(
                 match capability {
                     StateCapability::OnOff { value } => state = Some(value),
                     StateCapability::Mode {
-                        function: ModeFunction::CleanupMode,
+                        function: ModeFunction::WorkSpeed,
                         mode,
                     } => cleanup_mode = Some(mode),
                 }
@@ -91,7 +91,7 @@ pub async fn update_devices_state<'a>(
 
                 capabilities = vec![
                     UpdateStateCapability::on_off(StateUpdateResult::Ok),
-                    UpdateStateCapability::mode(ModeFunction::CleanupMode, StateUpdateResult::Ok),
+                    UpdateStateCapability::mode(ModeFunction::WorkSpeed, StateUpdateResult::Ok),
                 ];
             }
             (Some(state), None) => {
@@ -103,7 +103,7 @@ pub async fn update_devices_state<'a>(
                 debug!("room: {}, mode: {}", room, mode);
 
                 capabilities = vec![UpdateStateCapability::mode(
-                    ModeFunction::CleanupMode,
+                    ModeFunction::WorkSpeed,
                     StateUpdateResult::Ok,
                 )];
             }

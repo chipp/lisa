@@ -1,16 +1,22 @@
 use std::net::ToSocketAddrs;
 
+use hex_literal::hex;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::task;
 
 use elisheva::{Command, SensorData};
-
-type ErasedError = Box<dyn std::error::Error + Send + Sync>;
-type Result<T> = std::result::Result<T, ErasedError>;
+use isabel::{Device, Result};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
+    pretty_env_logger::init();
+
+    let mut device = Device::new([10, 0, 1, 150], hex!("59565144447659713237774434425a7a"));
+    device
+        .send("get_prop", vec!["battary_life".into(), "s_time".into()])
+        .await?;
+
     let mut addrs = "lisa.burdukov.by:8081".to_socket_addrs()?;
     let addr = addrs.next().unwrap();
 

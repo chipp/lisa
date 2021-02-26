@@ -31,7 +31,7 @@ type Result<T> = std::result::Result<T, ErasedError>;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    pretty_env_logger::init();
+    pretty_env_logger::init_timed();
 
     let commander = Arc::from(Mutex::from(Commander::new()));
 
@@ -78,7 +78,9 @@ async fn listen_tcp(cmd: Arc<Mutex<Commander>>) -> Result<()> {
 
     loop {
         match tcp_listener.accept().await {
-            Ok((stream, _)) => {
+            Ok((stream, addr)) => {
+                info!("Got a new client {}", addr);
+
                 let (read, write) = tokio::io::split(stream);
                 let mut cmd = cmd.clone().lock_owned().await;
                 cmd.set_stream(BufWriter::new(write));
@@ -127,6 +129,8 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
 
             match params_for_auth_page(&request).and_then(auth_html) {
                 Some(html) => {
+                    info!("starting authentication process");
+
                     response = Response::builder()
                         .status(StatusCode::OK)
                         .body(Body::from(html))?;
@@ -148,6 +152,8 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
             if verify_credentials(credentials) {
                 let auth_params = de::from_bytes(body.chunk()).unwrap();
                 let redirect_url = get_redirect_url_from_params(auth_params).unwrap();
+
+                info!("received credentials, generating an authorization code");
 
                 Ok(Response::builder()
                     .status(StatusCode::FOUND)
@@ -178,10 +184,14 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
                     if is_valid_token(auth_code.value, TokenType::Code) {
                         // TODO: save token version
 
+                        info!("received a valid authorization code, generating access and refresh tokens");
+
                         Ok(Response::builder()
                             .status(StatusCode::OK)
                             .body(Body::from(serde_json::to_vec(&TokenResponse::new())?))?)
                     } else {
+                        info!("received an invalid authorization code");
+
                         Ok(Response::builder()
                             .status(StatusCode::FORBIDDEN)
                             .body(Body::from("invalid auth code"))?)
@@ -193,10 +203,14 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
                     if is_valid_token(refresh_token.value, TokenType::Refresh) {
                         // TODO: increment token version
 
+                        info!("received a valid refresh token, generating new access and refresh tokens");
+
                         Ok(Response::builder()
                             .status(StatusCode::OK)
                             .body(Body::from(serde_json::to_vec(&TokenResponse::new())?))?)
                     } else {
+                        info!("received an invalid refresh token");
+
                         Ok(Response::builder()
                             .status(StatusCode::FORBIDDEN)
                             .body(Body::from("invalid refresh token"))?)
@@ -208,7 +222,7 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
             .status(StatusCode::OK)
             .body(Body::empty())?),
         ("/v1.0/user/devices", &Method::GET) => {
-            validate_autorization(request, |request| async move {
+            validate_autorization(request, "devices", |request| async move {
                 let request_id =
                     std::str::from_utf8(request.headers().get("X-Request-Id").unwrap().as_bytes())
                         .unwrap();
@@ -239,7 +253,7 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
             .await
         }
         ("/v1.0/user/devices/query", &Method::POST) => {
-            validate_autorization(request, |request| async move {
+            validate_autorization(request, "devices_query", |request| async move {
                 let request_id = String::from(std::str::from_utf8(
                     request.headers().get("X-Request-Id").unwrap().as_bytes(),
                 )?);
@@ -266,7 +280,7 @@ async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<R
             .await
         }
         ("/v1.0/user/devices/action", &Method::POST) => {
-            validate_autorization(request, |request| async move {
+            validate_autorization(request, "devices_action", |request| async move {
                 let request_id = String::from(std::str::from_utf8(
                     request.headers().get("X-Request-Id").unwrap().as_bytes(),
                 )?);
@@ -435,14 +449,26 @@ fn validate_client_creds(client_creds: &ClientCreds) -> bool {
 
 use std::future::Future;
 
-async fn validate_autorization<F, T>(request: Request<Body>, success: F) -> Result<Response<Body>>
+async fn validate_autorization<F, T>(
+    request: Request<Body>,
+    request_name: &'static str,
+    success: F,
+) -> Result<Response<Body>>
 where
     F: FnOnce(Request<Body>) -> T,
     T: Future<Output = Result<Response<Body>>>,
 {
     match extract_token_from_headers(&request.headers()) {
-        Some(token) if is_valid_token(token, TokenType::Access) => success(request).await,
+        Some(token) if is_valid_token(token, TokenType::Access) => {
+            info!(target: request_name, "received a valid access token");
+            success(request).await
+        }
         Some(_) => {
+            error!(
+                target: request_name,
+                "an expired access token has been provided"
+            );
+
             let response = Response::builder()
                 .status(StatusCode::UNAUTHORIZED)
                 .header(
@@ -547,11 +573,11 @@ struct TokenResponse {
 
 impl TokenResponse {
     fn access_token_exp() -> Duration {
-        Duration::minutes(1)
+        Duration::hours(1)
     }
 
     fn refresh_token_exp() -> Duration {
-        Duration::hours(1)
+        Duration::weeks(1)
     }
 
     fn new() -> TokenResponse {

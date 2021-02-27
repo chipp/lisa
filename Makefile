@@ -29,3 +29,4 @@ isabel:
 	ssh pi "sudo systemctl stop isabel.service"
 	scp build/root/isabel pi:/usr/local/bin
 	ssh pi "sudo systemctl start isabel.service"
+	ssh pi "journalctl -u isabel.service -b -f"

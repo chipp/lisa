@@ -1,3 +1,6 @@
+mod response;
+use response::Response;
+
 use crate::{
     discover::discover,
     message::{Header, Message},
@@ -9,8 +12,8 @@ use std::{
     time::Instant,
 };
 
-use log::trace;
-use serde::Deserialize;
+use log::{error, trace};
+
 use serde_json::Value;
 use tokio::{
     net::UdpSocket,
@@ -78,28 +81,27 @@ impl Device {
                     let data = message.decode(self.token)?;
                     let response: Response = serde_json::from_slice(&data)?;
 
-                    self.command_id = response.id + 1;
-
+                    self.command_id = response.id() + 1;
                     trace!("next command id {}", self.command_id);
-                    trace!("{}", response.result);
 
-                    return Ok(response.result);
+                    return match response {
+                        Response::Ok { id: _, result } => Ok(result),
+                        Response::Err { id: _, error } => {
+                            error!("{:?}", error);
+                            Err(Box::new(error))
+                        }
+                    };
                 }
-                Err(err) => {
-                    match err.downcast::<Elapsed>() {
-                        Ok(_) => self.command_id += 100, // retry
-                        Err(err) => return Err(err),
+                Err(err) => match err.downcast::<Elapsed>() {
+                    Ok(_) => {
+                        self.command_id += 100;
+                        error!("retrying with command_id {}", self.command_id)
                     }
-                }
+                    Err(err) => return Err(err),
+                },
             };
         }
     }
-}
-
-#[derive(Deserialize)]
-struct Response {
-    id: u16,
-    result: Value,
 }
 
 async fn send_message(message: Message, addr: SocketAddr) -> Result<Message> {

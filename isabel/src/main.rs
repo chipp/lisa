@@ -3,14 +3,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use hex_literal::hex;
-use log::error;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, ReadHalf, WriteHalf};
+use log::{error, info};
+use tokio::io::{AsyncWriteExt, BufWriter, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
-use tokio::task;
 
-use elisheva::{Command, SensorData};
-use isabel::{FanSpeed, Result, Vacuum};
+use elisheva::{Command, CommandResponse, SensorData};
+use isabel::{FanSpeed, Result, SocketHandler, Vacuum};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -21,34 +20,39 @@ async fn main() -> Result<()> {
 
     let vacuum = Arc::from(Mutex::from(vacuum));
 
-    println!("status {}", status);
+    info!("battery {}", status.battery);
+    info!("bin_type {}", status.bin_type);
+    info!("state {}", status.state);
+    info!("fan_speed {}", status.fan_speed);
 
     let mut addrs = "lisa.burdukov.by:8081".to_socket_addrs()?;
     let addr = addrs.next().unwrap();
 
+    let mut connection = SocketHandler::new();
+
     loop {
         let vacuum = Arc::clone(&vacuum);
 
-        println!("connecting to {}", addr);
+        info!("connecting to {}", addr);
 
         match TcpStream::connect(addr).await {
             Ok(stream) => {
-                let (read, write) = tokio::io::split(stream);
+                info!("connected to {}", addr);
 
-                println!("connected to {}", addr);
+                connection.set_stream(stream);
 
-                let read = BufReader::new(read);
-                let write = BufWriter::new(write);
+                match connection
+                    .read_commands(|command| {
+                        let vacuum = Arc::clone(&vacuum);
+                        handle_command(command, vacuum)
+                    })
+                    .await
+                {
+                    Ok(_) => (),
+                    Err(err) => error!("{}", err),
+                }
 
-                let (read, write) = tokio::try_join!(
-                    task::spawn(timer_report_data(write)),
-                    task::spawn(read_remote_commands(read, vacuum))
-                )?;
-
-                read?;
-                write?;
-
-                println!("disconnected from {}", addr);
+                info!("disconnected from {}", addr);
             }
             Err(_) => {
                 error!("unable to connect to {}", addr);
@@ -58,82 +62,62 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn read_remote_commands(
-    stream: BufReader<ReadHalf<TcpStream>>,
-    vacuum: Arc<Mutex<Vacuum>>,
-) -> Result<()> {
-    println!("waiting for commands...");
+async fn handle_command(command: Command, vacuum: Arc<Mutex<Vacuum>>) -> CommandResponse {
+    let (command, result) = match command {
+        Command::Start { rooms } => {
+            info!("wants to start cleaning in rooms: {:?}", rooms);
 
-    let mut stream = stream;
-
-    loop {
-        let mut buffer = vec![];
-        let size = stream.read_until(b'\n', &mut buffer).await?;
-        if size == 0 {
-            return Ok(());
+            let vacuum = Arc::clone(&vacuum);
+            let mut vacuum = vacuum.lock_owned().await;
+            ("start", vacuum.start(rooms).await)
         }
+        Command::Stop => {
+            info!("wants to stop cleaning");
 
-        match serde_json::from_slice::<Command>(&buffer) {
-            Ok(Command::Start { rooms }) => {
-                let vacuum = Arc::clone(&vacuum);
-                let mut vacuum = vacuum.lock_owned().await;
+            let vacuum = Arc::clone(&vacuum);
+            let mut vacuum = vacuum.lock_owned().await;
 
-                match vacuum.start(rooms).await {
-                    Ok(_) => println!("ok start"),
-                    Err(_) => eprintln!("err start"),
-                }
-            }
-            Ok(Command::Stop) => {
-                println!("got stop");
+            ("stop", vacuum.stop().await)
+        }
+        Command::GoHome => {
+            info!("wants to go home");
 
-                let vacuum = Arc::clone(&vacuum);
-                let mut vacuum = vacuum.lock_owned().await;
+            let vacuum = Arc::clone(&vacuum);
+            let mut vacuum = vacuum.lock_owned().await;
 
-                println!("sending stop");
+            ("go home", vacuum.go_home().await)
+        }
+        Command::SetWorkSpeed { mode } => {
+            info!("wants to set mode {}", mode);
 
-                match vacuum.stop().await {
-                    Ok(_) => println!("ok stop"),
-                    Err(_) => eprintln!("err stop"),
-                }
-            }
-            Ok(Command::GoHome) => {
-                println!("got home");
+            let vacuum = Arc::clone(&vacuum);
+            let mut vacuum = vacuum.lock_owned().await;
 
-                let vacuum = Arc::clone(&vacuum);
-                let mut vacuum = vacuum.lock_owned().await;
+            let mode = FanSpeed::from(mode);
+            ("set mode", vacuum.set_fan_speed(mode).await)
+        }
+    };
 
-                println!("sending home");
-
-                match vacuum.go_home().await {
-                    Ok(_) => println!("ok home"),
-                    Err(_) => eprintln!("err home"),
-                }
-            }
-            Ok(Command::SetMode { mode }) => {
-                let vacuum = Arc::clone(&vacuum);
-                let mut vacuum = vacuum.lock_owned().await;
-
-                let mode = FanSpeed::from(mode);
-                match vacuum.set_fan_speed(mode).await {
-                    Ok(_) => println!("ok set mode"),
-                    Err(_) => eprintln!("err set mode"),
-                }
-            }
-            Err(err) => eprintln!("{}", err),
+    match result {
+        Ok(_) => {
+            info!("ok {}", command);
+            CommandResponse::Ok
+        }
+        Err(err) => {
+            error!("err {} {}", command, err);
+            CommandResponse::Failure
         }
     }
 }
 
-async fn timer_report_data(_stream: BufWriter<WriteHalf<TcpStream>>) -> Result<()> {
-    Ok(())
+async fn _timer_report_data(stream: BufWriter<WriteHalf<TcpStream>>) -> Result<()> {
+    let mut stream = stream;
+    let mut timer = tokio::time::interval(std::time::Duration::from_secs(60));
 
-    // let mut stream = stream;
-    // let mut timer = tokio::time::interval(std::time::Duration::from_secs(60));
-
-    // loop {
-    //     timer.tick().await;
-    //     report_data(&mut stream).await?;
-    // }
+    loop {
+        timer.tick().await;
+        _report_data(&mut stream).await?;
+    }
 }
 
 async fn _report_data(stream: &mut BufWriter<WriteHalf<TcpStream>>) -> Result<()> {

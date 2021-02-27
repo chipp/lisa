@@ -6,7 +6,14 @@ pub enum Command {
     Start { rooms: Vec<u8> },
     Stop,
     GoHome,
-    SetMode { mode: String },
+    SetWorkSpeed { mode: String },
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CommandResponse {
+    Ok,
+    Failure,
 }
 
 #[cfg(test)]
@@ -70,26 +77,26 @@ mod tests {
 
     #[test]
     fn test_set_mode() {
-        let command = Command::SetMode {
+        let command = Command::SetWorkSpeed {
             mode: "quiet".to_string(),
         };
 
         assert_eq!(
             to_value(&command).unwrap(),
             json!({
-                "type": "set_mode",
+                "type": "set_work_speed",
                 "mode": "quiet"
             })
         );
 
         let command = from_value(json!({
-            "type": "set_mode",
+            "type": "set_work_speed",
             "mode": "quiet"
         }))
         .unwrap();
 
         match command {
-            Command::SetMode { mode } => assert_eq!(mode, "quiet"),
+            Command::SetWorkSpeed { mode } => assert_eq!(mode, "quiet"),
             _ => panic!("expected to parse SetMode, got {:?}", command),
         }
     }

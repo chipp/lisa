@@ -3,21 +3,22 @@ use std::{str::FromStr, sync::Arc};
 use crate::DeviceId;
 use crate::DeviceType::*;
 
+use log::info;
+use tokio::sync::Mutex;
+
 use alice::{
     ModeFunction, StateCapability, StateUpdateResult, UpdateStateCapability, UpdateStateDevice,
-    UpdatedDeviceState,
+    UpdateStateErrorCode, UpdatedDeviceState,
 };
 use elisheva::Command;
-use log::{debug, info};
-use tokio::sync::Mutex;
 
 pub async fn update_devices_state<'a>(
     devices: Vec<UpdateStateDevice<'a>>,
-    cmd: Arc<Mutex<crate::Commander>>,
+    cmd: Arc<Mutex<crate::SocketHandler>>,
 ) -> Vec<UpdatedDeviceState> {
     let mut rooms = vec![];
     let mut state = None;
-    let mut cleanup_mode = None;
+    let mut work_speed = None;
 
     for device in devices.into_iter() {
         if let Ok(DeviceId { room, device_type }) = DeviceId::from_str(device.id) {
@@ -28,7 +29,7 @@ pub async fn update_devices_state<'a>(
 
             rooms.push(room);
 
-            if state != None && cleanup_mode != None {
+            if state != None && work_speed != None {
                 continue;
             }
 
@@ -38,46 +39,49 @@ pub async fn update_devices_state<'a>(
                     StateCapability::Mode {
                         function: ModeFunction::WorkSpeed,
                         mode,
-                    } => cleanup_mode = Some(mode),
+                    } => work_speed = Some(mode),
                 }
             }
         }
     }
 
-    info!(
-        "update state rooms {:?}\nstate {:?}\ncleanup_mode {:?}",
-        rooms, state, cleanup_mode
-    );
+    info!("update state rooms {:?}", rooms);
+    info!("state {:?}", state);
+    info!("work_speed {:?}", work_speed);
 
     if rooms.is_empty() {
         return vec![];
     }
 
+    let set_mode_result;
+    let toggle_state_result;
+
     {
         let mut cmd = cmd.lock_owned().await;
+        set_mode_result = match work_speed {
+            Some(mode) => Some(
+                cmd.send_command(Command::SetWorkSpeed {
+                    mode: mode.to_string(),
+                })
+                .await,
+            ),
+            None => None,
+        };
 
-        if let Some(ref cleanup_mode) = cleanup_mode {
-            cmd.send_command(Command::SetMode {
-                mode: cleanup_mode.to_string(),
-            })
-            .await
-            .unwrap();
-        }
-
-        match state {
+        toggle_state_result = match state {
             Some(true) => {
                 let room_ids = rooms.iter().map(crate::Room::id).collect();
 
-                cmd.send_command(Command::Start { rooms: room_ids })
-                    .await
-                    .unwrap();
+                Some(cmd.send_command(Command::Start { rooms: room_ids }).await)
             }
             Some(false) => {
-                cmd.send_command(Command::Stop).await.unwrap();
-                cmd.send_command(Command::GoHome).await.unwrap();
+                let stop = cmd.send_command(Command::Stop).await;
+                let home = cmd.send_command(Command::GoHome).await;
+
+                Some(stop.and(home))
             }
-            None => (),
-        }
+            None => None,
+        };
     }
 
     let mut devices = vec![];
@@ -85,26 +89,25 @@ pub async fn update_devices_state<'a>(
     for room in rooms {
         let capabilities;
 
-        match (&state, &cleanup_mode) {
-            (Some(state), Some(mode)) => {
-                debug!("room: {}, state: {}, mode: {}", room, state, mode);
-
+        match (&toggle_state_result, &set_mode_result) {
+            (Some(toggle_state_result), Some(set_mode_result)) => {
                 capabilities = vec![
-                    UpdateStateCapability::on_off(StateUpdateResult::Ok),
-                    UpdateStateCapability::mode(ModeFunction::WorkSpeed, StateUpdateResult::Ok),
+                    UpdateStateCapability::on_off(prepare_result(&toggle_state_result)),
+                    UpdateStateCapability::mode(
+                        ModeFunction::WorkSpeed,
+                        prepare_result(&set_mode_result),
+                    ),
                 ];
             }
-            (Some(state), None) => {
-                debug!("room: {}, state: {}", room, state);
-
-                capabilities = vec![UpdateStateCapability::on_off(StateUpdateResult::Ok)];
+            (Some(toggle_state_result), None) => {
+                capabilities = vec![UpdateStateCapability::on_off(prepare_result(
+                    &toggle_state_result,
+                ))];
             }
-            (None, Some(mode)) => {
-                debug!("room: {}, mode: {}", room, mode);
-
+            (None, Some(set_mode_result)) => {
                 capabilities = vec![UpdateStateCapability::mode(
                     ModeFunction::WorkSpeed,
-                    StateUpdateResult::Ok,
+                    prepare_result(&set_mode_result),
                 )];
             }
             _ => return vec![],
@@ -119,4 +122,13 @@ pub async fn update_devices_state<'a>(
     }
 
     devices
+}
+
+fn prepare_result(result: &crate::Result<()>) -> StateUpdateResult {
+    match result {
+        Ok(_) => StateUpdateResult::ok(),
+        Err(_) => {
+            StateUpdateResult::error(UpdateStateErrorCode::DeviceUnreachable, String::default())
+        }
+    }
 }

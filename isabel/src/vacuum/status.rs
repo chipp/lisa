@@ -11,17 +11,6 @@ pub struct Status {
     pub fan_speed: FanSpeed,
 }
 
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "battery {}", self.battery)?;
-        writeln!(f, "bin_type {}", self.bin_type)?;
-        writeln!(f, "state {}", self.state)?;
-        writeln!(f, "fan_speed {}", self.fan_speed)?;
-
-        Ok(())
-    }
-}
-
 #[derive(Debug, Deserialize_repr, PartialEq)]
 #[repr(u8)]
 pub enum BinType {

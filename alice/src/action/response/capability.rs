@@ -9,6 +9,16 @@ pub enum ActionResult {
     Err(Error),
 }
 
+impl ActionResult {
+    pub fn ok() -> ActionResult {
+        ActionResult::Ok
+    }
+
+    pub fn error(code: ErrorCode, message: String) -> ActionResult {
+        ActionResult::Err(Error::new(code, message))
+    }
+}
+
 #[derive(Debug)]
 pub struct Error {
     code: ErrorCode,

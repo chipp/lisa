@@ -14,7 +14,7 @@ use serde_json::json;
 use serde_urlencoded::de;
 
 use tokio::{
-    io::{AsyncBufReadExt, BufReader, BufWriter, ReadHalf},
+    io::ReadHalf,
     net::{TcpListener, TcpStream},
     sync::Mutex,
     task,
@@ -24,7 +24,7 @@ use alice::{Device, DeviceCapability, DeviceProperty, DeviceType, Mode, ModeFunc
 use alice::{StateRequest, StateResponse};
 use alice::{UpdateStateRequest, UpdateStateResponse};
 
-use lisa::{state_for_device, update_devices_state, Commander, DeviceId, Room};
+use lisa::{state_for_device, update_devices_state, DeviceId, Room, SocketHandler};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -33,11 +33,11 @@ type Result<T> = std::result::Result<T, ErasedError>;
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
 
-    let commander = Arc::from(Mutex::from(Commander::new()));
+    let socket_handler = Arc::from(Mutex::from(SocketHandler::new()));
 
     let (server, tcp) = tokio::try_join!(
-        task::spawn(listen_api(commander.clone())),
-        task::spawn(listen_tcp(commander.clone()))
+        task::spawn(listen_api(socket_handler.clone())),
+        task::spawn(listen_tcp(socket_handler))
     )?;
 
     server?;
@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn listen_api(cmd: Arc<Mutex<Commander>>) -> Result<()> {
+async fn listen_api(cmd: Arc<Mutex<SocketHandler>>) -> Result<()> {
     let cmd = cmd.clone();
 
     let make_svc = make_service_fn(move |_| {
@@ -68,61 +68,42 @@ async fn listen_api(cmd: Arc<Mutex<Commander>>) -> Result<()> {
     Ok(())
 }
 
-async fn listen_tcp(cmd: Arc<Mutex<Commander>>) -> Result<()> {
+async fn listen_tcp(cmd: Arc<Mutex<SocketHandler>>) -> Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], 8081));
     let tcp_listener = TcpListener::bind(addr).await?;
 
     info!("Listening socket {}", addr);
 
-    let mut handles = vec![];
+    // let mut handles = vec![];
 
     loop {
         match tcp_listener.accept().await {
-            Ok((stream, addr)) => {
-                let (read, write) = tokio::io::split(stream);
-                let mut cmd = cmd.clone().lock_owned().await;
-                cmd.set_stream(BufWriter::new(write));
+            Ok((stream, _addr)) => {
+                {
+                    let mut cmd = cmd.clone().lock_owned().await;
+                    cmd.set_stream(stream);
+                }
 
-                handles.push(task::spawn(read_from_socket(read, addr)))
+                // handles.push(task::spawn(read_from_socket(read, addr, read_cmd)))
             }
             Err(error) => eprintln!("{}", error),
         }
     }
 }
 
-async fn read_from_socket(stream: ReadHalf<TcpStream>, addr: SocketAddr) -> Result<()> {
-    info!("Got a new client {}", addr);
+async fn _read_from_socket(
+    _stream: ReadHalf<TcpStream>,
+    _addr: SocketAddr,
+    _cmd: Arc<Mutex<SocketHandler>>,
+) -> Result<()> {
+    info!("Got a new client {}", _addr);
 
-    let mut reader = BufReader::new(stream);
-
-    loop {
-        trace!("waiting for message...");
-
-        let mut buffer = vec![];
-        let bytes_count = reader.read_until(b'\n', &mut buffer).await?;
-
-        trace!("received some bytes {}", bytes_count);
-
-        if bytes_count == 0 {
-            break;
-        }
-
-        unsafe {
-            println!("{}", std::str::from_utf8_unchecked(&buffer));
-        }
-
-        match serde_json::from_slice::<elisheva::SensorData>(&buffer) {
-            Ok(value) => println!("{:?}", value),
-            Err(error) => eprintln!("{}", error),
-        }
-    }
-
-    info!("Client did disconnect {}", addr);
+    info!("Client did disconnect {}", _addr);
 
     Ok(())
 }
 
-async fn service(request: Request<Body>, cmd: Arc<Mutex<Commander>>) -> Result<Response<Body>> {
+async fn service(request: Request<Body>, cmd: Arc<Mutex<SocketHandler>>) -> Result<Response<Body>> {
     match (request.uri().path(), request.method()) {
         ("/auth", &Method::GET) => {
             let response;

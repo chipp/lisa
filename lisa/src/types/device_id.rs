@@ -3,8 +3,7 @@ use std::str::FromStr;
 
 use serde::de::{self, value, Unexpected};
 
-use super::device_type::DeviceType;
-use super::Room;
+use crate::{DeviceType, Room};
 
 #[derive(Debug)]
 pub struct DeviceId {

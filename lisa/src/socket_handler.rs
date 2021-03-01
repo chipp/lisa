@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::Result;
-use elisheva::{Command, CommandResponse};
+use elisheba::{Command, CommandResponse};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;

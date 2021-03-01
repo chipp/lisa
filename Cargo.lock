@@ -158,7 +158,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "elisheva"
+name = "elisheba"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -433,7 +433,7 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "block-modes",
- "elisheva",
+ "elisheba",
  "hex-literal",
  "log",
  "md-5",
@@ -492,7 +492,7 @@ dependencies = [
  "alice",
  "bytes",
  "chrono",
- "elisheva",
+ "elisheba",
  "futures",
  "hyper",
  "jsonwebtoken",

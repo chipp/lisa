@@ -3,29 +3,29 @@ FROM ghcr.io/chipp/build.rust.x86_64_musl:1.50.0_1 AS builder
 WORKDIR /home/rust/src
 RUN USER=rust cargo new --bin /home/rust/src/lisa && \
     cargo new --lib /home/rust/src/alice && \
-    cargo new --lib /home/rust/src/elisheva && \
+    cargo new --lib /home/rust/src/elisheba && \
     cargo new --bin /home/rust/src/isabel
 
 COPY ./lisa/Cargo.toml ./lisa/Cargo.toml
 COPY ./alice/Cargo.toml ./alice/Cargo.toml
-COPY ./elisheva/Cargo.toml ./elisheva/Cargo.toml
+COPY ./elisheba/Cargo.toml ./elisheba/Cargo.toml
 COPY ./isabel/Cargo.toml ./isabel/Cargo.toml
 
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
 RUN cargo build --release -p lisa && \
-  cargo clean --release -p lisa -p alice -p elisheva \
+  cargo clean --release -p lisa -p alice -p elisheba \
       --target x86_64-unknown-linux-musl
 
 RUN cargo build && \
-  cargo clean -p alice -p lisa -p elisheva \
+  cargo clean -p alice -p lisa -p elisheba \
     --target x86_64-unknown-linux-musl && \
   rm ./lisa/src/*.rs ./alice/src/*.rs
 
 COPY ./lisa/src ./lisa/src
 COPY ./alice/src ./alice/src
-COPY ./elisheva/src ./elisheva/src
+COPY ./elisheba/src ./elisheba/src
 COPY ./isabel/src ./isabel/src
 
 RUN cargo test && rm -rf target/debug/

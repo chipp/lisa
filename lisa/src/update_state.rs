@@ -10,7 +10,7 @@ use alice::{
     ModeFunction, StateCapability, StateUpdateResult, UpdateStateCapability, UpdateStateDevice,
     UpdateStateErrorCode, UpdatedDeviceState,
 };
-use elisheva::Command;
+use elisheba::Command;
 
 pub async fn update_devices_state<'a>(
     devices: Vec<UpdateStateDevice<'a>>,

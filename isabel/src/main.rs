@@ -8,7 +8,7 @@ use tokio::io::{AsyncWriteExt, BufWriter, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
-use elisheva::{Command, CommandResponse, SensorData};
+use elisheba::{Command, CommandResponse, SensorData};
 use isabel::{FanSpeed, Result, SocketHandler, Vacuum};
 
 #[tokio::main(flavor = "current_thread")]

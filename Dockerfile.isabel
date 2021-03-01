@@ -3,23 +3,23 @@ FROM ghcr.io/chipp/build.rust.armv7_musl:1.50.0_1 AS builder
 WORKDIR /home/rust/src
 RUN USER=rust cargo new --bin /home/rust/src/lisa && \
     cargo new --lib /home/rust/src/alice && \
-    cargo new --lib /home/rust/src/elisheva && \
+    cargo new --lib /home/rust/src/elisheba && \
     cargo new --bin /home/rust/src/isabel
 
 COPY ./lisa/Cargo.toml ./lisa/Cargo.toml
 COPY ./alice/Cargo.toml ./alice/Cargo.toml
-COPY ./elisheva/Cargo.toml ./elisheva/Cargo.toml
+COPY ./elisheba/Cargo.toml ./elisheba/Cargo.toml
 COPY ./isabel/Cargo.toml ./isabel/Cargo.toml
 
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
 RUN cargo build --release -p isabel && \
-  cargo clean --release -p elisheva -p isabel \
+  cargo clean --release -p elisheba -p isabel \
     --target armv7-unknown-linux-musleabihf && \
-  rm ./elisheva/src/*.rs ./isabel/src/*.rs
+  rm ./elisheba/src/*.rs ./isabel/src/*.rs
 
-COPY ./elisheva/src ./elisheva/src
+COPY ./elisheba/src ./elisheba/src
 COPY ./isabel/src ./isabel/src
 
 RUN cargo build --release -p isabel

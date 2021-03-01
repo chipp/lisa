@@ -21,6 +21,9 @@ install_lisa:
 	docker image load -i lisa.tar
 	docker-compose up -d
 
+run_lisa:
+	RUST_LOG=info cargo run --bin lisa
+
 
 isabel:
 	docker build . -f Dockerfile.isabel -t $(ISABEL_ID) -o build
@@ -32,4 +35,7 @@ deploy_isabel: isabel
 	ssh pi "journalctl -u isabel.service -b -f"
 
 logs_isabel:
-	ssh pi "journalctl -u isabel.service -b -f"	
+	ssh pi "journalctl -u isabel.service -b -f"
+
+run_isabel:
+	RUST_LOG=info cargo run --bin isabel

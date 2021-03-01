@@ -1,21 +1,24 @@
 use std::{str::FromStr, sync::Arc};
 
-use crate::DeviceId;
 use crate::DeviceType::*;
+use crate::{DeviceId, Result};
 
 use log::info;
-use tokio::sync::Mutex;
 
 use alice::{
     ModeFunction, StateCapability, StateUpdateResult, UpdateStateCapability, UpdateStateDevice,
     UpdateStateErrorCode, UpdatedDeviceState,
 };
 use elisheba::Command;
+use tokio::sync::Mutex;
 
-pub async fn update_devices_state<'a>(
+pub async fn update_devices_state<'a, F>(
     devices: Vec<UpdateStateDevice<'a>>,
-    cmd: Arc<Mutex<crate::SocketHandler>>,
-) -> Vec<UpdatedDeviceState> {
+    send_command: Arc<Mutex<impl Fn(Command) -> F>>,
+) -> Vec<UpdatedDeviceState>
+where
+    F: std::future::Future<Output = Result<()>>,
+{
     let mut rooms = vec![];
     let mut state = None;
     let mut work_speed = None;
@@ -57,10 +60,11 @@ pub async fn update_devices_state<'a>(
     let toggle_state_result;
 
     {
-        let mut cmd = cmd.lock_owned().await;
+        let send_command = send_command.clone().lock_owned().await;
+
         set_mode_result = match work_speed {
             Some(mode) => Some(
-                cmd.send_command(Command::SetWorkSpeed {
+                send_command(Command::SetWorkSpeed {
                     mode: mode.to_string(),
                 })
                 .await,
@@ -72,11 +76,11 @@ pub async fn update_devices_state<'a>(
             Some(true) => {
                 let room_ids = rooms.iter().map(crate::Room::id).collect();
 
-                Some(cmd.send_command(Command::Start { rooms: room_ids }).await)
+                Some(send_command(Command::Start { rooms: room_ids }).await)
             }
             Some(false) => {
-                let stop = cmd.send_command(Command::Stop).await;
-                let home = cmd.send_command(Command::GoHome).await;
+                let stop = send_command(Command::Stop).await;
+                let home = send_command(Command::GoHome).await;
 
                 Some(stop.and(home))
             }
@@ -124,7 +128,7 @@ pub async fn update_devices_state<'a>(
     devices
 }
 
-fn prepare_result(result: &crate::Result<()>) -> StateUpdateResult {
+fn prepare_result(result: &Result<()>) -> StateUpdateResult {
     match result {
         Ok(_) => StateUpdateResult::ok(),
         Err(_) => {

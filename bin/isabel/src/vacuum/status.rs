@@ -4,6 +4,7 @@ use serde::de::{Deserializer, Error, SeqAccess, Visitor};
 use serde::Deserialize;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+#[derive(Debug)]
 pub struct Status {
     pub battery: u8,
     pub bin_type: BinType,

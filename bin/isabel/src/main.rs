@@ -1,15 +1,16 @@
 use std::net::ToSocketAddrs;
-use std::sync::Arc;
 use std::time::Duration;
 
 use hex_literal::hex;
 use log::{error, info};
-use tokio::io::{AsyncWriteExt, BufWriter, WriteHalf};
 use tokio::net::TcpStream;
-use tokio::sync::Mutex;
+use tokio::{
+    io::{AsyncWriteExt, BufWriter, WriteHalf},
+    task,
+};
 
-use elisheba::{Command, CommandResponse, SensorData};
-use isabel::{FanSpeed, Result, SocketHandler, Vacuum};
+use elisheba::SensorData;
+use isabel::{Result, SocketHandler, Vacuum, VacuumController};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -18,7 +19,7 @@ async fn main() -> Result<()> {
     let mut vacuum = Vacuum::new([10, 0, 1, 150], hex!("59565144447659713237774434425a7a"));
     let status = vacuum.status().await?;
 
-    let vacuum = Arc::from(Mutex::from(vacuum));
+    let vacuum_controller = VacuumController::new(vacuum);
 
     info!("battery {}", status.battery);
     info!("bin_type {}", status.bin_type);
@@ -31,81 +32,51 @@ async fn main() -> Result<()> {
     let mut connection = SocketHandler::new();
 
     loop {
-        let vacuum = Arc::clone(&vacuum);
-
         info!("connecting to {}", addr);
 
         match TcpStream::connect(addr).await {
             Ok(stream) => {
+                let vacuum_controller = vacuum_controller.clone();
+
                 info!("connected to {}", addr);
 
                 connection.set_stream(stream);
 
-                match connection
-                    .read_commands(|command| {
-                        let vacuum = Arc::clone(&vacuum);
-                        handle_command(command, vacuum)
+                let report_battery_task = {
+                    let vacuum_controller = vacuum_controller.clone();
+                    let connection = connection.clone();
+
+                    task::spawn(async move {
+                        let mut rx = vacuum_controller.observe_vacuum_status();
+                        let mut connection = connection;
+
+                        while let Some(status) = rx.recv().await {
+                            info!("sending battery percentage {}", status.battery);
+
+                            if let Err(error) =
+                                connection.report_battery_percentage(status.battery).await
+                            {
+                                error!("unable to send battery percentage {}", error);
+                            }
+                        }
                     })
+                };
+
+                match connection
+                    .read_commands(|command| vacuum_controller.handle_vacuum_command(command))
                     .await
                 {
                     Ok(_) => (),
                     Err(err) => error!("{}", err),
                 }
 
+                report_battery_task.abort();
                 info!("disconnected from {}", addr);
             }
             Err(_) => {
                 error!("unable to connect to {}", addr);
                 tokio::time::sleep(Duration::from_secs(20)).await
             }
-        }
-    }
-}
-
-async fn handle_command(command: Command, vacuum: Arc<Mutex<Vacuum>>) -> CommandResponse {
-    let (command, result) = match command {
-        Command::Start { rooms } => {
-            info!("wants to start cleaning in rooms: {:?}", rooms);
-
-            let vacuum = Arc::clone(&vacuum);
-            let mut vacuum = vacuum.lock_owned().await;
-            ("start", vacuum.start(rooms).await)
-        }
-        Command::Stop => {
-            info!("wants to stop cleaning");
-
-            let vacuum = Arc::clone(&vacuum);
-            let mut vacuum = vacuum.lock_owned().await;
-
-            ("stop", vacuum.stop().await)
-        }
-        Command::GoHome => {
-            info!("wants to go home");
-
-            let vacuum = Arc::clone(&vacuum);
-            let mut vacuum = vacuum.lock_owned().await;
-
-            ("go home", vacuum.go_home().await)
-        }
-        Command::SetWorkSpeed { mode } => {
-            info!("wants to set mode {}", mode);
-
-            let vacuum = Arc::clone(&vacuum);
-            let mut vacuum = vacuum.lock_owned().await;
-
-            let mode = FanSpeed::from(mode);
-            ("set mode", vacuum.set_fan_speed(mode).await)
-        }
-    };
-
-    match result {
-        Ok(_) => {
-            info!("ok {}", command);
-            CommandResponse::Ok
-        }
-        Err(err) => {
-            error!("err {} {}", command, err);
-            CommandResponse::Failure
         }
     }
 }

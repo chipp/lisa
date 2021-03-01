@@ -1,5 +1,5 @@
 mod status;
-use status::Status;
+pub use status::Status;
 
 pub use status::FanSpeed;
 
@@ -26,9 +26,7 @@ impl Vacuum {
     }
 
     pub async fn set_fan_speed(&mut self, fan_speed: FanSpeed) -> Result<()> {
-        let response = self.device.send("set_suction", json!([fan_speed])).await?;
-        println!("{}", response);
-
+        self.device.send("set_suction", json!([fan_speed])).await?;
         Ok(())
     }
 
@@ -37,23 +35,17 @@ impl Vacuum {
         let mut params = vec![0, 1, room_ids.len() as u8];
         params.append(&mut room_ids);
 
-        let response = self.device.send("set_mode_withroom", json!(params)).await?;
-        println!("{}", response);
-
+        self.device.send("set_mode_withroom", json!(params)).await?;
         Ok(())
     }
 
     pub async fn stop(&mut self) -> Result<()> {
-        let response = self.device.send("set_mode", json!([0, 0])).await?;
-        println!("{}", response);
-
+        self.device.send("set_mode", json!([0, 0])).await?;
         Ok(())
     }
 
     pub async fn go_home(&mut self) -> Result<()> {
-        let response = self.device.send("set_charge", json!([1])).await?;
-        println!("{}", response);
-
+        self.device.send("set_charge", json!([1])).await?;
         Ok(())
     }
 }

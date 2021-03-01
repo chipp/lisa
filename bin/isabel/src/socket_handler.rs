@@ -7,7 +7,7 @@ use tokio::{
 };
 
 use crate::Result;
-use elisheba::{Command, CommandResponse};
+use elisheba::{Command, CommandResponse, Packet};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;
@@ -23,6 +23,7 @@ impl fmt::Display for NotConnected {
 
 impl std::error::Error for NotConnected {}
 
+#[derive(Clone)]
 pub struct SocketHandler {
     reader: Option<Arc<Mutex<Reader>>>,
     writer: Option<Arc<Mutex<Writer>>>,
@@ -69,7 +70,7 @@ impl SocketHandler {
                 }
             };
 
-            let bytes = serde_json::to_vec(&response).unwrap();
+            let bytes = serde_json::to_vec(&Packet::CommandResponse(response)).unwrap();
 
             if let Some(ref mut writer) = self.writer {
                 let mut writer = writer.clone().lock_owned().await;
@@ -77,6 +78,20 @@ impl SocketHandler {
             } else {
                 return Err(Box::new(NotConnected));
             }
+        }
+    }
+
+    pub async fn report_battery_percentage(&mut self, battery_percentage: u8) -> Result<()> {
+        let bytes =
+            serde_json::to_vec(&Packet::VacuumBatteryPercentage(battery_percentage)).unwrap();
+
+        if let Some(ref mut writer) = self.writer {
+            let mut writer = writer.clone().lock_owned().await;
+            Self::send_bytes(&mut writer, &bytes).await?;
+
+            Ok(())
+        } else {
+            Err(Box::new(NotConnected))
         }
     }
 

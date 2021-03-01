@@ -1,12 +1,14 @@
-use std::fmt;
+use std::{fmt, sync::Arc};
 
+use log::error;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, ReadHalf, WriteHalf},
     net::TcpStream,
+    sync::Mutex,
 };
 
 use crate::Result;
-use elisheba::{Command, CommandResponse};
+use elisheba::{Command, CommandResponse, Packet};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;
@@ -33,48 +35,80 @@ impl fmt::Display for CommandFailed {
 
 impl std::error::Error for CommandFailed {}
 
+#[derive(Clone)]
 pub struct SocketHandler {
-    reader: Option<Reader>,
-    writer: Option<Writer>,
+    reader: Arc<Mutex<Option<Reader>>>,
+    writer: Arc<Mutex<Option<Writer>>>,
 }
 
 impl SocketHandler {
     pub fn new() -> SocketHandler {
         SocketHandler {
-            reader: None,
-            writer: None,
+            reader: Arc::from(Mutex::from(None)),
+            writer: Arc::from(Mutex::from(None)),
         }
     }
 
-    pub fn set_stream(&mut self, stream: TcpStream) {
-        let (reader, writer) = tokio::io::split(stream);
+    pub async fn set_stream(&mut self, stream: TcpStream) {
+        let (tcp_reader, tcp_writer) = tokio::io::split(stream);
 
-        self.reader = Some(BufReader::new(reader));
-        self.writer = Some(BufWriter::new(writer));
+        {
+            let mut reader = self.reader.clone().lock_owned().await;
+            *reader = Some(BufReader::new(tcp_reader))
+        }
+
+        {
+            let mut writer = self.writer.clone().lock_owned().await;
+            *writer = Some(BufWriter::new(tcp_writer))
+        }
     }
 
     pub async fn send_command(&mut self, command: Command) -> Result<()> {
         let bytes = serde_json::to_vec(&command)?;
 
-        match (&mut self.reader, &mut self.writer) {
-            (Some(reader), Some(writer)) => {
-                writer.write_all(&bytes).await?;
-                writer.write_all(b"\n").await?;
-                writer.flush().await?;
+        if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {
+            writer.write_all(&bytes).await?;
+            writer.write_all(b"\n").await?;
+            writer.flush().await?;
 
+            Ok(())
+        } else {
+            Err(Box::new(NotConnected))
+        }
+    }
+
+    pub fn handle_response(response: Option<CommandResponse>) -> Result<()> {
+        match response {
+            Some(CommandResponse::Ok) => Ok(()),
+            Some(CommandResponse::Failure) => Err(Box::new(CommandFailed)),
+            None => Err(Box::new(CommandFailed)),
+        }
+    }
+
+    pub async fn read_packets<F>(&mut self, handler: impl Fn(Packet) -> F) -> Result<()>
+    where
+        F: std::future::Future<Output = ()>,
+    {
+        if let Some(ref mut reader) = *self.reader.clone().lock_owned().await {
+            loop {
                 let mut buffer = vec![];
+
                 let size = reader.read_until(b'\n', &mut buffer).await?;
 
                 if size == 0 {
-                    return Err(Box::new(NotConnected));
+                    return Ok(());
                 }
 
-                match serde_json::from_slice(&buffer)? {
-                    CommandResponse::Ok => Ok(()),
-                    CommandResponse::Failure => Err(Box::new(CommandFailed)),
+                match serde_json::from_slice::<Packet>(&buffer) {
+                    Ok(packet) => handler(packet).await,
+                    Err(err) => {
+                        error!("unable to parse Packet {}", err);
+                        ()
+                    }
                 }
             }
-            _ => return Err(Box::new(NotConnected)),
+        } else {
+            Err(Box::new(NotConnected))
         }
     }
 }

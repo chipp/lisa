@@ -3,21 +3,48 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct Response {
-    request_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request_id: Option<String>,
+
+    #[serde(rename = "ts", skip_serializing_if = "Option::is_none")]
+    timestamp: Option<i64>,
+
     payload: ResponsePayload,
 }
 
 impl Response {
     pub fn new(request_id: String, devices: Vec<ResponseDevice>) -> Response {
         Response {
-            request_id,
-            payload: ResponsePayload { devices },
+            request_id: Some(request_id),
+            timestamp: None,
+            payload: ResponsePayload {
+                user: None,
+                devices,
+            },
+        }
+    }
+
+    pub fn notification_body(
+        timestamp: i64,
+        user: &'static str,
+        devices: Vec<ResponseDevice>,
+    ) -> Response {
+        Response {
+            request_id: None,
+            timestamp: Some(timestamp),
+            payload: ResponsePayload {
+                user: Some(user),
+                devices,
+            },
         }
     }
 }
 
 #[derive(Debug, Serialize)]
 struct ResponsePayload {
+    #[serde(rename = "user_id", skip_serializing_if = "Option::is_none")]
+    user: Option<&'static str>,
+
     devices: Vec<ResponseDevice>,
 }
 

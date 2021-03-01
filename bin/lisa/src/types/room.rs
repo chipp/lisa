@@ -3,7 +3,7 @@ use std::{fmt, str::FromStr};
 use serde::de::{value, IntoDeserializer};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Room {
     Hallway,
@@ -16,6 +16,14 @@ pub enum Room {
 }
 
 impl Room {
+    pub const fn all_rooms() -> &'static [Room] {
+        use Room::*;
+
+        &[
+            Hallway, Corridor, Bathroom, Nursery, Bedroom, Kitchen, LivingRoom,
+        ]
+    }
+
     pub fn name(&self) -> &str {
         match self {
             Room::Hallway => "Прихожая",

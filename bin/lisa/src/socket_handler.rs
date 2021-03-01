@@ -63,7 +63,7 @@ impl SocketHandler {
         }
     }
 
-    pub async fn send_command(&mut self, command: Command) -> Result<()> {
+    pub async fn send_command(&mut self, command: &Command) -> Result<()> {
         let bytes = serde_json::to_vec(&command)?;
 
         if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {

@@ -2,7 +2,7 @@ use std::net::ToSocketAddrs;
 use std::time::Duration;
 
 use hex_literal::hex;
-use log::{error, info};
+use log::{debug, error, info};
 use tokio::net::TcpStream;
 use tokio::{
     io::{AsyncWriteExt, BufWriter, WriteHalf},
@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     let mut connection = SocketHandler::new();
 
     loop {
-        info!("connecting to {}", addr);
+        debug!("connecting to {}", addr);
 
         match TcpStream::connect(addr).await {
             Ok(stream) => {
@@ -51,11 +51,9 @@ async fn main() -> Result<()> {
                         let mut connection = connection;
 
                         while let Some(status) = rx.recv().await {
-                            info!("sending battery percentage {}", status.battery);
+                            debug!("sending battery percentage {}", status.battery);
 
-                            if let Err(error) =
-                                connection.report_battery_percentage(status.battery).await
-                            {
+                            if let Err(error) = connection.report_vacuum_status(status).await {
                                 error!("unable to send battery percentage {}", error);
                             }
                         }

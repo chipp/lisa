@@ -1,7 +1,7 @@
 use std::fmt;
 use std::net::{Ipv4Addr, SocketAddr};
 
-use log::{info, trace};
+use log::{debug, trace};
 use tokio::{
     net::UdpSocket,
     time::{self, Duration},
@@ -60,9 +60,9 @@ pub async fn discover(ip: Option<Ipv4Addr>) -> Result<Header> {
                 if size == 32 {
                     let header = Header::read_from(&buffer);
 
-                    info!("ip: {}", addr.ip());
-                    info!("device id: {:x}", header.id);
-                    info!("timestamp: {}", header.ts);
+                    debug!("ip: {}", addr.ip());
+                    debug!("device id: {:x}", header.id);
+                    debug!("timestamp: {}", header.ts);
 
                     return Ok(header);
                 }

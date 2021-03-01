@@ -7,6 +7,7 @@ use crate::PropertyType;
 pub enum Property {
     Humidity { value: f32 },
     Temperature { value: f32 },
+    BatteryLevel { value: f32 },
 }
 
 impl Property {
@@ -16,6 +17,10 @@ impl Property {
 
     pub fn temperature(value: f32) -> Property {
         Property::Temperature { value }
+    }
+
+    pub fn battery_level(value: f32) -> Property {
+        Property::BatteryLevel { value }
     }
 }
 
@@ -30,11 +35,11 @@ impl serde::ser::Serialize for Property {
             value: U,
         }
 
-        let mut property = serializer.serialize_struct("Property", 4)?;
+        let mut property = serializer.serialize_struct("Property", 2)?;
+        property.serialize_field("type", &PropertyType::Float)?;
 
         match self {
             Property::Humidity { value } => {
-                property.serialize_field("type", &PropertyType::Float)?;
                 property.serialize_field(
                     "state",
                     &State {
@@ -44,11 +49,19 @@ impl serde::ser::Serialize for Property {
                 )?;
             }
             Property::Temperature { value } => {
-                property.serialize_field("type", &PropertyType::Float)?;
                 property.serialize_field(
                     "state",
                     &State {
                         instance: "temperature",
+                        value,
+                    },
+                )?;
+            }
+            Property::BatteryLevel { value } => {
+                property.serialize_field(
+                    "state",
+                    &State {
+                        instance: "battery_level",
                         value,
                     },
                 )?;
@@ -79,6 +92,14 @@ mod tests {
             json!({
                 "type": "devices.properties.float",
                 "state": {"instance": "temperature", "value": 23.0}
+            })
+        );
+
+        assert_eq!(
+            to_value(&Property::BatteryLevel { value: 98.0 }).unwrap(),
+            json!({
+                "type": "devices.properties.float",
+                "state": {"instance": "battery_level", "value": 98.0}
             })
         );
     }

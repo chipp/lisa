@@ -1,8 +1,9 @@
-mod packet;
-pub use packet::Packet;
-
-mod sensor_data;
-pub use sensor_data::SensorData;
-
 mod command;
+mod packet;
+mod sensor_data;
+mod vacuum_status;
+
 pub use command::{Command, CommandResponse};
+pub use packet::{Packet, PacketContent};
+pub use sensor_data::SensorData;
+pub use vacuum_status::VacuumStatus;

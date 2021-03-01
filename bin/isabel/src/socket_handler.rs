@@ -6,8 +6,8 @@ use tokio::{
     sync::Mutex,
 };
 
-use crate::Result;
-use elisheba::{Command, CommandResponse, Packet};
+use crate::{vacuum::Status, Result};
+use elisheba::{Command, CommandResponse, PacketContent, VacuumStatus};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;
@@ -70,7 +70,7 @@ impl SocketHandler {
                 }
             };
 
-            let bytes = serde_json::to_vec(&Packet::CommandResponse(response)).unwrap();
+            let bytes = serde_json::to_vec(&response.to_packet()).unwrap();
 
             if let Some(ref mut writer) = self.writer {
                 let mut writer = writer.clone().lock_owned().await;
@@ -81,9 +81,16 @@ impl SocketHandler {
         }
     }
 
-    pub async fn report_battery_percentage(&mut self, battery_percentage: u8) -> Result<()> {
-        let bytes =
-            serde_json::to_vec(&Packet::VacuumBatteryPercentage(battery_percentage)).unwrap();
+    pub async fn report_vacuum_status(&mut self, status: Status) -> Result<()> {
+        let bytes = serde_json::to_vec(
+            &VacuumStatus {
+                battery: status.battery,
+                is_enabled: status.state.is_enabled(),
+                work_speed: status.fan_speed.to_string(),
+            }
+            .to_packet(),
+        )
+        .unwrap();
 
         if let Some(ref mut writer) = self.writer {
             let mut writer = writer.clone().lock_owned().await;

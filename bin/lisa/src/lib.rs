@@ -17,7 +17,7 @@ pub use socket_handler::SocketHandler;
 mod state;
 mod update_state;
 
-pub use state::state_for_device;
+pub use state::StateManager;
 pub use update_state::update_devices_state;
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;

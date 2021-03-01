@@ -16,13 +16,19 @@ impl std::str::FromStr for ModeFunction {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
     Quiet,
     Normal,
     Medium,
     Turbo,
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::Normal
+    }
 }
 
 impl std::str::FromStr for Mode {

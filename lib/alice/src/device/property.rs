@@ -15,6 +15,11 @@ pub enum Property {
         retrievable: bool,
         reportable: bool,
     },
+    BatteryLevel {
+        unit: BatteryLevelUnit,
+        retrievable: bool,
+        reportable: bool,
+    },
 }
 
 impl Property {
@@ -34,6 +39,14 @@ impl Property {
         }
     }
 
+    pub fn battery_level() -> Property {
+        Property::BatteryLevel {
+            unit: BatteryLevelUnit::Percent,
+            retrievable: false,
+            reportable: false,
+        }
+    }
+
     pub fn retrievable(self) -> Property {
         let mut value = self;
 
@@ -44,6 +57,11 @@ impl Property {
                 reportable: _,
             } => *retrievable = true,
             Property::Temperature {
+                unit: _,
+                ref mut retrievable,
+                reportable: _,
+            } => *retrievable = true,
+            Property::BatteryLevel {
                 unit: _,
                 ref mut retrievable,
                 reportable: _,
@@ -67,6 +85,11 @@ impl Property {
                 retrievable: _,
                 ref mut reportable,
             } => *reportable = true,
+            Property::BatteryLevel {
+                unit: _,
+                retrievable: _,
+                ref mut reportable,
+            } => *reportable = true,
         }
 
         value
@@ -85,6 +108,12 @@ pub enum TemperatureUnit {
     Celsius,
 }
 
+#[derive(Debug, Serialize, PartialEq)]
+pub enum BatteryLevelUnit {
+    #[serde(rename = "unit.percent")]
+    Percent,
+}
+
 impl serde::ser::Serialize for Property {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -97,6 +126,7 @@ impl serde::ser::Serialize for Property {
         }
 
         let mut property = serializer.serialize_struct("Property", 4)?;
+        property.serialize_field("type", &PropertyType::Float)?;
 
         match self {
             Property::Humidity {
@@ -104,7 +134,6 @@ impl serde::ser::Serialize for Property {
                 retrievable,
                 reportable,
             } => {
-                property.serialize_field("type", &PropertyType::Float)?;
                 property.serialize_field("retrievable", &retrievable)?;
                 property.serialize_field("reportable", &reportable)?;
                 property.serialize_field(
@@ -120,13 +149,27 @@ impl serde::ser::Serialize for Property {
                 retrievable,
                 reportable,
             } => {
-                property.serialize_field("type", &PropertyType::Float)?;
                 property.serialize_field("retrievable", &retrievable)?;
                 property.serialize_field("reportable", &reportable)?;
                 property.serialize_field(
                     "parameters",
                     &Parameters {
                         instance: "temperature",
+                        unit,
+                    },
+                )?;
+            }
+            Property::BatteryLevel {
+                unit,
+                retrievable,
+                reportable,
+            } => {
+                property.serialize_field("retrievable", &retrievable)?;
+                property.serialize_field("reportable", &reportable)?;
+                property.serialize_field(
+                    "parameters",
+                    &Parameters {
+                        instance: "battery_level",
                         unit,
                     },
                 )?;
@@ -189,6 +232,24 @@ mod tests {
                 "parameters": {
                     "instance": "temperature",
                     "unit": "unit.temperature.celsius"
+                }
+            })
+        );
+
+        assert_eq!(
+            to_value(&Property::BatteryLevel {
+                unit: BatteryLevelUnit::Percent,
+                retrievable: true,
+                reportable: true,
+            })
+            .unwrap(),
+            json!({
+                "type": "devices.properties.float",
+                "retrievable": true,
+                "reportable": true,
+                "parameters": {
+                    "instance": "battery_level",
+                    "unit": "unit.percent"
                 }
             })
         );

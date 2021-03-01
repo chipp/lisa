@@ -1,3 +1,4 @@
+use crate::{packet::PacketContent, Packet};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -14,6 +15,12 @@ pub enum Command {
 pub enum CommandResponse {
     Ok,
     Failure,
+}
+
+impl PacketContent for CommandResponse {
+    fn to_packet(self) -> Packet {
+        Packet::CommandResponse(self)
+    }
 }
 
 #[cfg(test)]

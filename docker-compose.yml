@@ -1,6 +1,6 @@
 version: "3"
 services:
-  reader:
+  lisa:
     build: .
     image: ghcr.io/chipp/lisa:latest
     expose:
@@ -8,6 +8,8 @@ services:
     ports:
       - 8081:8081
     entrypoint: ["./lisa"]
+    env_file:
+      - .alice.env
     environment:
       - RUST_LOG=debug
       - VIRTUAL_HOST=lisa.burdukov.by

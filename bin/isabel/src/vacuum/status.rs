@@ -45,6 +45,20 @@ pub enum State {
     VacuumingAndMopping = 6,
 }
 
+impl State {
+    pub fn is_enabled(&self) -> bool {
+        match self {
+            State::Cleaning | State::VacuumingAndMopping => true,
+            State::Unknown
+            | State::IdleNotDocked
+            | State::Idle
+            | State::Idle2
+            | State::Returning
+            | State::Docked => false,
+        }
+    }
+}
+
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -83,7 +97,7 @@ impl From<String> for FanSpeed {
 impl fmt::Display for FanSpeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FanSpeed::Silent => write!(f, "silent"),
+            FanSpeed::Silent => write!(f, "quiet"),
             FanSpeed::Standard => write!(f, "normal"),
             FanSpeed::Medium => write!(f, "medium"),
             FanSpeed::Turbo => write!(f, "turbo"),

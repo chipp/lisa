@@ -62,7 +62,7 @@ fn vacuum_cleaner_device(room: Room) -> Device {
         description: format!("в {}", room_name),
         room: room_name,
         device_type: DeviceType::VacuumCleaner,
-        properties: vec![],
+        properties: vec![DeviceProperty::battery_level().retrievable().reportable()],
         capabilities: vec![
             DeviceCapability::on_off(false).retrievable(),
             DeviceCapability::mode(

@@ -1,15 +1,16 @@
 FROM ghcr.io/chipp/build.rust.armv7_musl:1.50.0_1 AS builder
 
 WORKDIR /home/rust/src
-RUN USER=rust cargo new --bin /home/rust/src/lisa && \
-    cargo new --lib /home/rust/src/alice && \
-    cargo new --lib /home/rust/src/elisheba && \
-    cargo new --bin /home/rust/src/isabel
+RUN USER=rust \
+    cargo new --lib /home/rust/src/lib/alice && \
+    cargo new --lib /home/rust/src/lib/elisheba && \
+    cargo new --bin /home/rust/src/bin/lisa && \
+    cargo new --bin /home/rust/src/bin/isabel
 
-COPY ./lisa/Cargo.toml ./lisa/Cargo.toml
-COPY ./alice/Cargo.toml ./alice/Cargo.toml
-COPY ./elisheba/Cargo.toml ./elisheba/Cargo.toml
-COPY ./isabel/Cargo.toml ./isabel/Cargo.toml
+COPY ./lib/alice/Cargo.toml ./lib/alice/Cargo.toml
+COPY ./lib/elisheba/Cargo.toml ./lib/elisheba/Cargo.toml
+COPY ./bin/lisa/Cargo.toml ./bin/lisa/Cargo.toml
+COPY ./bin/isabel/Cargo.toml ./bin/isabel/Cargo.toml
 
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
@@ -17,10 +18,10 @@ COPY ./Cargo.toml ./Cargo.toml
 RUN cargo build --release -p isabel && \
   cargo clean --release -p elisheba -p isabel \
     --target armv7-unknown-linux-musleabihf && \
-  rm ./elisheba/src/*.rs ./isabel/src/*.rs
+  rm ./lib/elisheba/src/*.rs ./bin/isabel/src/*.rs
 
-COPY ./elisheba/src ./elisheba/src
-COPY ./isabel/src ./isabel/src
+COPY ./lib/elisheba/src ./lib/elisheba/src
+COPY ./bin/isabel/src ./bin/isabel/src
 
 RUN cargo build --release -p isabel
 

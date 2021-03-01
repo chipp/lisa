@@ -1,8 +1,9 @@
 [workspace]
 
 members = [
-  "isabel",
-  "alice",
-  "lisa",
-  "elisheba"
+  "lib/elisheba",
+  "lib/alice",
+
+  "bin/isabel",
+  "bin/lisa",
 ]

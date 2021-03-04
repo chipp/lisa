@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CommandResponse, VacuumStatus};
+use crate::{CommandResponse, SensorData, VacuumStatus};
 
 pub trait PacketContent {
     fn to_packet(self) -> Packet;
@@ -10,4 +10,5 @@ pub trait PacketContent {
 pub enum Packet {
     CommandResponse(CommandResponse),
     VacuumStatus(VacuumStatus),
+    SensorData(SensorData),
 }

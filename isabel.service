@@ -7,6 +7,7 @@ Type=simple
 Restart=always
 ExecStart=/usr/local/bin/isabel
 Environment=RUST_LOG=info
+Environment=LISA_SOCKET_ADDR=lisa.burdukov.by:8081
 
 [Install]
 WantedBy=multi-user.target

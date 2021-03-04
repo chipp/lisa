@@ -36,7 +36,7 @@ impl Room {
         }
     }
 
-    pub fn id(&self) -> u8 {
+    pub fn vacuum_id(&self) -> u8 {
         match self {
             Room::Hallway => 13,
             Room::Corridor => 15,

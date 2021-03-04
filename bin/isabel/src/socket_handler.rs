@@ -7,7 +7,7 @@ use tokio::{
 };
 
 use crate::{vacuum::Status, Result};
-use elisheba::{Command, CommandResponse, PacketContent, VacuumStatus};
+use elisheba::{Command, CommandResponse, PacketContent, SensorData, VacuumStatus};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;
@@ -91,6 +91,19 @@ impl SocketHandler {
             .to_packet(),
         )
         .unwrap();
+
+        if let Some(ref mut writer) = self.writer {
+            let mut writer = writer.clone().lock_owned().await;
+            Self::send_bytes(&mut writer, &bytes).await?;
+
+            Ok(())
+        } else {
+            Err(Box::new(NotConnected))
+        }
+    }
+
+    pub async fn report_sensor_data(&mut self, sensor_data: SensorData) -> Result<()> {
+        let bytes = serde_json::to_vec(&sensor_data.to_packet()).unwrap();
 
         if let Some(ref mut writer) = self.writer {
             let mut writer = writer.clone().lock_owned().await;

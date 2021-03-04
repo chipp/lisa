@@ -74,7 +74,7 @@ where
 
         toggle_state_result = match state {
             Some(true) => {
-                let room_ids = rooms.iter().map(crate::Room::id).collect();
+                let room_ids = rooms.iter().map(crate::Room::vacuum_id).collect();
 
                 Some(send_command(Command::Start { rooms: room_ids }).await)
             }

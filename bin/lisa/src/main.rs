@@ -156,6 +156,19 @@ async fn read_from_socket(
 
                         state.report_if_necessary().await;
                     }
+                    Packet::SensorData(sensor_data) => {
+                        let mut state = state_manager.clone().lock_owned().await;
+
+                        state
+                            .nursery_sensor_state
+                            .set_temperature(sensor_data.temperature);
+                        state
+                            .nursery_sensor_state
+                            .set_humidity(sensor_data.humidity);
+                        state.nursery_sensor_state.set_battery(sensor_data.battery);
+
+                        state.report_if_necessary().await;
+                    }
                 }
             }
         })

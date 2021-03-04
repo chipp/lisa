@@ -11,12 +11,14 @@ use crate::Room::{self, *};
 
 pub struct StateManager {
     pub vacuum_state: VacuumState,
+    pub nursery_sensor_state: SensorState,
 }
 
 impl StateManager {
     pub fn new() -> Self {
         Self {
             vacuum_state: VacuumState::default(),
+            nursery_sensor_state: SensorState::default(),
         }
     }
 
@@ -41,6 +43,18 @@ impl StateManager {
                     ],
                 ));
             }
+        }
+
+        if self.nursery_sensor_state.modified {
+            let device_id = DeviceId::temperature_sensor_at_room(Room::Nursery);
+
+            devices.push(StateDevice::new_with_properties(
+                device_id.to_string(),
+                vec![
+                    StateProperty::temperature(self.nursery_sensor_state.temperature),
+                    StateProperty::humidity(self.nursery_sensor_state.humidity),
+                ],
+            ));
         }
 
         if devices.is_empty() {
@@ -98,6 +112,13 @@ impl StateManager {
                     ],
                 ))
             }
+            (Nursery, TemperatureSensor) => Some(StateDevice::new_with_properties(
+                device_id.to_string(),
+                vec![
+                    StateProperty::temperature(self.nursery_sensor_state.temperature),
+                    StateProperty::humidity(self.nursery_sensor_state.humidity),
+                ],
+            )),
             _ => None,
         }
     }
@@ -131,6 +152,38 @@ impl VacuumState {
         let vacuum_work_speed = Mode::from_str(&work_speed).unwrap();
         if self.work_speed != vacuum_work_speed {
             self.work_speed = vacuum_work_speed;
+            self.modified = true;
+        }
+    }
+}
+
+#[derive(Default, PartialEq)]
+pub struct SensorState {
+    temperature: f32,
+    humidity: f32,
+    battery: u8,
+
+    modified: bool,
+}
+
+impl SensorState {
+    pub fn set_temperature(&mut self, temperature: f32) {
+        if self.temperature != temperature {
+            self.temperature = temperature;
+            self.modified = true;
+        }
+    }
+
+    pub fn set_humidity(&mut self, humidity: f32) {
+        if self.humidity != humidity {
+            self.humidity = humidity;
+            self.modified = true;
+        }
+    }
+
+    pub fn set_battery(&mut self, battery: u8) {
+        if self.battery != battery {
+            self.battery = battery;
             self.modified = true;
         }
     }

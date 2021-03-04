@@ -48,6 +48,7 @@ fn sensor_device(room: Room) -> Device {
         properties: vec![
             DeviceProperty::humidity().retrievable().reportable(),
             DeviceProperty::temperature().retrievable().reportable(),
+            DeviceProperty::battery_level().retrievable().reportable(),
         ],
         capabilities: vec![],
     }
@@ -64,12 +65,13 @@ fn vacuum_cleaner_device(room: Room) -> Device {
         device_type: DeviceType::VacuumCleaner,
         properties: vec![DeviceProperty::battery_level().retrievable().reportable()],
         capabilities: vec![
-            DeviceCapability::on_off(false).retrievable(),
+            DeviceCapability::on_off(false).retrievable().reportable(),
             DeviceCapability::mode(
                 ModeFunction::WorkSpeed,
                 vec![Mode::Quiet, Mode::Normal, Mode::Medium, Mode::Turbo],
             )
-            .retrievable(),
+            .retrievable()
+            .reportable(),
         ],
     }
 }

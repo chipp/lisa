@@ -3,6 +3,7 @@
 members = [
   "lib/elisheba",
   "lib/alice",
+  "lib/alzhbeta",
 
   "bin/isabel",
   "bin/lisa",

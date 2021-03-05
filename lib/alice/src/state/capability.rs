@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Mode, ModeFunction};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Capability {
     OnOff { value: bool },
     Mode { function: ModeFunction, mode: Mode },

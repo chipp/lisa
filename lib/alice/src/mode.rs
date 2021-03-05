@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::{de::value, de::IntoDeserializer, Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeFunction {
     WorkSpeed,

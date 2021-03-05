@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::PropertyType;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Property {
     Humidity { value: f32 },
     Temperature { value: f32 },

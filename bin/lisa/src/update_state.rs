@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use crate::DeviceType::*;
 use crate::{DeviceId, Result};
 
-use log::info;
+use log::debug;
 
 use alice::{
     ModeFunction, StateCapability, StateUpdateResult, UpdateStateCapability, UpdateStateDevice,
@@ -48,9 +48,9 @@ where
         }
     }
 
-    info!("update state rooms {:?}", rooms);
-    info!("state {:?}", state);
-    info!("work_speed {:?}", work_speed);
+    debug!("update state rooms {:?}", rooms);
+    debug!("state {:?}", state);
+    debug!("work_speed {:?}", work_speed);
 
     if rooms.is_empty() {
         return vec![];

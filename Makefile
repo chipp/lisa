@@ -1,15 +1,13 @@
-.PHONY: lisa isabel
-
 LISA_ID="ghcr.io/chipp/lisa:latest"
 ISABEL_ID="ghcr.io/chipp/isabel:latest"
 
 
 lisa:
-	docker build . -f Dockerfile.lisa -t $(LISA_ID)
+	docker build . -f bin/lisa/Dockerfile -t $(LISA_ID)
 
 deploy_lisa: lisa
 	docker image save -o lisa.tar $(LISA_ID)
-	scp Makefile docker-compose.yml lisa.tar ezio:web/lisa
+	scp Makefile bin/lisa/docker-compose.yml lisa.tar ezio:web/lisa
 	ssh ezio "cd web/lisa; make install_lisa; docker-compose logs -f"
 
 logs_lisa:
@@ -22,11 +20,11 @@ install_lisa:
 	docker-compose up -d
 
 run_lisa:
-	RUST_LOG=info cargo run --bin lisa
+	RUST_LOG=debug cargo run --bin lisa
 
 
 isabel:
-	docker build . -f Dockerfile.isabel -t $(ISABEL_ID) -o build
+	docker build . -f bin/isabel/Dockerfile -t $(ISABEL_ID) -o build
 
 deploy_isabel: isabel
 	ssh pi "sudo systemctl stop isabel.service"
@@ -38,4 +36,4 @@ logs_isabel:
 	ssh pi "journalctl -u isabel.service -b -f"
 
 run_isabel:
-	RUST_LOG=info cargo run --bin isabel
+	RUST_LOG=debug cargo run --bin isabel

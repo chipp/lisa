@@ -1,6 +1,13 @@
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    net::SocketAddr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
-use elisheba::{Command, CommandResponse, Packet};
+use elisheba::{Command, CommandResponse, Packet, SensorData, SensorRoom};
 use log::{debug, info};
 
 use hyper::service::{make_service_fn, service_fn};
@@ -107,8 +114,6 @@ async fn listen_tcp(
 
     info!("Listening socket {}", addr);
 
-    let mut handles = vec![];
-
     loop {
         match tcp_listener.accept().await {
             Ok((stream, addr)) => {
@@ -118,12 +123,7 @@ async fn listen_tcp(
                 let cmd_res_tx = cmd_res_tx.clone();
                 let state_manager = state_manager.clone();
 
-                handles.push(task::spawn(read_from_socket(
-                    socket_handler,
-                    addr,
-                    cmd_res_tx,
-                    state_manager,
-                )))
+                let _ = read_from_socket(socket_handler, addr, cmd_res_tx, state_manager).await;
             }
             Err(error) => eprintln!("{}", error),
         }
@@ -138,8 +138,26 @@ async fn read_from_socket(
 ) -> Result<()> {
     info!("A client did connect {}", addr);
 
+    let abort = Arc::from(AtomicBool::from(false));
+
+    let state_manager_report = state_manager.clone();
+    let abort_report = abort.clone();
+    task::spawn(async move {
+        let mut timer = time::interval(Duration::from_secs(30));
+
+        loop {
+            if abort_report.load(Ordering::Relaxed) {
+                break;
+            }
+
+            timer.tick().await;
+            let mut state_manager = state_manager_report.clone().lock_owned().await;
+            state_manager.report_if_necessary().await;
+        }
+    });
+
     let mut socket_handler = socket_handler;
-    socket_handler
+    let _ = socket_handler
         .read_packets(|packet| {
             let cmd_res_tx = cmd_res_tx.clone();
             let state_manager = state_manager.clone();
@@ -153,26 +171,45 @@ async fn read_from_socket(
                         state.vacuum_state.set_battery(status.battery);
                         state.vacuum_state.set_is_enabled(status.is_enabled);
                         state.vacuum_state.set_work_speed(status.work_speed);
-
-                        state.report_if_necessary().await;
                     }
                     Packet::SensorData(sensor_data) => {
                         let mut state = state_manager.clone().lock_owned().await;
 
-                        state
-                            .nursery_sensor_state
-                            .set_temperature(sensor_data.temperature);
-                        state
-                            .nursery_sensor_state
-                            .set_humidity(sensor_data.humidity);
-                        state.nursery_sensor_state.set_battery(sensor_data.battery);
+                        let room_state = match sensor_data.room() {
+                            SensorRoom::Nursery => &mut state.nursery_sensor_state,
+                            SensorRoom::Bedroom => &mut state.bedroom_sensor_state,
+                            SensorRoom::LivingRoom => &mut state.living_room_sensor_state,
+                        };
 
-                        state.report_if_necessary().await;
+                        match sensor_data {
+                            SensorData::Temperature {
+                                room: _,
+                                temperature,
+                            } => {
+                                room_state.set_temperature(temperature);
+                            }
+                            SensorData::Humidity { room: _, humidity } => {
+                                room_state.set_humidity(humidity);
+                            }
+                            SensorData::Battery { room: _, battery } => {
+                                room_state.set_battery(battery);
+                            }
+                            SensorData::TemperatureAndHumidity {
+                                room: _,
+                                temperature,
+                                humidity,
+                            } => {
+                                room_state.set_temperature(temperature);
+                                room_state.set_humidity(humidity);
+                            }
+                        }
                     }
                 }
             }
         })
-        .await?;
+        .await;
+
+    abort.store(true, Ordering::Relaxed);
 
     info!("The client did disconnect {}", addr);
 

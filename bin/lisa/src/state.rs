@@ -1,9 +1,13 @@
-use std::str::FromStr;
+mod vacuum_state;
+use vacuum_state::VacuumState;
 
-use alice::{Mode, ModeFunction, StateCapability, StateDevice, StateProperty, StateResponse};
+mod sensor_state;
+use sensor_state::SensorState;
+
+use alice::{StateDevice, StateResponse};
 use chrono::Utc;
 use http_client::{parse_void, HttpClient};
-use log::{error, info};
+use log::{debug, error};
 
 use crate::DeviceId;
 use crate::DeviceType::*;
@@ -12,6 +16,8 @@ use crate::Room::{self, *};
 pub struct StateManager {
     pub vacuum_state: VacuumState,
     pub nursery_sensor_state: SensorState,
+    pub bedroom_sensor_state: SensorState,
+    pub living_room_sensor_state: SensorState,
 }
 
 impl StateManager {
@@ -19,42 +25,68 @@ impl StateManager {
         Self {
             vacuum_state: VacuumState::default(),
             nursery_sensor_state: SensorState::default(),
+            bedroom_sensor_state: SensorState::default(),
+            living_room_sensor_state: SensorState::default(),
         }
     }
 
     pub async fn report_if_necessary(&mut self) {
         let mut devices = vec![];
 
-        if self.vacuum_state.modified {
-            for room in Room::all_rooms() {
-                let device_id = DeviceId::vacuum_cleaner_at_room(*room);
+        {
+            let properties = self.vacuum_state.properties(true);
+            let capabilities = self.vacuum_state.capabilities(true);
 
-                devices.push(StateDevice::new_with_properties_and_capabilities(
+            if !properties.is_empty() && !capabilities.is_empty() {
+                for room in Room::all_rooms() {
+                    let device_id = DeviceId::vacuum_cleaner_at_room(*room);
+
+                    devices.push(StateDevice::new_with_properties_and_capabilities(
+                        device_id.to_string(),
+                        properties.clone(),
+                        capabilities.clone(),
+                    ));
+                }
+            }
+        }
+
+        {
+            let properties = self.nursery_sensor_state.properties(true);
+
+            if !properties.is_empty() {
+                let device_id = DeviceId::temperature_sensor_at_room(Room::Nursery);
+
+                devices.push(StateDevice::new_with_properties(
                     device_id.to_string(),
-                    vec![StateProperty::battery_level(
-                        self.vacuum_state.battery as f32,
-                    )],
-                    vec![
-                        StateCapability::on_off(self.vacuum_state.is_enabled),
-                        StateCapability::mode(
-                            ModeFunction::WorkSpeed,
-                            self.vacuum_state.work_speed,
-                        ),
-                    ],
+                    properties,
                 ));
             }
         }
 
-        if self.nursery_sensor_state.modified {
-            let device_id = DeviceId::temperature_sensor_at_room(Room::Nursery);
+        {
+            let properties = self.bedroom_sensor_state.properties(true);
 
-            devices.push(StateDevice::new_with_properties(
-                device_id.to_string(),
-                vec![
-                    StateProperty::temperature(self.nursery_sensor_state.temperature),
-                    StateProperty::humidity(self.nursery_sensor_state.humidity),
-                ],
-            ));
+            if !properties.is_empty() {
+                let device_id = DeviceId::temperature_sensor_at_room(Room::Bedroom);
+
+                devices.push(StateDevice::new_with_properties(
+                    device_id.to_string(),
+                    properties,
+                ));
+            }
+        }
+
+        {
+            let properties = self.living_room_sensor_state.properties(true);
+
+            if !properties.is_empty() {
+                let device_id = DeviceId::temperature_sensor_at_room(Room::LivingRoom);
+
+                devices.push(StateDevice::new_with_properties(
+                    device_id.to_string(),
+                    properties,
+                ));
+            }
         }
 
         if devices.is_empty() {
@@ -78,8 +110,11 @@ impl StateManager {
 
         match client.perform_request(request, parse_void).await {
             Ok(_) => {
-                info!("successfully notified alice about changes");
-                self.vacuum_state.modified = false
+                debug!("successfully notified alice about changes");
+                self.vacuum_state.reset_modified();
+                self.nursery_sensor_state.reset_modified();
+                self.bedroom_sensor_state.reset_modified();
+                self.living_room_sensor_state.reset_modified();
             }
             Err(err) => {
                 error!("unable to report state changes {}", err);
@@ -100,91 +135,23 @@ impl StateManager {
             | (LivingRoom, VacuumCleaner) => {
                 Some(StateDevice::new_with_properties_and_capabilities(
                     device_id.to_string(),
-                    vec![StateProperty::battery_level(
-                        self.vacuum_state.battery as f32,
-                    )],
-                    vec![
-                        StateCapability::on_off(self.vacuum_state.is_enabled),
-                        StateCapability::mode(
-                            ModeFunction::WorkSpeed,
-                            self.vacuum_state.work_speed,
-                        ),
-                    ],
+                    self.vacuum_state.properties(false),
+                    self.vacuum_state.capabilities(false),
                 ))
             }
             (Nursery, TemperatureSensor) => Some(StateDevice::new_with_properties(
                 device_id.to_string(),
-                vec![
-                    StateProperty::temperature(self.nursery_sensor_state.temperature),
-                    StateProperty::humidity(self.nursery_sensor_state.humidity),
-                ],
+                self.nursery_sensor_state.properties(false),
+            )),
+            (Bedroom, TemperatureSensor) => Some(StateDevice::new_with_properties(
+                device_id.to_string(),
+                self.bedroom_sensor_state.properties(false),
+            )),
+            (LivingRoom, TemperatureSensor) => Some(StateDevice::new_with_properties(
+                device_id.to_string(),
+                self.living_room_sensor_state.properties(false),
             )),
             _ => None,
-        }
-    }
-}
-
-#[derive(Default, PartialEq)]
-pub struct VacuumState {
-    is_enabled: bool,
-    battery: u8,
-    work_speed: Mode,
-
-    modified: bool,
-}
-
-impl VacuumState {
-    pub fn set_battery(&mut self, battery: u8) {
-        if self.battery != battery {
-            self.battery = battery;
-            self.modified = true;
-        }
-    }
-
-    pub fn set_is_enabled(&mut self, is_enabled: bool) {
-        if self.is_enabled != is_enabled {
-            self.is_enabled = is_enabled;
-            self.modified = true;
-        }
-    }
-
-    pub fn set_work_speed(&mut self, work_speed: String) {
-        let vacuum_work_speed = Mode::from_str(&work_speed).unwrap();
-        if self.work_speed != vacuum_work_speed {
-            self.work_speed = vacuum_work_speed;
-            self.modified = true;
-        }
-    }
-}
-
-#[derive(Default, PartialEq)]
-pub struct SensorState {
-    temperature: f32,
-    humidity: f32,
-    battery: u8,
-
-    modified: bool,
-}
-
-impl SensorState {
-    pub fn set_temperature(&mut self, temperature: f32) {
-        if self.temperature != temperature {
-            self.temperature = temperature;
-            self.modified = true;
-        }
-    }
-
-    pub fn set_humidity(&mut self, humidity: f32) {
-        if self.humidity != humidity {
-            self.humidity = humidity;
-            self.modified = true;
-        }
-    }
-
-    pub fn set_battery(&mut self, battery: u8) {
-        if self.battery != battery {
-            self.battery = battery;
-            self.modified = true;
         }
     }
 }

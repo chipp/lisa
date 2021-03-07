@@ -91,7 +91,7 @@ jobs:
            -i ~/.ssh/id_rsa \
            "echo test"
 
-         scp -i ~/.ssh/id_rsa build/isabel Makefile docker-compose.yml \
+         scp build/isabel Makefile bin/lisa/docker-compose.yml \
            ${{ secrets.ssh_user }}@${{ secrets.ssh_host }}:web/lisa/
 
      - name: Deploy lisa and isabel
@@ -100,6 +100,5 @@ jobs:
          echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
 
          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
-           -i ~/.ssh/id_rsa \
            "cd ~/web/lisa/ && make action_deploy"
 

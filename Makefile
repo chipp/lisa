@@ -49,6 +49,7 @@ run_isabel:
 
 action_deploy:
 	make install_lisa
+	ssh pi "sudo service isabel stop"
 	scp isabel pi:/usr/local/bin
-	ssh pi "sudo systemctl restart isabel.service"
+	ssh pi "sudo service isabel start"
 

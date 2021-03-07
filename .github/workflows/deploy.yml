@@ -18,6 +18,7 @@ jobs:
     strategy:
       matrix:
         binary: [lisa, isabel]
+
     steps:
       - uses: actions/checkout@v2
 
@@ -39,7 +40,8 @@ jobs:
       - name: Build image
         run: |
           docker buildx build . --file bin/${{ matrix.binary }}/Dockerfile \
-             --tag ${{ matrix.binary }} \
+             --load \
+             --tag ${{ matrix.binary }}:latest \
              --cache-from=type=local,src=/tmp/.buildx-cache \
              --cache-to=type=local,dest=/tmp/.buildx-cache-new
 
@@ -51,6 +53,8 @@ jobs:
       - name: Push image
         run: |
           IMAGE_ID=ghcr.io/$OWNER/${{ matrix.binary }}
+
+          docker images -a
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')

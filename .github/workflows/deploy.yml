@@ -82,19 +82,17 @@ jobs:
 
          ssh-keyscan -H ${{ secrets.ssh_host }} > ~/.ssh/known_hosts
 
-         ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
-           -i ~/.ssh/id_rsa \
-           "ls -la web/lisa"
-
      - name: Extract isabel
        run: |
          docker run --rm -v "$PWD/build:/build" ghcr.io/chipp/isabel:latest cp /root/isabel /build/isabel
 
-     - name: Deploy lisa and isabel
+     - name: Copy artifacts
        run: |
-         scp build/isabel Makefile docker-compose.yml \
+         scp -i ~/.ssh/id_rsa build/isabel Makefile docker-compose.yml \
            ${{ secrets.ssh_user }}@${{ secrets.ssh_host }}:web/lisa/
 
+     - name: Deploy lisa and isabel
+       run: |
          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
            -i ~/.ssh/id_rsa \
            "cd ~/web/lisa/ && make action_deploy"

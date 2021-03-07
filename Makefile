@@ -8,19 +8,26 @@ lisa:
 deploy_lisa: lisa
 	docker image save -o lisa.tar $(LISA_ID)
 	scp Makefile bin/lisa/docker-compose.yml lisa.tar ezio:web/lisa
-	ssh ezio "cd web/lisa; make install_lisa; docker-compose logs -f"
+	ssh ezio "cd web/lisa; make install_lisa_from_tar; docker-compose logs -f"
 
 logs_lisa:
 	ssh ezio "cd web/lisa; docker-compose logs -f"
 
-install_lisa:
+install_lisa_from_tar:
 	docker-compose down || true
 	docker image rm $(LISA_ID)
 	docker image load -i lisa.tar
 	docker-compose up -d
 
+install_lisa:
+	docker-compose down || true
+	docker image rm $(LISA_ID)
+	docker pull $(LISA_ID)
+	docker-compose up -d
+
 run_lisa:
 	RUST_LOG=debug cargo run --bin lisa
+
 
 
 isabel:
@@ -37,3 +44,11 @@ logs_isabel:
 
 run_isabel:
 	RUST_LOG=debug cargo run --bin isabel
+
+
+
+action_deploy:
+	make install_lisa
+	scp isabel pi:/usr/local/bin
+	ssh pi "sudo systemctl restart isabel.service"
+

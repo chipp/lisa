@@ -14,7 +14,7 @@ use tokio::{net::TcpStream, task::JoinHandle};
 use elisheba::{SensorData, SensorRoom};
 use isabel::{Result, SocketHandler, Vacuum, VacuumController};
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
 

@@ -82,6 +82,10 @@ jobs:
 
          ssh-keyscan -H ${{ secrets.ssh_host }} > ~/.ssh/known_hosts
 
+         ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
+           -i ~/.ssh/id_rsa \
+           "ls -la web/lisa"
+
      - name: Extract isabel
        run: |
          docker run --rm -v "$PWD/build:/build" ghcr.io/chipp/isabel:latest cp /root/isabel /build/isabel

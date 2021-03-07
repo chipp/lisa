@@ -54,8 +54,6 @@ jobs:
         run: |
           IMAGE_ID=ghcr.io/$OWNER/${{ matrix.binary }}
 
-          docker images -a
-
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
 
@@ -67,6 +65,9 @@ jobs:
    needs: push
    steps:
      - uses: actions/checkout@v2
+
+     - name: Log into registry
+       run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
      - name: Add ssh key to ssh-agent
        run: |
@@ -83,7 +84,7 @@ jobs:
 
      - name: Extract isabel
        run: |
-         docker run -it --rm -v "$PWD/build:/build" ghcr.io/chipp/isabel:latest cp /root/isabel /build/isabel
+         docker run --rm -v "$PWD/build:/build" ghcr.io/chipp/isabel:latest cp /root/isabel /build/isabel
 
      - name: Deploy lisa and isabel
        run: |

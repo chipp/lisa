@@ -1,0 +1,63 @@
+name: Publish and deploy
+
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    strategy:
+      matrix:
+        binary: [lisa, isabel]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Log into registry
+        run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+
+      - name: Build image
+        run: |
+          docker build . --file bin/${{ matrix.binary }}/Dockerfile --tag ${{ matrix.binary }}
+
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/$OWNER/${{ matrix.binary }}
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+
+          docker tag ${{ matrix.binary }} $IMAGE_ID:latest
+          docker push $IMAGE_ID:latest
+
+#  deploy:
+#    runs-on: ubuntu-latest
+#    needs: push
+#    steps:
+#      - uses: actions/checkout@v2
+#
+#      - name: Add ssh key to ssh-agent
+#        run: |
+#          eval `ssh-agent -s`
+#
+#          mkdir ~/.ssh/
+#
+#          echo "${{ secrets.ssh_key }}" > ~/.ssh/id_rsa
+#          chmod -R 700 ~/.ssh/
+#
+#          echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
+#
+#          ssh-keyscan -H ${{ secrets.ssh_host }} > ~/.ssh/known_hosts
+#
+#          scp Makefile docker-compose.yml \
+#            ${{ secrets.ssh_user }}@${{ secrets.ssh_host }}:web/lisa/
+#
+#          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
+#            -i ~/.ssh/id_rsa \
+#            "cd ~/web/lisa/ && make install"
+

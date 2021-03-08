@@ -10,6 +10,7 @@ services:
     entrypoint: ["./lisa"]
     env_file:
       - .alice.env
+      - .lisa.env
     environment:
       - RUST_LOG=info
       - VIRTUAL_HOST=lisa.burdukov.by

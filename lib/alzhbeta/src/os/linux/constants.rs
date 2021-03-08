@@ -1,4 +1,4 @@
-use libc::{c_char, c_int, c_uint};
+use libc::{c_char, c_int, c_uint, c_ulong};
 
 pub const HCI_MAX_EVENT_SIZE: c_int = 260;
 
@@ -22,13 +22,13 @@ pub const HCI_EVENT_HDR_SIZE: isize = 2;
 
 const _IOC_WRITE: c_uint = 1;
 
-const fn _ioc(dir: c_uint, r#type: c_char, nr: c_int, size: usize) -> c_int {
-    ((dir as c_int) << 30) | ((r#type as c_int) << 8) | (nr as c_int) | ((size as c_int) << 16)
+const fn _ioc(dir: c_uint, r#type: c_char, nr: c_int, size: usize) -> c_ulong {
+    ((dir as c_ulong) << 30) | ((r#type as c_ulong) << 8) | (nr as c_ulong) | ((size as c_ulong) << 16)
 }
 
-const fn _iow<T>(r#type: c_char, nr: c_int) -> c_int {
+const fn _iow<T>(r#type: c_char, nr: c_int) -> c_ulong {
     _ioc(_IOC_WRITE, r#type, nr, std::mem::size_of::<T>())
 }
 
-pub const HCIDEVUP: c_int = _iow::<c_int>(b'H' as c_char, 201);
-pub const HCIDEVDOWN: c_int = _iow::<c_int>(b'H' as c_char, 202);
+pub const HCIDEVUP: c_ulong = _iow::<c_int>(b'H' as c_char, 201);
+pub const HCIDEVDOWN: c_ulong = _iow::<c_int>(b'H' as c_char, 202);

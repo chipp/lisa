@@ -24,9 +24,10 @@ pub fn is_valid_token<T: AsRef<str>>(token: T, token_type: TokenType) -> bool {
     validation.sub = Some("yandex".to_owned());
     validation.set_audience(&[token_type.to_string()]);
 
+    let secret = extract_secret_from_env();
     let decoded = decode::<Claims>(
         token.as_ref(),
-        &DecodingKey::from_secret(b"123456"),
+        &DecodingKey::from_secret(secret.as_bytes()),
         &validation,
     );
 
@@ -56,5 +57,16 @@ pub fn create_token_with_expiration_in(expiration: Duration, token_type: TokenTy
     };
 
     let header = Header::new(Algorithm::HS512);
-    encode(&header, &claims, &EncodingKey::from_secret(b"123456")).unwrap()
+    let secret = extract_secret_from_env();
+
+    encode(
+        &header,
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .unwrap()
+}
+
+fn extract_secret_from_env() -> String {
+    std::env::var("JWT_SECRET").expect("Set JWT_SECRET env variable")
 }

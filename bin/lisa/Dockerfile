@@ -94,8 +94,12 @@ COPY ./lib/alzhbeta/src ./lib/alzhbeta/src
 COPY ./bin/lisa/src ./bin/lisa/src
 COPY ./bin/isabel/src ./bin/isabel/src
 
-RUN cargo test && rm -rf target/debug/
-RUN cargo build --release -p lisa
+RUN cargo test && \
+  rm -rf target/x86_64-unknown-linux-musl/debug/ target/debug/
+
+RUN cargo build --release -p lisa && \
+  mv target/x86_64-unknown-linux-musl/release/lisa ./ && \
+  rm -rf target/x86_64-unknown-linux-musl/release/ target/release/
 
 FROM alpine:3.11
 RUN apk --no-cache add ca-certificates && update-ca-certificates
@@ -105,4 +109,4 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV SSL_CERT_DIR=/etc/ssl/certs
 ENV RUST_BACKTRACE=full
 
-COPY --from=0 /home/rust/src/target/x86_64-unknown-linux-musl/release/lisa .
+COPY --from=0 /home/rust/src/lisa .

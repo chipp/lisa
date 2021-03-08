@@ -55,8 +55,8 @@ struct Credentials<'a> {
 }
 
 fn verify_credentials(credentials: Credentials) -> bool {
-    match (credentials.user.as_ref(), credentials.password.as_ref()) {
-        ("kek", "lol") => true,
-        _ => false,
-    }
+    let user = std::env::var("LISA_USER").expect("Set LISA_USER env variable");
+    let password = std::env::var("LISA_PASSWORD").expect("Set LISA_USER env variable");
+
+    credentials.user == user && credentials.password == password
 }

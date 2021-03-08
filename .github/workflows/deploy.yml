@@ -29,6 +29,9 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
 
+      - name: Pull cache image
+        run: docker pull ghcr.io/$OWNER/${{ matrix.binary }}:cache
+
       - name: Build and push image
         run: |
           docker buildx build . --file bin/${{ matrix.binary }}/Dockerfile \
@@ -78,4 +81,3 @@ jobs:
 
          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
            "cd ~/web/lisa/ && make action_deploy"
-

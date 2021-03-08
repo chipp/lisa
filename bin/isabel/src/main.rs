@@ -6,19 +6,21 @@ use std::sync::{
 use std::time::Duration;
 
 use alzhbeta::{CommonScanner, Event, MacAddr, Scanner};
-use hex_literal::hex;
 use log::{debug, error, info};
 use tokio::task;
 use tokio::{net::TcpStream, task::JoinHandle};
 
 use elisheba::{SensorData, SensorRoom};
-use isabel::{Result, SocketHandler, Vacuum, VacuumController};
+use isabel::{parse_token, Result, SocketHandler, Vacuum, VacuumController};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
 
-    let mut vacuum = Vacuum::new([10, 0, 1, 150], hex!("59565144447659713237774434425a7a"));
+    let token = std::env::var("VACUUM_TOKEN").expect("set ENV variable VACUUM_TOKEN");
+    let token = parse_token(&token);
+
+    let mut vacuum = Vacuum::new([10, 0, 1, 150], token);
     let status = vacuum.status().await?;
 
     let vacuum_controller = VacuumController::new(vacuum);

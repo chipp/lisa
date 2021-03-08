@@ -17,7 +17,7 @@ use isabel::{parse_token, Result, SocketHandler, Vacuum, VacuumController};
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
 
-    info!("I just want to test BuildX caching");
+    info!("Change the message");
 
     let token = std::env::var("VACUUM_TOKEN").expect("set ENV variable VACUUM_TOKEN");
     let token = parse_token(&token);

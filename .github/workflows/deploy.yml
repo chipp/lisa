@@ -3,9 +3,7 @@ name: Publish and deploy
 on:
   push:
     branches:
-      - master
-
-  pull_request:
+      - main
 
 env:
   OWNER: chipp

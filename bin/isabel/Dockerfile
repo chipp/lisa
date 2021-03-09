@@ -67,10 +67,8 @@ RUN USER=rust \
   cargo new --bin /home/rust/src/bin/lisa && \
   cargo new --bin /home/rust/src/bin/isabel
 
-COPY ./lib/alice/Cargo.toml ./lib/alice/Cargo.toml
 COPY ./lib/elisheba/Cargo.toml ./lib/elisheba/Cargo.toml
 COPY ./lib/alzhbeta/Cargo.toml ./lib/alzhbeta/Cargo.toml
-COPY ./bin/lisa/Cargo.toml ./bin/lisa/Cargo.toml
 COPY ./bin/isabel/Cargo.toml ./bin/isabel/Cargo.toml
 
 COPY ./Cargo.lock ./Cargo.lock

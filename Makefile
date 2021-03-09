@@ -31,7 +31,7 @@ run_lisa:
 
 
 isabel:
-	docker build . -f bin/isabel/Dockerfile -t $(ISABEL_ID) --cache-from=ghcr.io/chipp/isabel:cache -o build
+	docker build . -f bin/isabel/Dockerfile -t $(ISABEL_ID) --cache-from=ghcr.io/chipp/isabel:cache #-o build
 
 deploy_isabel: isabel
 	ssh pi "sudo systemctl stop isabel.service"

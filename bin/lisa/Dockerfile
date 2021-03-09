@@ -1,4 +1,4 @@
-FROM ghcr.io/chipp/build.rust.x86_64_musl:1.50.0_4 AS builder
+FROM ghcr.io/chipp/build.rust.x86_64_musl:1.50.0_5 AS builder
 
 WORKDIR /home/rust/src
 RUN USER=rust \
@@ -15,7 +15,6 @@ COPY ./bin/lisa/Cargo.toml ./bin/lisa/Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
-ENV RUSTFLAGS=-L$PREFIX/lib
 RUN cargo build --release -p lisa && \
   cargo clean --release -p lisa -p alice -p elisheba \
   --target x86_64-unknown-linux-musl && \

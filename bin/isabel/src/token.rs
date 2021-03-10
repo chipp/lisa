@@ -88,8 +88,6 @@ mod tests {
             pos: 0,
         };
 
-        assert_eq!(0x9 << 4, 0x90);
-
         assert_eq!(iter.next(), Some(0x98));
         assert_eq!(iter.next(), Some(0x76));
         assert_eq!(iter.next(), Some(0x54));

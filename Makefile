@@ -1,9 +1,10 @@
-LISA_ID="ghcr.io/chipp/lisa:latest"
-ISABEL_ID="ghcr.io/chipp/isabel:latest"
+LISA_ID="ghcr.io/chipp/lisa"
+ISABEL_ID="ghcr.io/chipp/isabel"
 
 
 lisa:
-	docker build . -f bin/lisa/Dockerfile -t $(LISA_ID) --cache-from=ghcr.io/chipp/lisa:cache
+	docker build . -f bin/lisa/Dockerfile -t $(LISA_ID):latest \
+		--cache-from=type=registry,ref=$(LISA_ID):cache
 
 deploy_lisa: lisa
 	docker image save -o lisa.tar $(LISA_ID)
@@ -31,7 +32,8 @@ run_lisa:
 
 
 isabel:
-	docker build . -f bin/isabel/Dockerfile -t $(ISABEL_ID) --cache-from=ghcr.io/chipp/isabel:cache -o build
+	docker build . -f bin/isabel/Dockerfile -t $(ISABEL_ID):latest -o build \
+		--cache-from=type=registry,ref=$(ISABEL_ID):cache
 
 deploy_isabel: isabel
 	ssh pi "sudo systemctl stop isabel.service"

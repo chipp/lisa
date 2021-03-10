@@ -1,5 +1,7 @@
 FROM ghcr.io/chipp/build.rust.armv7_musl:1.50.0_5 AS builder
 
+ENV HOST=armv7-unknown-linux-musleabihf
+
 COPY ./bin/isabel/install_static_libs.sh ./install_static_libs.sh
 RUN ./install_static_libs.sh && rm ./install_static_libs.sh
 

@@ -12,8 +12,6 @@ apt-get update && apt-get install -y --no-install-recommends \
 
 rm -rf /var/lib/apt/lists/*
 
-HOST=armv7-unknown-linux-musleabihf
-
 FFI_VER="3.3"       FFI_SHA="72fba7922703ddfa7a028d513ac15a85c8d54c8d67f55fa5a4802885dc652056"
 TEXT_VER="0.3.2"    TEXT_SHA="a9a72cfa21853f7d249592a3c6f6d36f5117028e24573d092f9184ab72bbe187"
 GLIB_VER="2.58.3"   GLIB_SHA="8f43c31767e88a25da72b52a40f3301fefc49a665b56dc10ee7cc9565cbe7481"
@@ -55,10 +53,10 @@ make LIBINT=MUSL && make LIBINT=MUSL prefix=$PREFIX install
 cd .. && rm -rf gettext-tiny-${TEXT_VER}.tar.xz gettext-tiny-${TEXT_VER}
 
 cd glib-${GLIB_VER}
-./autogen.sh --host=$HOST --with-pcre=internal --disable-libmount \
-  --disable-shared --enable-static --prefix=$PREFIX \
-  glib_cv_stack_grows=no glib_cv_uscore=yes ac_cv_func_posix_getpwuid_r=yes \
-  ac_cv_func_posix_getgrgid_r=yes PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
+./autogen.sh --host=$HOST --prefix=$PREFIX --disable-shared --enable-static \
+  --with-pcre=internal --disable-libmount \
+  glib_cv_stack_grows=no glib_cv_uscore=yes \
+  ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
 make -j$(nproc) && make install
 cd .. && rm -rf glib-${GLIB_VER}.tar.xz glib-${GLIB_VER}
 
@@ -69,13 +67,13 @@ cd .. && rm -rf expat-${EXPAT_VER}.tar.gz expat-${EXPAT_VER}
 
 cd dbus-${DBUS_VER}
 ./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static \
-  --disable-tests --disable-doxygen-docs --disable-xml-docs  
+  --disable-tests --disable-doxygen-docs --disable-xml-docs
 make -j$(nproc) && make install
 cd .. && rm -rf dbus-${DBUS_VER}.tar.gz dbus-${DBUS_VER}
 
 cd bluez-${BLUEZ_VER}
-./configure --host=armv7-unknown-linux-musleabihf --disable-shared --enable-static \
+./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static \
   --disable-test --disable-monitor --disable-tools --disable-client --disable-systemd \
-  --disable-udev --disable-cups --disable-obex --enable-library --prefix=$PREFIX
+  --disable-udev --disable-cups --disable-obex --enable-library
 make -j$(nproc) && make install
 cd .. && rm -rf bluez-${BLUEZ_VER}.tar.xz bluez-${BLUEZ_VER}

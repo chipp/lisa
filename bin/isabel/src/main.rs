@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     info!("state {}", status.state);
     info!("fan_speed {}", status.fan_speed);
 
-    let server_addr = std::env::var("LISA_SOCKET_ADDR").unwrap_or("localhost:8081".to_string());
+    let server_addr = std::env::var("LISA_SOCKET_ADDR").unwrap_or("127.0.0.1:8081".to_string());
 
     let elisheba_token = std::env::var("ELISHEBA_TOKEN").expect("set ENV variable ELISHEBA_TOKEN");
     let elisheba_token = parse_token_32(&elisheba_token);
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
 
                 info!("connected to {}", addr);
 
-                socket_handler.set_stream(stream);
+                socket_handler.set_stream(stream).await;
 
                 let abort = Arc::from(AtomicBool::from(false));
 

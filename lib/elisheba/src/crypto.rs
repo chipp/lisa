@@ -2,10 +2,7 @@ use aes_gcm_siv::aead::{generic_array::GenericArray, Aead, NewAead, Payload};
 use aes_gcm_siv::Aes256GcmSiv; // Or `Aes128GcmSiv`
 use rand::{thread_rng, Rng};
 
-use crate::Token32;
-
-type ErasedError = Box<dyn std::error::Error + Send + Sync>;
-type Result<T> = std::result::Result<T, ErasedError>;
+use crate::{Result, Token32};
 
 pub fn encrypt(data: Vec<u8>, key: Token32) -> Result<Vec<u8>> {
     let nonce = generate_nonce();
@@ -28,6 +25,8 @@ fn encrypt_with_nonce(payload: Payload, key: [u8; 32], nonce: &[u8]) -> Result<V
 }
 
 pub fn decrypt(data: Vec<u8>, key: Token32) -> Result<Vec<u8>> {
+    assert!(data.len() > 12);
+
     let payload = data.as_slice()[12..].into();
     let nonce = &data.as_slice()[..12];
 

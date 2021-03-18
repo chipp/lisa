@@ -1,13 +1,16 @@
 use log::error;
 use std::{fmt, sync::Arc};
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, ReadHalf, WriteHalf},
+    io::{BufReader, BufWriter, ReadHalf, WriteHalf},
     net::TcpStream,
     sync::Mutex,
 };
 
 use crate::{vacuum::Status, Result};
-use elisheba::{Command, CommandResponse, PacketContent, SensorData, Token32, VacuumStatus};
+use elisheba::{
+    decrypt, encrypt, read_bytes, write_bytes, Command, CommandResponse, PacketContent, SensorData,
+    Token32, VacuumStatus,
+};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;
@@ -25,25 +28,32 @@ impl std::error::Error for NotConnected {}
 
 #[derive(Clone)]
 pub struct SocketHandler {
-    reader: Option<Arc<Mutex<Reader>>>,
-    writer: Option<Arc<Mutex<Writer>>>,
+    reader: Arc<Mutex<Option<Reader>>>,
+    writer: Arc<Mutex<Option<Writer>>>,
     token: Token32,
 }
 
 impl SocketHandler {
     pub fn new(token: Token32) -> SocketHandler {
         SocketHandler {
-            reader: None,
-            writer: None,
+            reader: Arc::from(Mutex::from(None)),
+            writer: Arc::from(Mutex::from(None)),
             token,
         }
     }
 
-    pub fn set_stream(&mut self, stream: TcpStream) {
-        let (reader, writer) = tokio::io::split(stream);
+    pub async fn set_stream(&mut self, stream: TcpStream) {
+        let (tcp_reader, tcp_writer) = tokio::io::split(stream);
 
-        self.reader = Some(Arc::from(Mutex::from(BufReader::new(reader))));
-        self.writer = Some(Arc::from(Mutex::from(BufWriter::new(writer))));
+        {
+            let mut reader = self.reader.clone().lock_owned().await;
+            *reader = Some(BufReader::new(tcp_reader))
+        }
+
+        {
+            let mut writer = self.writer.clone().lock_owned().await;
+            *writer = Some(BufWriter::new(tcp_writer))
+        }
     }
 
     pub async fn read_commands<F>(&mut self, handler: impl Fn(Command) -> F) -> Result<()>
@@ -51,20 +61,17 @@ impl SocketHandler {
         F: std::future::Future<Output = CommandResponse>,
     {
         loop {
-            let mut buffer = vec![];
-
-            let size = if let Some(ref mut reader) = self.reader {
-                let mut reader = reader.clone().lock_owned().await;
-                reader.read_until(b'\n', &mut buffer).await?
+            let bytes = if let Some(ref mut reader) = *self.reader.clone().lock_owned().await {
+                read_bytes(reader).await?
             } else {
                 return Err(Box::new(NotConnected));
             };
 
-            if size == 0 {
+            if bytes.is_empty() {
                 return Ok(());
             }
 
-            let bytes = elisheba::decrypt(buffer, self.token);
+            let bytes = decrypt(bytes, self.token);
 
             let response = match bytes
                 .and_then(|b| serde_json::from_slice::<Command>(&b).map_err(Into::into))
@@ -78,9 +85,8 @@ impl SocketHandler {
 
             let bytes = serde_json::to_vec(&response.to_packet()).unwrap();
 
-            if let Some(ref mut writer) = self.writer {
-                let mut writer = writer.clone().lock_owned().await;
-                Self::send_bytes(&mut writer, &bytes).await?;
+            if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {
+                write_bytes(writer, &bytes).await?;
             } else {
                 return Err(Box::new(NotConnected));
             }
@@ -98,9 +104,10 @@ impl SocketHandler {
         )
         .unwrap();
 
-        if let Some(ref mut writer) = self.writer {
-            let mut writer = writer.clone().lock_owned().await;
-            Self::send_bytes(&mut writer, &bytes).await?;
+        let bytes = encrypt(bytes, self.token)?;
+
+        if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {
+            write_bytes(writer, &bytes).await?;
 
             Ok(())
         } else {
@@ -110,22 +117,14 @@ impl SocketHandler {
 
     pub async fn report_sensor_data(&mut self, sensor_data: SensorData) -> Result<()> {
         let bytes = serde_json::to_vec(&sensor_data.to_packet()).unwrap();
+        let bytes = encrypt(bytes, self.token)?;
 
-        if let Some(ref mut writer) = self.writer {
-            let mut writer = writer.clone().lock_owned().await;
-            Self::send_bytes(&mut writer, &bytes).await?;
+        if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {
+            write_bytes(writer, &bytes).await?;
 
             Ok(())
         } else {
             Err(Box::new(NotConnected))
         }
-    }
-
-    async fn send_bytes(writer: &mut Writer, bytes: &[u8]) -> Result<()> {
-        writer.write_all(&bytes).await?;
-        writer.write_all(b"\n").await?;
-        writer.flush().await?;
-
-        Ok(())
     }
 }

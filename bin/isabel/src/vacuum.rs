@@ -4,7 +4,8 @@ pub use status::Status;
 pub use status::FanSpeed;
 
 use crate::device::Device;
-use crate::{Result, Token};
+use crate::Result;
+use elisheba::Token16;
 
 use serde_json::{from_value, json};
 
@@ -13,7 +14,7 @@ pub struct Vacuum {
 }
 
 impl Vacuum {
-    pub fn new(ip: [u8; 4], token: Token) -> Vacuum {
+    pub fn new(ip: [u8; 4], token: Token16) -> Vacuum {
         Vacuum {
             device: Device::new(ip, token),
         }

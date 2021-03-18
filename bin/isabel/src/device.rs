@@ -1,10 +1,11 @@
 mod response;
+use elisheba::Token16;
 use response::Response;
 
 use crate::{
     discover::discover,
     message::{Header, Message},
-    Result, Token,
+    Result,
 };
 
 use std::{
@@ -23,7 +24,7 @@ use tokio::{
 pub struct Device {
     command_id: u16,
     addr: Addr,
-    token: Token,
+    token: Token16,
 }
 
 struct Addr {
@@ -38,7 +39,7 @@ impl From<&Addr> for SocketAddr {
 }
 
 impl Device {
-    pub fn new(ip: [u8; 4], token: Token) -> Device {
+    pub fn new(ip: [u8; 4], token: Token16) -> Device {
         Device {
             command_id: 1,
             addr: Addr {

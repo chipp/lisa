@@ -10,8 +10,8 @@ use log::{debug, error, info};
 use tokio::task;
 use tokio::{net::TcpStream, task::JoinHandle};
 
-use elisheba::{SensorData, SensorRoom};
-use isabel::{parse_token, Result, SocketHandler, Vacuum, VacuumController};
+use elisheba::{parse_token_16, parse_token_32, SensorData, SensorRoom};
+use isabel::{Result, SocketHandler, Vacuum, VacuumController};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -19,10 +19,10 @@ async fn main() -> Result<()> {
 
     info!("Change the message");
 
-    let token = std::env::var("VACUUM_TOKEN").expect("set ENV variable VACUUM_TOKEN");
-    let token = parse_token(&token);
+    let vacuum_token = std::env::var("VACUUM_TOKEN").expect("set ENV variable VACUUM_TOKEN");
+    let vacuum_token = parse_token_16(&vacuum_token);
 
-    let mut vacuum = Vacuum::new([10, 0, 1, 150], token);
+    let mut vacuum = Vacuum::new([10, 0, 1, 150], vacuum_token);
     let status = vacuum.status().await?;
 
     let vacuum_controller = VacuumController::new(vacuum);
@@ -34,10 +34,13 @@ async fn main() -> Result<()> {
 
     let server_addr = std::env::var("LISA_SOCKET_ADDR").unwrap_or("localhost:8081".to_string());
 
+    let elisheba_token = std::env::var("ELISHEBA_TOKEN").expect("set ENV variable ELISHEBA_TOKEN");
+    let elisheba_token = parse_token_32(&elisheba_token);
+
     let mut addrs = server_addr.to_socket_addrs()?;
     let addr = addrs.next().unwrap();
 
-    let mut socket_handler = SocketHandler::new();
+    let mut socket_handler = SocketHandler::new(elisheba_token);
 
     loop {
         debug!("connecting to {}", addr);

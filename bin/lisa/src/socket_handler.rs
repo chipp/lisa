@@ -8,7 +8,7 @@ use tokio::{
 };
 
 use crate::Result;
-use elisheba::{Command, CommandResponse, Packet};
+use elisheba::{Command, CommandResponse, Packet, Token32};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;
@@ -39,13 +39,15 @@ impl std::error::Error for CommandFailed {}
 pub struct SocketHandler {
     reader: Arc<Mutex<Option<Reader>>>,
     writer: Arc<Mutex<Option<Writer>>>,
+    token: Token32,
 }
 
 impl SocketHandler {
-    pub fn new() -> SocketHandler {
+    pub fn new(token: Token32) -> SocketHandler {
         SocketHandler {
             reader: Arc::from(Mutex::from(None)),
             writer: Arc::from(Mutex::from(None)),
+            token,
         }
     }
 
@@ -65,6 +67,8 @@ impl SocketHandler {
 
     pub async fn send_command(&mut self, command: &Command) -> Result<()> {
         let bytes = serde_json::to_vec(&command)?;
+
+        let bytes = elisheba::encrypt(bytes, self.token)?;
 
         if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {
             writer.write_all(&bytes).await?;
@@ -99,7 +103,9 @@ impl SocketHandler {
                     return Ok(());
                 }
 
-                match serde_json::from_slice::<Packet>(&buffer) {
+                let bytes = elisheba::decrypt(buffer, self.token);
+
+                match bytes.and_then(|b| serde_json::from_slice::<Packet>(&b).map_err(Into::into)) {
                     Ok(packet) => handler(packet).await,
                     Err(err) => {
                         error!("unable to parse Packet {}", err);

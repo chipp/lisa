@@ -7,7 +7,7 @@ use tokio::{
 };
 
 use crate::{vacuum::Status, Result};
-use elisheba::{Command, CommandResponse, PacketContent, SensorData, VacuumStatus};
+use elisheba::{Command, CommandResponse, PacketContent, SensorData, Token32, VacuumStatus};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;
@@ -27,13 +27,15 @@ impl std::error::Error for NotConnected {}
 pub struct SocketHandler {
     reader: Option<Arc<Mutex<Reader>>>,
     writer: Option<Arc<Mutex<Writer>>>,
+    token: Token32,
 }
 
 impl SocketHandler {
-    pub fn new() -> SocketHandler {
+    pub fn new(token: Token32) -> SocketHandler {
         SocketHandler {
             reader: None,
             writer: None,
+            token,
         }
     }
 
@@ -62,7 +64,11 @@ impl SocketHandler {
                 return Ok(());
             }
 
-            let response = match serde_json::from_slice::<Command>(&buffer) {
+            let bytes = elisheba::decrypt(buffer, self.token);
+
+            let response = match bytes
+                .and_then(|b| serde_json::from_slice::<Command>(&b).map_err(Into::into))
+            {
                 Ok(command) => handler(command).await,
                 Err(err) => {
                     error!("unable to parse Command {}", err);

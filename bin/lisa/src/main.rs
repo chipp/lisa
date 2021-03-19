@@ -7,7 +7,6 @@ use std::{
     time::Duration,
 };
 
-use elisheba::{Command, CommandResponse, Packet, SensorData, SensorRoom};
 use log::{debug, info};
 
 use hyper::service::{make_service_fn, service_fn};
@@ -19,6 +18,7 @@ use tokio::{
     task, time,
 };
 
+use elisheba::{parse_token_32, Command, CommandResponse, Packet, SensorData, SensorRoom};
 use lisa::{service, SocketHandler, StateManager};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
@@ -28,7 +28,10 @@ type Result<T> = std::result::Result<T, ErasedError>;
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
 
-    let socket_handler = SocketHandler::new();
+    let elisheba_token = std::env::var("ELISHEBA_TOKEN").expect("set ENV variable ELISHEBA_TOKEN");
+    let elisheba_token = parse_token_32(&elisheba_token);
+
+    let socket_handler = SocketHandler::new(elisheba_token);
 
     let (cmd_res_tx, cmd_res_rx) = mpsc::channel::<CommandResponse>(1);
     let cmd_res_rx = Arc::from(Mutex::from(cmd_res_rx));

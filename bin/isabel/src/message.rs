@@ -4,7 +4,8 @@ use std::fmt;
 pub use encryption::{decrypt, encrypt};
 use md5::{Digest, Md5};
 
-use crate::{Result, Token};
+use crate::Result;
+use elisheba::Token16;
 
 #[derive(Debug)]
 pub struct Message {
@@ -25,7 +26,7 @@ impl fmt::Display for InvalidChecksum {
 impl std::error::Error for InvalidChecksum {}
 
 impl Message {
-    pub fn encode(data: Vec<u8>, token: Token, id: u32, send_ts: u32) -> Result<Message> {
+    pub fn encode(data: Vec<u8>, token: Token16, id: u32, send_ts: u32) -> Result<Message> {
         let mut data = data;
         let data = encrypt(&mut data, token)?.to_vec();
 
@@ -44,7 +45,7 @@ impl Message {
         })
     }
 
-    pub fn decode(self, token: Token) -> Result<Vec<u8>> {
+    pub fn decode(self, token: Token16) -> Result<Vec<u8>> {
         let checksum = Self::checksum(&self.header, &token, &self.data);
 
         if checksum != self.checksum {

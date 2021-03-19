@@ -3,12 +3,13 @@ use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, Cbc};
 use md5::{Digest, Md5};
 
-use crate::{Result, Token};
+use crate::Result;
+use elisheba::Token16;
 
 type Aes128Cbc = Cbc<Aes128, Pkcs7>;
 const BLOCK_SIZE: usize = 16;
 
-pub fn encrypt(data: &mut Vec<u8>, token: Token) -> Result<&[u8]> {
+pub fn encrypt(data: &mut Vec<u8>, token: Token16) -> Result<&[u8]> {
     let (key, iv) = key_iv_from_token(token);
     let cipher = Aes128Cbc::new_var(&key, &iv)?;
 
@@ -20,13 +21,13 @@ pub fn encrypt(data: &mut Vec<u8>, token: Token) -> Result<&[u8]> {
     Ok(cipher.encrypt(data, pos)?)
 }
 
-pub fn decrypt(data: &mut Vec<u8>, token: Token) -> Result<&[u8]> {
+pub fn decrypt(data: &mut Vec<u8>, token: Token16) -> Result<&[u8]> {
     let (key, iv) = key_iv_from_token(token);
     let cipher = Aes128Cbc::new_var(&key, &iv)?;
     Ok(cipher.decrypt(data)?)
 }
 
-fn key_iv_from_token(token: Token) -> ([u8; 16], [u8; 16]) {
+fn key_iv_from_token(token: Token16) -> ([u8; 16], [u8; 16]) {
     let mut hasher = Md5::new();
     hasher.update(token);
 
@@ -47,7 +48,7 @@ mod tests {
     use super::*;
     use hex_literal::hex;
 
-    const TOKEN: Token = hex!("00112233445566778899aabbccddeeff");
+    const TOKEN: Token16 = hex!("00112233445566778899aabbccddeeff");
     const ENCRYPTED: [u8; 32] =
         hex!("22a1 9fb1 3a30 0c7e 932c 52fd 24a2 d430 74ea c69f 3240 0626 5298 3f2f f3e5 53b9");
 

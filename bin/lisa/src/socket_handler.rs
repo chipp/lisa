@@ -2,13 +2,15 @@ use std::{fmt, sync::Arc};
 
 use log::error;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, ReadHalf, WriteHalf},
+    io::{BufReader, BufWriter, ReadHalf, WriteHalf},
     net::TcpStream,
     sync::Mutex,
 };
 
 use crate::Result;
-use elisheba::{Command, CommandResponse, Packet};
+use elisheba::{
+    decrypt, encrypt, read_bytes, write_bytes, Command, CommandResponse, Packet, Token32,
+};
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
 type Writer = BufWriter<WriteHalf<TcpStream>>;
@@ -39,13 +41,15 @@ impl std::error::Error for CommandFailed {}
 pub struct SocketHandler {
     reader: Arc<Mutex<Option<Reader>>>,
     writer: Arc<Mutex<Option<Writer>>>,
+    token: Token32,
 }
 
 impl SocketHandler {
-    pub fn new() -> SocketHandler {
+    pub fn new(token: Token32) -> SocketHandler {
         SocketHandler {
             reader: Arc::from(Mutex::from(None)),
             writer: Arc::from(Mutex::from(None)),
+            token,
         }
     }
 
@@ -65,11 +69,10 @@ impl SocketHandler {
 
     pub async fn send_command(&mut self, command: &Command) -> Result<()> {
         let bytes = serde_json::to_vec(&command)?;
+        let bytes = encrypt(bytes, self.token)?;
 
         if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {
-            writer.write_all(&bytes).await?;
-            writer.write_all(b"\n").await?;
-            writer.flush().await?;
+            write_bytes(writer, &bytes).await?;
 
             Ok(())
         } else {
@@ -91,15 +94,14 @@ impl SocketHandler {
     {
         if let Some(ref mut reader) = *self.reader.clone().lock_owned().await {
             loop {
-                let mut buffer = vec![];
-
-                let size = reader.read_until(b'\n', &mut buffer).await?;
-
-                if size == 0 {
+                let bytes = read_bytes(reader).await?;
+                if bytes.is_empty() {
                     return Ok(());
                 }
 
-                match serde_json::from_slice::<Packet>(&buffer) {
+                let bytes = decrypt(bytes, self.token);
+
+                match bytes.and_then(|b| serde_json::from_slice::<Packet>(&b).map_err(Into::into)) {
                     Ok(packet) => handler(packet).await,
                     Err(err) => {
                         error!("unable to parse Packet {}", err);

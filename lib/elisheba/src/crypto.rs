@@ -1,5 +1,5 @@
 use aes_gcm_siv::aead::{generic_array::GenericArray, Aead, NewAead, Payload};
-use aes_gcm_siv::Aes256GcmSiv; // Or `Aes128GcmSiv`
+use aes_gcm_siv::Aes256GcmSiv;
 use rand::{thread_rng, Rng};
 
 use crate::{Result, Token32};

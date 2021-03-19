@@ -23,7 +23,7 @@ pub async fn read_bytes<T: AsyncRead>(reader: &mut Reader<T>) -> Result<Vec<u8>>
 
 pub async fn write_bytes<T: AsyncWrite>(writer: &mut Writer<T>, bytes: &[u8]) -> Result<()> {
     let bytes_count = bytes.len() as u32;
-    writer.write_all(&bytes_count.to_ne_bytes()).await?;
+    writer.write_all(&bytes_count.to_le_bytes()).await?;
 
     writer.write_all(&bytes).await?;
     writer.flush().await?;

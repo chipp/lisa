@@ -84,6 +84,7 @@ impl SocketHandler {
             };
 
             let bytes = serde_json::to_vec(&response.to_packet()).unwrap();
+            let bytes = encrypt(bytes, self.token)?;
 
             if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {
                 write_bytes(writer, &bytes).await?;

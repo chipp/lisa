@@ -3,6 +3,7 @@ mod device;
 mod mode;
 mod property_type;
 mod state;
+mod toggle;
 
 pub use action::{
     ActionResult as StateUpdateResult, Capability as UpdateStateCapability,
@@ -17,6 +18,7 @@ pub use device::{Device, DeviceType};
 
 pub use mode::{Mode, ModeFunction};
 pub use property_type::PropertyType;
+pub use toggle::ToggleFunction;
 
 pub use state::{
     Capability as StateCapability, Property as StateProperty, Request as StateRequest,

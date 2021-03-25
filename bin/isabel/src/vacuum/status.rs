@@ -57,6 +57,17 @@ impl State {
             | State::Docked => false,
         }
     }
+
+    pub fn is_paused(&self) -> bool {
+        match self {
+            State::IdleNotDocked | State::Idle | State::Idle2 => true,
+            State::Unknown
+            | State::Cleaning
+            | State::Returning
+            | State::Docked
+            | State::VacuumingAndMopping => false,
+        }
+    }
 }
 
 impl fmt::Display for State {

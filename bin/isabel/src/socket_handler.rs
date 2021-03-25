@@ -99,6 +99,7 @@ impl SocketHandler {
             &VacuumStatus {
                 battery: status.battery,
                 is_enabled: status.state.is_enabled(),
+                is_paused: status.state.is_paused(),
                 work_speed: status.fan_speed.to_string(),
             }
             .to_packet(),

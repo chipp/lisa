@@ -32,3 +32,5 @@ const fn _iow<T>(r#type: c_char, nr: c_int) -> c_int {
 
 pub const HCIDEVUP: c_int = _iow::<c_int>(b'H' as c_char, 201);
 pub const HCIDEVDOWN: c_int = _iow::<c_int>(b'H' as c_char, 202);
+
+pub const EVT_LE_ADVERTISING_REPORT: u8 = 0x02;

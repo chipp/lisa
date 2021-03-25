@@ -4,12 +4,21 @@ use serde::de;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 
-use crate::{Mode, ModeFunction};
+use crate::{Mode, ModeFunction, ToggleFunction};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Capability {
-    OnOff { value: bool },
-    Mode { function: ModeFunction, mode: Mode },
+    OnOff {
+        value: bool,
+    },
+    Mode {
+        function: ModeFunction,
+        mode: Mode,
+    },
+    Toggle {
+        function: ToggleFunction,
+        value: bool,
+    },
 }
 
 impl Capability {
@@ -19,6 +28,10 @@ impl Capability {
 
     pub fn mode(function: ModeFunction, mode: Mode) -> Capability {
         Capability::Mode { function, mode }
+    }
+
+    pub fn toggle(function: ToggleFunction, value: bool) -> Capability {
+        Capability::Toggle { function, value }
     }
 }
 
@@ -53,6 +66,16 @@ impl serde::ser::Serialize for Capability {
                     &State {
                         instance: function,
                         value: mode,
+                    },
+                )?;
+            }
+            Capability::Toggle { function, value } => {
+                property.serialize_field("type", "devices.capabilities.toggle")?;
+                property.serialize_field(
+                    "state",
+                    &State {
+                        instance: function,
+                        value,
                     },
                 )?;
             }
@@ -127,6 +150,15 @@ impl<'de> de::Visitor<'de> for CapabilityVisitor {
                     todo!()
                 }
             }
+            "devices.capabilities.toggle" => {
+                if let Value::Bool(value) = state.value {
+                    let function =
+                        ToggleFunction::from_str(&state.instance).map_err(de::Error::custom)?;
+                    Ok(Capability::Toggle { function, value })
+                } else {
+                    todo!()
+                }
+            }
             _ => Err(de::Error::invalid_value(
                 de::Unexpected::Str(&cap_type),
                 &"devices.capabilities.on_off or devices.capabilities.mode",
@@ -145,7 +177,7 @@ mod tests {
     use serde_json::{from_value, json, to_value};
 
     #[test]
-    fn test_capabilities() {
+    fn test_on_off() {
         assert_eq!(
             to_value(&Capability::OnOff { value: false }).unwrap(),
             json!({
@@ -154,6 +186,18 @@ mod tests {
             })
         );
 
+        assert_eq!(
+            from_value::<Capability>(json!({
+                "type": "devices.capabilities.on_off",
+                "state": {"instance": "on", "value": true}
+            }))
+            .unwrap(),
+            Capability::OnOff { value: true }
+        );
+    }
+
+    #[test]
+    fn test_mode() {
         assert_eq!(
             to_value(&Capability::Mode {
                 function: ModeFunction::WorkSpeed,
@@ -168,15 +212,6 @@ mod tests {
 
         assert_eq!(
             from_value::<Capability>(json!({
-                "type": "devices.capabilities.on_off",
-                "state": {"instance": "on", "value": true}
-            }))
-            .unwrap(),
-            Capability::OnOff { value: true }
-        );
-
-        assert_eq!(
-            from_value::<Capability>(json!({
                 "type": "devices.capabilities.mode",
                 "state": {"instance": "work_speed", "value": "medium"}
             }))
@@ -184,6 +219,33 @@ mod tests {
             Capability::Mode {
                 function: ModeFunction::WorkSpeed,
                 mode: Mode::Medium
+            }
+        );
+    }
+
+    #[test]
+    fn test_toggle() {
+        assert_eq!(
+            to_value(&Capability::Toggle {
+                function: ToggleFunction::Pause,
+                value: false
+            })
+            .unwrap(),
+            json!({
+                "type": "devices.capabilities.toggle",
+                "state": {"instance": "pause", "value": false}
+            })
+        );
+
+        assert_eq!(
+            from_value::<Capability>(json!({
+                "type": "devices.capabilities.toggle",
+                "state": {"instance": "pause", "value": true}
+            }))
+            .unwrap(),
+            Capability::Toggle {
+                function: ToggleFunction::Pause,
+                value: true
             }
         );
     }

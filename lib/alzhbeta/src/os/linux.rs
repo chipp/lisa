@@ -2,8 +2,8 @@ mod constants;
 mod hci;
 
 use constants::{
-    EVT_LE_META_EVENT, HCIDEVDOWN, HCIDEVUP, HCI_EVENT_HDR_SIZE, HCI_EVENT_PKT, HCI_FILTER,
-    HCI_MAX_EVENT_SIZE, SOL_HCI,
+    EVT_LE_ADVERTISING_REPORT, EVT_LE_META_EVENT, HCIDEVDOWN, HCIDEVUP, HCI_EVENT_HDR_SIZE,
+    HCI_EVENT_PKT, HCI_FILTER, HCI_MAX_EVENT_SIZE, SOL_HCI,
 };
 use hci::{
     hci_close_dev, hci_filter_set_event, hci_filter_set_ptype, hci_get_route,
@@ -12,7 +12,7 @@ use hci::{
 };
 
 use libc::{c_int, c_void};
-use log::{error, info};
+use log::{debug, error, info};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
 use std::{
@@ -150,7 +150,8 @@ impl Scanner {
             let ptr: *const u8 = buf.as_ptr().offset(1 + HCI_EVENT_HDR_SIZE);
             meta = ptr.cast();
 
-            if (*meta).subevent != 0x02 {
+            if (*meta).subevent != EVT_LE_ADVERTISING_REPORT {
+                debug!("got meta.subevent {:x}", (*meta).subevent);
                 break;
             }
 

@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use alzhbeta::{CommonScanner, Event, MacAddr, Scanner};
 use log::{debug, error, info};
-use tokio::task;
 use tokio::{net::TcpStream, task::JoinHandle};
+use tokio::{task, time::timeout};
 
 use elisheba::{parse_token_16, parse_token_32, SensorData, SensorRoom};
 use isabel::{Result, SocketHandler, Vacuum, VacuumController};
@@ -55,31 +55,29 @@ async fn main() -> Result<()> {
 
                 let abort = Arc::from(AtomicBool::from(false));
 
-                let vacuum_status = report_vacuum_status(
+                report_vacuum_status(
                     vacuum_controller.clone(),
                     socket_handler.clone(),
                     abort.clone(),
                 );
 
-                let sensors = report_sensors_task(socket_handler.clone(), abort.clone());
+                report_sensors_task(socket_handler.clone(), abort.clone());
 
                 match socket_handler
                     .read_commands(|command| vacuum_controller.handle_vacuum_command(command))
                     .await
                 {
                     Ok(_) => (),
-                    Err(err) => error!("{}", err),
+                    Err(err) => error!("read commands error: {}", err),
                 }
 
                 abort.store(true, Ordering::Relaxed);
-
-                let (_, _) = tokio::join!(vacuum_status, sensors);
 
                 info!("disconnected from {}", addr);
             }
             Err(_) => {
                 error!("unable to connect to {}", addr);
-                tokio::time::sleep(Duration::from_secs(20)).await
+                tokio::time::sleep(Duration::from_secs(10)).await
             }
         }
     }
@@ -94,11 +92,17 @@ fn report_vacuum_status(
         let mut rx = vacuum_controller.observe_vacuum_status();
         let mut socket_handler = socket_handler;
 
-        while let Some(status) = rx.recv().await {
+        loop {
             if abort.load(Ordering::Relaxed) {
                 debug!("aborted vacuum status observing");
                 break;
             }
+
+            let status = match timeout(Duration::from_secs(5), rx.recv()).await {
+                Ok(Some(status)) => status,
+                Ok(None) => break,
+                Err(_) => continue,
+            };
 
             debug!("sending vacuum status {:?}", status);
 
@@ -125,11 +129,17 @@ fn report_sensors_task(socket_handler: SocketHandler, abort: Arc<AtomicBool>) ->
         let mut socket_handler = socket_handler;
         let mut rx = scanner.start_scan();
 
-        while let Some((addr, event)) = rx.recv().await {
+        loop {
             if abort.load(Ordering::Relaxed) {
                 debug!("aborted sensors observing");
                 break;
             }
+
+            let (addr, event) = match timeout(Duration::from_secs(5), rx.recv()).await {
+                Ok(Some(tuple)) => tuple,
+                Ok(None) => break,
+                Err(_) => continue,
+            };
 
             if let Some(room) = match_addr_to_room(addr) {
                 let sensor_data = match event {

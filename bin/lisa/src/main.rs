@@ -18,7 +18,7 @@ use tokio::{
     task, time,
 };
 
-use elisheba::{parse_token_32, Command, CommandResponse, Packet, SensorData, SensorRoom};
+use elisheba::{parse_token, Command, CommandResponse, Packet, SensorData, SensorRoom};
 use lisa::{service, SocketHandler, StateManager};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
 
     let elisheba_token = std::env::var("ELISHEBA_TOKEN").expect("set ENV variable ELISHEBA_TOKEN");
-    let elisheba_token = parse_token_32(&elisheba_token);
+    let elisheba_token = parse_token::<32>(&elisheba_token);
 
     let socket_handler = SocketHandler::new(elisheba_token);
 

@@ -44,6 +44,14 @@ impl VacuumController {
                 let mode = FanSpeed::from(mode);
                 ("set mode", vacuum.set_fan_speed(mode).await)
             }
+            Command::Pause => {
+                info!("wants to pause");
+                ("pause", vacuum.pause().await)
+            }
+            Command::Resume => {
+                info!("wants to resume");
+                ("resume", vacuum.resume().await)
+            }
         };
 
         match result {

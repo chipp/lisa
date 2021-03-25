@@ -1,4 +1,6 @@
-use alice::{Device, DeviceCapability, DeviceProperty, DeviceType, Mode, ModeFunction};
+use alice::{
+    Device, DeviceCapability, DeviceProperty, DeviceType, Mode, ModeFunction, ToggleFunction,
+};
 use hyper::{Body, Request, Response, StatusCode};
 use serde_json::json;
 
@@ -72,6 +74,9 @@ fn vacuum_cleaner_device(room: Room) -> Device {
             )
             .retrievable()
             .reportable(),
+            DeviceCapability::toggle(ToggleFunction::Pause)
+                .retrievable()
+                .reportable(),
         ],
     }
 }

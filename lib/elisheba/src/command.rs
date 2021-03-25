@@ -8,6 +8,8 @@ pub enum Command {
     Stop,
     GoHome,
     SetWorkSpeed { mode: String },
+    Pause,
+    Resume,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -105,6 +107,34 @@ mod tests {
         match command {
             Command::SetWorkSpeed { mode } => assert_eq!(mode, "quiet"),
             _ => panic!("expected to parse SetMode, got {:?}", command),
+        }
+    }
+
+    #[test]
+    fn test_pause() {
+        let command = Command::Pause;
+
+        assert_eq!(to_value(&command).unwrap(), json!({"type": "pause"}));
+
+        let command: Command = from_value(json!({"type": "pause"})).unwrap();
+
+        match command {
+            Command::Pause => (),
+            _ => panic!("expected to parse Pause, got {:?}", command),
+        }
+    }
+
+    #[test]
+    fn test_continue() {
+        let command = Command::Resume;
+
+        assert_eq!(to_value(&command).unwrap(), json!({"type": "resume"}));
+
+        let command: Command = from_value(json!({"type": "resume"})).unwrap();
+
+        match command {
+            Command::Resume => (),
+            _ => panic!("expected to parse Continue, got {:?}", command),
         }
     }
 }

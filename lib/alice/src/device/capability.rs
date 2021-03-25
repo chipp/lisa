@@ -1,7 +1,7 @@
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 
-use crate::{Mode, ModeFunction};
+use crate::{Mode, ModeFunction, ToggleFunction};
 
 #[derive(Debug)]
 pub enum Capability {
@@ -13,6 +13,11 @@ pub enum Capability {
     Mode {
         function: ModeFunction,
         modes: Vec<Mode>,
+        retreivable: bool,
+        reportable: bool,
+    },
+    Toggle {
+        function: ToggleFunction,
         retreivable: bool,
         reportable: bool,
     },
@@ -36,6 +41,14 @@ impl Capability {
         }
     }
 
+    pub fn toggle(function: ToggleFunction) -> Capability {
+        Capability::Toggle {
+            function,
+            retreivable: false,
+            reportable: false,
+        }
+    }
+
     pub fn retrievable(self) -> Capability {
         let mut value = self;
 
@@ -48,6 +61,11 @@ impl Capability {
             Capability::Mode {
                 function: _,
                 modes: _,
+                ref mut retreivable,
+                reportable: _,
+            } => *retreivable = true,
+            Capability::Toggle {
+                function: _,
                 ref mut retreivable,
                 reportable: _,
             } => *retreivable = true,
@@ -68,6 +86,11 @@ impl Capability {
             Capability::Mode {
                 function: _,
                 modes: _,
+                retreivable: _,
+                ref mut reportable,
+            } => *reportable = true,
+            Capability::Toggle {
+                function: _,
                 retreivable: _,
                 ref mut reportable,
             } => *reportable = true,
@@ -128,6 +151,21 @@ impl serde::ser::Serialize for Capability {
                     },
                 )?;
             }
+            Capability::Toggle {
+                function,
+                retreivable,
+                reportable,
+            } => {
+                #[derive(Serialize)]
+                struct Parameters<'a> {
+                    instance: &'a ToggleFunction,
+                }
+
+                property.serialize_field("type", "devices.capabilities.toggle")?;
+                property.serialize_field("retreivable", retreivable)?;
+                property.serialize_field("reportable", reportable)?;
+                property.serialize_field("parameters", &Parameters { instance: function })?;
+            }
         }
 
         property.end()
@@ -183,6 +221,27 @@ mod tests {
                         {"value": "quiet"},
                         {"value": "normal"}
                     ]
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn test_toggle_capability() {
+        let capability = Capability::Toggle {
+            function: ToggleFunction::Pause,
+            reportable: true,
+            retreivable: false,
+        };
+
+        assert_eq!(
+            to_value(&capability).unwrap(),
+            json!({
+                "type": "devices.capabilities.toggle",
+                "reportable": true,
+                "retreivable": false,
+                "parameters": {
+                    "instance": "pause",
                 }
             })
         );

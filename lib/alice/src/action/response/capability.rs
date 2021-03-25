@@ -1,7 +1,7 @@
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 
-use crate::ModeFunction;
+use crate::{ModeFunction, ToggleFunction};
 
 #[derive(Debug)]
 pub enum ActionResult {
@@ -49,6 +49,10 @@ pub enum Capability {
         function: ModeFunction,
         result: ActionResult,
     },
+    Toggle {
+        function: ToggleFunction,
+        result: ActionResult,
+    },
 }
 
 impl Capability {
@@ -58,6 +62,10 @@ impl Capability {
 
     pub fn mode(function: ModeFunction, result: ActionResult) -> Capability {
         Capability::Mode { function, result }
+    }
+
+    pub fn toggle(function: ToggleFunction, result: ActionResult) -> Capability {
+        Capability::Toggle { function, result }
     }
 }
 
@@ -109,6 +117,16 @@ impl serde::ser::Serialize for Capability {
             }
             Capability::Mode { function, result } => {
                 property.serialize_field("type", "devices.capabilities.mode")?;
+                property.serialize_field(
+                    "state",
+                    &State {
+                        instance: function,
+                        action_result: result,
+                    },
+                )?;
+            }
+            Capability::Toggle { function, result } => {
+                property.serialize_field("type", "devices.capabilities.toggle")?;
                 property.serialize_field(
                     "state",
                     &State {
@@ -176,6 +194,21 @@ mod tests {
                 "type": "devices.capabilities.mode",
                 "state": {
                     "instance": "work_speed",
+                    "action_result": {"status": "DONE"}
+                }
+            })
+        );
+
+        assert_eq!(
+            to_value(&Capability::Toggle {
+                function: ToggleFunction::Pause,
+                result: ActionResult::Ok
+            })
+            .unwrap(),
+            json!({
+                "type": "devices.capabilities.toggle",
+                "state": {
+                    "instance": "pause",
                     "action_result": {"status": "DONE"}
                 }
             })

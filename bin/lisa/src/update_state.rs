@@ -6,8 +6,8 @@ use crate::{DeviceId, Result};
 use log::debug;
 
 use alice::{
-    ModeFunction, StateCapability, StateUpdateResult, UpdateStateCapability, UpdateStateDevice,
-    UpdateStateErrorCode, UpdatedDeviceState,
+    ModeFunction, StateCapability, StateUpdateResult, ToggleFunction, UpdateStateCapability,
+    UpdateStateDevice, UpdateStateErrorCode, UpdatedDeviceState,
 };
 use elisheba::Command;
 use tokio::sync::Mutex;
@@ -22,6 +22,7 @@ where
     let mut rooms = vec![];
     let mut state = None;
     let mut work_speed = None;
+    let mut toggle_pause = None;
 
     for device in devices.into_iter() {
         if let Ok(DeviceId { room, device_type }) = DeviceId::from_str(device.id) {
@@ -43,6 +44,10 @@ where
                         function: ModeFunction::WorkSpeed,
                         mode,
                     } => work_speed = Some(mode),
+                    StateCapability::Toggle {
+                        function: ToggleFunction::Pause,
+                        value,
+                    } => toggle_pause = Some(value),
                 }
             }
         }
@@ -51,13 +56,15 @@ where
     debug!("update state rooms {:?}", rooms);
     debug!("state {:?}", state);
     debug!("work_speed {:?}", work_speed);
+    debug!("toggle pause {:?}", toggle_pause);
 
     if rooms.is_empty() {
         return vec![];
     }
 
     let set_mode_result;
-    let toggle_state_result;
+    let set_state_result;
+    let toggle_pause_result;
 
     {
         let send_command = send_command.clone().lock_owned().await;
@@ -72,7 +79,7 @@ where
             None => None,
         };
 
-        toggle_state_result = match state {
+        set_state_result = match state {
             Some(true) => {
                 let room_ids = rooms.iter().map(crate::Room::vacuum_id).collect();
 
@@ -86,6 +93,12 @@ where
             }
             None => None,
         };
+
+        toggle_pause_result = match toggle_pause {
+            Some(true) => Some(send_command(Command::Pause).await),
+            Some(false) => Some(send_command(Command::Resume).await),
+            None => None,
+        };
     }
 
     let mut devices = vec![];
@@ -93,8 +106,8 @@ where
     for room in rooms {
         let capabilities;
 
-        match (&toggle_state_result, &set_mode_result) {
-            (Some(toggle_state_result), Some(set_mode_result)) => {
+        match (&set_state_result, &set_mode_result, &toggle_pause_result) {
+            (Some(toggle_state_result), Some(set_mode_result), None) => {
                 capabilities = vec![
                     UpdateStateCapability::on_off(prepare_result(&toggle_state_result)),
                     UpdateStateCapability::mode(
@@ -103,16 +116,22 @@ where
                     ),
                 ];
             }
-            (Some(toggle_state_result), None) => {
+            (Some(set_state_result), None, None) => {
                 capabilities = vec![UpdateStateCapability::on_off(prepare_result(
-                    &toggle_state_result,
+                    &set_state_result,
                 ))];
             }
-            (None, Some(set_mode_result)) => {
+            (None, Some(set_mode_result), None) => {
                 capabilities = vec![UpdateStateCapability::mode(
                     ModeFunction::WorkSpeed,
                     prepare_result(&set_mode_result),
                 )];
+            }
+            (None, None, Some(toggle_pause_result)) => {
+                capabilities = vec![UpdateStateCapability::toggle(
+                    ToggleFunction::Pause,
+                    prepare_result(&toggle_pause_result),
+                )]
             }
             _ => return vec![],
         }
@@ -132,6 +151,7 @@ fn prepare_result(result: &Result<()>) -> StateUpdateResult {
     match result {
         Ok(_) => StateUpdateResult::ok(),
         Err(_) => {
+            // TODO:
             StateUpdateResult::error(UpdateStateErrorCode::DeviceUnreachable, String::default())
         }
     }

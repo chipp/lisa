@@ -6,6 +6,7 @@ use crate::{packet::PacketContent, Packet};
 pub struct VacuumStatus {
     pub battery: u8,
     pub is_enabled: bool,
+    pub is_paused: bool,
     pub work_speed: String,
 }
 

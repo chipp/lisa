@@ -1,16 +1,18 @@
 use std::str::FromStr;
 
-use alice::{Mode, ModeFunction::WorkSpeed, StateCapability, StateProperty};
+use alice::{Mode, ModeFunction::WorkSpeed, StateCapability, StateProperty, ToggleFunction::Pause};
 
 #[derive(Default, PartialEq)]
 pub struct VacuumState {
     is_enabled: bool,
     battery: u8,
     work_speed: Mode,
+    is_paused: bool,
 
     is_enabled_modified: bool,
     battery_modified: bool,
     work_speed_modified: bool,
+    is_paused_modified: bool,
 }
 
 impl VacuumState {
@@ -35,6 +37,13 @@ impl VacuumState {
             self.work_speed_modified = true;
         }
     }
+
+    pub fn set_is_paused(&mut self, is_paused: bool) {
+        if self.is_paused != is_paused {
+            self.is_paused = is_paused;
+            self.is_paused_modified = true;
+        }
+    }
 }
 
 impl VacuumState {
@@ -57,6 +66,10 @@ impl VacuumState {
             capabilities.push(StateCapability::mode(WorkSpeed, self.work_speed));
         }
 
+        if !only_updated || (only_updated && self.is_paused_modified) {
+            capabilities.push(StateCapability::toggle(Pause, self.is_paused));
+        }
+
         capabilities
     }
 
@@ -64,5 +77,6 @@ impl VacuumState {
         self.is_enabled_modified = false;
         self.battery_modified = false;
         self.work_speed_modified = false;
+        self.is_paused_modified = false;
     }
 }

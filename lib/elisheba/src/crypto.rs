@@ -2,9 +2,9 @@ use aes_gcm_siv::aead::{generic_array::GenericArray, Aead, NewAead, Payload};
 use aes_gcm_siv::Aes256GcmSiv;
 use rand::{thread_rng, Rng};
 
-use crate::{Result, Token32};
+use crate::Result;
 
-pub fn encrypt(data: Vec<u8>, key: Token32) -> Result<Vec<u8>> {
+pub fn encrypt(data: Vec<u8>, key: [u8; 32]) -> Result<Vec<u8>> {
     let nonce = generate_nonce();
     let mut encrypted = encrypt_with_nonce(data.as_slice().into(), key, &nonce)?;
 
@@ -24,7 +24,7 @@ fn encrypt_with_nonce(payload: Payload, key: [u8; 32], nonce: &[u8]) -> Result<V
     Ok(encrypted)
 }
 
-pub fn decrypt(data: Vec<u8>, key: Token32) -> Result<Vec<u8>> {
+pub fn decrypt(data: Vec<u8>, key: [u8; 32]) -> Result<Vec<u8>> {
     assert!(data.len() > 12);
 
     let payload = data.as_slice()[12..].into();
@@ -63,7 +63,7 @@ mod tests {
          9ac0 bb35 ba8c b5ed 6b5e 4894 a3"
     );
 
-    const KEY: Token32 = hex!(
+    const KEY: [u8; 32] = hex!(
         "0123 4567 89ab cdef 0123 4567 89ab cdef
          0123 4567 89ab cdef 0123 4567 89ab cdef"
     );

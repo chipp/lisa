@@ -1,25 +1,9 @@
-pub type Token16 = [u8; 16];
-pub type Token32 = [u8; 32];
+pub type Token<const LENGTH: usize> = [u8; LENGTH];
 
-pub fn parse_token_16(hex: &str) -> Token16 {
-    assert_eq!(hex.len(), 32);
+pub fn parse_token<const LENGTH: usize>(hex: &str) -> Token<LENGTH> {
+    assert_eq!(hex.len(), LENGTH * 2);
 
-    let mut result = [0; 16];
-    let mut idx = 0;
-    let iterator = TokenIterator { token: hex, pos: 0 };
-
-    for value in iterator {
-        result[idx] = value;
-        idx += 1;
-    }
-
-    result
-}
-
-pub fn parse_token_32(hex: &str) -> Token32 {
-    assert_eq!(hex.len(), 64);
-
-    let mut result = [0; 32];
+    let mut result = [0; LENGTH];
     let mut idx = 0;
     let iterator = TokenIterator { token: hex, pos: 0 };
 
@@ -117,17 +101,14 @@ mod tests {
     #[test]
     fn test_parse_16() {
         let token = "59565144447659713237774434425a7a";
-        assert_eq!(
-            parse_token_16(token),
-            hex!("59565144447659713237774434425a7a")
-        );
+        assert_eq!(parse_token(token), hex!("59565144447659713237774434425a7a"));
     }
 
     #[test]
     fn test_parse_32() {
         let token = "59565144447659759565144447659713237774434425a7a13237774434425a7a";
         assert_eq!(
-            parse_token_32(token),
+            parse_token(token),
             hex!("59565144447659759565144447659713237774434425a7a13237774434425a7a")
         );
     }

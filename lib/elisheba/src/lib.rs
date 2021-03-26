@@ -14,5 +14,5 @@ pub use command::{Command, CommandResponse};
 pub use crypto::{decrypt, encrypt};
 pub use packet::{Packet, PacketContent};
 pub use sensor_data::{SensorData, SensorRoom};
-pub use token::{parse_token_16, parse_token_32, Token16, Token32};
+pub use token::{parse_token, Token};
 pub use vacuum_status::VacuumStatus;

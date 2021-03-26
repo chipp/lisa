@@ -9,7 +9,7 @@ use tokio::{
 
 use crate::Result;
 use elisheba::{
-    decrypt, encrypt, read_bytes, write_bytes, Command, CommandResponse, Packet, Token32,
+    decrypt, encrypt, read_bytes, write_bytes, Command, CommandResponse, Packet, Token,
 };
 
 type Reader = BufReader<ReadHalf<TcpStream>>;
@@ -41,11 +41,11 @@ impl std::error::Error for CommandFailed {}
 pub struct SocketHandler {
     reader: Arc<Mutex<Option<Reader>>>,
     writer: Arc<Mutex<Option<Writer>>>,
-    token: Token32,
+    token: Token<32>,
 }
 
 impl SocketHandler {
-    pub fn new(token: Token32) -> SocketHandler {
+    pub fn new(token: Token<32>) -> SocketHandler {
         SocketHandler {
             reader: Arc::from(Mutex::from(None)),
             writer: Arc::from(Mutex::from(None)),

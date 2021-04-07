@@ -491,8 +491,8 @@ dependencies = [
 
 [[package]]
 name = "http_client"
-version = "0.4.7"
-source = "git+https://github.com/chipp/http_client?branch=master#a604db8dd8bcd19e5bd0682db45c873f46a3fffc"
+version = "0.4.9"
+source = "git+https://github.com/chipp/http_client?tag=0.4.9#ee317180e9b200ec7e76bf35f7f2ffc1f37b7ea5"
 dependencies = [
  "curl",
  "futures-channel",

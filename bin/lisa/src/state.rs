@@ -105,6 +105,7 @@ impl StateManager {
         request.set_method(http_client::HttpMethod::Post);
         request.set_json_body(&body);
         request.add_header("Authorization", format!("OAuth {}", token));
+        request.set_retry_count(3);
 
         let body = request.body.as_ref().unwrap().clone();
 

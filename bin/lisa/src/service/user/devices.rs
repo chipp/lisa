@@ -27,6 +27,7 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
                     vacuum_cleaner_device(Room::Bedroom),
                     vacuum_cleaner_device(Room::Kitchen),
                     vacuum_cleaner_device(Room::LivingRoom),
+                    vacuum_cleaner_device(Room::Balcony),
                 ]
             }
         });

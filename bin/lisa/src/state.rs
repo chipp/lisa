@@ -133,6 +133,7 @@ impl StateManager {
             | (Nursery, VacuumCleaner)
             | (Bedroom, VacuumCleaner)
             | (Kitchen, VacuumCleaner)
+            | (Balcony, VacuumCleaner)
             | (LivingRoom, VacuumCleaner) => {
                 Some(StateDevice::new_with_properties_and_capabilities(
                     device_id.to_string(),

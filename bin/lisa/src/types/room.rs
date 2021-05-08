@@ -13,6 +13,7 @@ pub enum Room {
     Bedroom,
     Kitchen,
     LivingRoom,
+    Balcony,
 }
 
 impl Room {
@@ -20,7 +21,7 @@ impl Room {
         use Room::*;
 
         &[
-            Hallway, Corridor, Bathroom, Nursery, Bedroom, Kitchen, LivingRoom,
+            Hallway, Corridor, Bathroom, Nursery, Bedroom, Kitchen, LivingRoom, Balcony,
         ]
     }
 
@@ -33,18 +34,20 @@ impl Room {
             Room::Bedroom => "Спальня",
             Room::Kitchen => "Кухня",
             Room::LivingRoom => "Зал",
+            Room::Balcony => "Балкон",
         }
     }
 
     pub fn vacuum_id(&self) -> u8 {
         match self {
-            Room::Hallway => 13,
-            Room::Corridor => 15,
-            Room::Bathroom => 10,
-            Room::Nursery => 16,
-            Room::Bedroom => 14,
-            Room::Kitchen => 12,
-            Room::LivingRoom => 11,
+            Room::Hallway => 18,
+            Room::Corridor => 17,
+            Room::Bathroom => 12,
+            Room::Nursery => 11,
+            Room::Bedroom => 10,
+            Room::Kitchen => 16,
+            Room::LivingRoom => 15,
+            Room::Balcony => 14,
         }
     }
 }

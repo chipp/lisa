@@ -13,7 +13,7 @@ use std::{
     time::Instant,
 };
 
-use log::{error, trace};
+use log::{error, info, trace};
 
 use serde_json::Value;
 use tokio::{
@@ -82,8 +82,8 @@ impl Device {
                     let data = message.decode(self.token)?;
                     let response: Response = serde_json::from_slice(&data)?;
 
-                    self.command_id = response.id() + 1;
-                    trace!("next command id {}", self.command_id);
+                    self.set_command_id(response.id() + 1);
+                    info!("next command id {}", self.command_id);
 
                     return match response {
                         Response::Ok { id: _, result } => Ok(result),
@@ -95,12 +95,20 @@ impl Device {
                 }
                 Err(err) => match err.downcast::<Elapsed>() {
                     Ok(_) => {
-                        self.command_id += 100;
+                        self.set_command_id(self.command_id + 100);
                         error!("retrying with command_id {}", self.command_id)
                     }
                     Err(err) => return Err(err),
                 },
             };
+        }
+    }
+
+    fn set_command_id(&mut self, command_id: u16) {
+        if command_id <= 999 {
+            self.command_id = command_id;
+        } else {
+            self.command_id = 1;
         }
     }
 }

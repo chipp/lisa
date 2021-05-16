@@ -13,7 +13,7 @@ use std::{
     time::Instant,
 };
 
-use log::{error, trace};
+use log::{error, info, trace};
 
 use serde_json::Value;
 use tokio::{
@@ -83,7 +83,7 @@ impl Device {
                     let response: Response = serde_json::from_slice(&data)?;
 
                     self.set_command_id(response.id() + 1);
-                    trace!("next command id {}", self.command_id);
+                    info!("next command id {}", self.command_id);
 
                     return match response {
                         Response::Ok { id: _, result } => Ok(result),

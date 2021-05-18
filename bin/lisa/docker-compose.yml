@@ -13,10 +13,10 @@ services:
       - .lisa.env
     environment:
       - RUST_LOG=info
-      - VIRTUAL_HOST=lisa.burdukov.by
+      - VIRTUAL_HOST=lisa.chipp.dev
       - VIRTUAL_PORT=8080
-      - LETSENCRYPT_HOST=lisa.burdukov.by
-      - LETSENCRYPT_EMAIL=chippcheg@gmail.com
+      - LETSENCRYPT_HOST=lisa.chipp.dev
+      - LETSENCRYPT_EMAIL=lisa@chipp.dev
     restart: unless-stopped
 networks:
   default:

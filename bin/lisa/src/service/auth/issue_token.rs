@@ -17,7 +17,7 @@ pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
 
     if !validate_client_creds(&client_creds) {
         return Ok(Response::builder()
-            .status(StatusCode::FORBIDDEN)
+            .status(StatusCode::BAD_REQUEST)
             .body(Body::from("invalid client creds"))?);
     }
 
@@ -37,7 +37,7 @@ pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
                 info!("received an invalid authorization code");
 
                 Ok(Response::builder()
-                    .status(StatusCode::FORBIDDEN)
+                    .status(StatusCode::BAD_REQUEST)
                     .body(Body::from("invalid auth code"))?)
             }
         }
@@ -56,7 +56,7 @@ pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
                 info!("received an invalid refresh token");
 
                 Ok(Response::builder()
-                    .status(StatusCode::FORBIDDEN)
+                    .status(StatusCode::BAD_REQUEST)
                     .body(Body::from("invalid refresh token"))?)
             }
         }

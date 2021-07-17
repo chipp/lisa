@@ -144,7 +144,7 @@ async fn send_message(message: Message, addr: SocketAddr) -> Result<Message> {
 fn prepare_send_params<P: Serialize>(command_id: u16, command: &str, params: &P) -> Value {
     json!({
         "id": command_id,
-        "command": command,
+        "method": command,
         "params": params
     })
 }
@@ -172,7 +172,7 @@ mod tests {
             params,
             json!({
                 "id": 1,
-                "command": "some_command",
+                "method": "some_command",
                 "params": {
                     "some_key": "some_value"
                 }

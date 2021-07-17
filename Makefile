@@ -26,7 +26,7 @@ install_lisa:
 	docker pull $(LISA_ID)
 	docker-compose up -d
 
-run_lisa: RUST_LOG = debug
+run_lisa: RUST_LOG = trace
 run_lisa: ELISHEBA_TOKEN = 0000000000000000000000000000000000000000000000000000000000000000
 run_lisa: JWT_SECRET = 123456
 run_lisa: LISA_USER = chipp
@@ -54,9 +54,9 @@ deploy_isabel: isabel
 logs_isabel:
 	ssh pi "journalctl -u isabel.service -b -f"
 
-run_isabel: RUST_LOG = debug
+run_isabel: RUST_LOG = trace
 run_isabel: ELISHEBA_TOKEN = 0000000000000000000000000000000000000000000000000000000000000000
-run_isabel: VACUUM_TOKEN = 336c6f63424c4a7a6e4c685932496e61
+run_isabel: VACUUM_TOKEN = 704c666b4c373375446367447a6c5632
 run_isabel:
 	RUST_LOG=${RUST_LOG} ELISHEBA_TOKEN=${ELISHEBA_TOKEN} VACUUM_TOKEN=${VACUUM_TOKEN} cargo run --bin isabel
 

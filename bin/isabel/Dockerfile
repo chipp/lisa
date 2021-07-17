@@ -1,4 +1,4 @@
-FROM ghcr.io/chipp/build.rust.armv7_musl:1.52.1_1 AS builder
+FROM ghcr.io/chipp/build.rust.armv7_musl:1.53.0_1 AS builder
 
 ENV HOST=armv7-unknown-linux-musleabihf
 

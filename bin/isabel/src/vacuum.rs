@@ -1,9 +1,9 @@
 mod command;
 mod status;
 
-use log::info;
 pub use status::FanSpeed;
 pub use status::Status;
+pub use status::WaterGrade;
 
 use command::Command::{self, *};
 use command::Mode::*;
@@ -15,6 +15,7 @@ use crate::device::Device;
 use crate::Result;
 use elisheba::Token;
 
+use log::info;
 use serde_json::from_value;
 use serde_json::Value;
 
@@ -42,6 +43,11 @@ impl Vacuum {
         Ok(())
     }
 
+    pub async fn set_water_grade(&mut self, water_grade: WaterGrade) -> Result<()> {
+        self.execute_command(SetWaterGrade(water_grade)).await?;
+        Ok(())
+    }
+
     pub async fn set_clean_mode(&mut self, clean_mode: CleanMode) -> Result<()> {
         self.execute_command(SetCleanMode(clean_mode)).await?;
         Ok(())
@@ -61,7 +67,13 @@ impl Vacuum {
                 info!("vacuum and water bin and vacuum and mop clean mode, do nothing")
             }
             (BinType::Vacuum, _) => self.set_clean_mode(CleanMode::Vacuum).await?,
-            (BinType::VacuumAndWater, _) => self.set_clean_mode(CleanMode::VacuumAndMop).await?,
+            (BinType::VacuumAndWater, _) => {
+                self.set_clean_mode(CleanMode::VacuumAndMop).await?;
+
+                if status.water_grade != WaterGrade::High {
+                    self.set_water_grade(WaterGrade::High).await?
+                }
+            }
         };
 
         self.last_cleaning_rooms = room_ids.clone();

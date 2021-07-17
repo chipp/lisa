@@ -1,5 +1,6 @@
 use super::CleanMode;
 use super::FanSpeed;
+use super::WaterGrade;
 
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use serde_repr::Serialize_repr;
@@ -7,6 +8,7 @@ use serde_repr::Serialize_repr;
 pub enum Command<'a> {
     GetProperties(&'a [&'a str]),
     SetFanSpeed(FanSpeed),
+    SetWaterGrade(WaterGrade),
     SetCleanMode(CleanMode),
     SetModeWithRooms(Mode, &'a [u8]),
     SetMode(Mode),
@@ -26,6 +28,7 @@ impl Command<'_> {
         match self {
             Command::GetProperties(_) => "get_prop",
             Command::SetFanSpeed(_) => "set_suction",
+            Command::SetWaterGrade(_) => "set_suction",
             Command::SetCleanMode(_) => "set_mop",
             Command::SetModeWithRooms(_, _) => "set_mode_withroom",
             Command::SetMode(_) => "set_mode",
@@ -53,6 +56,13 @@ impl Serialize for Command<'_> {
                 let mut seq = serializer.serialize_seq(Some(1))?;
 
                 seq.serialize_element(&fan_speed)?;
+
+                seq.end()
+            }
+            Command::SetWaterGrade(water_grade) => {
+                let mut seq = serializer.serialize_seq(Some(1))?;
+
+                seq.serialize_element(&water_grade)?;
 
                 seq.end()
             }
@@ -120,6 +130,16 @@ mod tests {
 
         let serialized = to_value(command).unwrap();
         assert_eq!(serialized, json!([2]));
+    }
+
+    #[test]
+    fn test_set_water_grade() {
+        let command = Command::SetWaterGrade(super::WaterGrade::High);
+
+        assert_eq!(command.name(), "set_suction");
+
+        let serialized = to_value(command).unwrap();
+        assert_eq!(serialized, json!([13]));
     }
 
     #[test]

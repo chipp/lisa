@@ -1,3 +1,4 @@
+use super::CleanMode;
 use super::FanSpeed;
 
 use serde::ser::{Serialize, SerializeSeq, Serializer};
@@ -6,6 +7,7 @@ use serde_repr::Serialize_repr;
 pub enum Command<'a> {
     GetProperties(&'a [&'a str]),
     SetFanSpeed(FanSpeed),
+    SetCleanMode(CleanMode),
     SetModeWithRooms(Mode, &'a [u8]),
     SetMode(Mode),
     SetCharge,
@@ -24,6 +26,7 @@ impl Command<'_> {
         match self {
             Command::GetProperties(_) => "get_prop",
             Command::SetFanSpeed(_) => "set_suction",
+            Command::SetCleanMode(_) => "set_mop",
             Command::SetModeWithRooms(_, _) => "set_mode_withroom",
             Command::SetMode(_) => "set_mode",
             Command::SetCharge => "set_charge",
@@ -50,6 +53,13 @@ impl Serialize for Command<'_> {
                 let mut seq = serializer.serialize_seq(Some(1))?;
 
                 seq.serialize_element(&fan_speed)?;
+
+                seq.end()
+            }
+            Command::SetCleanMode(mode) => {
+                let mut seq = serializer.serialize_seq(Some(1))?;
+
+                seq.serialize_element(&mode)?;
 
                 seq.end()
             }
@@ -110,6 +120,16 @@ mod tests {
 
         let serialized = to_value(command).unwrap();
         assert_eq!(serialized, json!([2]));
+    }
+
+    #[test]
+    fn test_set_clean_mode() {
+        let command = Command::SetCleanMode(CleanMode::VacuumAndMop);
+
+        assert_eq!(command.name(), "set_mop");
+
+        let serialized = to_value(command).unwrap();
+        assert_eq!(serialized, json!([1]));
     }
 
     #[test]

@@ -10,6 +10,7 @@ pub struct Status {
     pub bin_type: BinType,
     pub state: State,
     pub fan_speed: FanSpeed,
+    pub clean_mode: CleanMode,
 }
 
 #[derive(Debug, Deserialize_repr, PartialEq)]
@@ -25,9 +26,31 @@ impl fmt::Display for BinType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             BinType::NoBin => write!(f, "no bin"),
-            BinType::Vacuum => write!(f, "vacuum"),
-            BinType::Water => write!(f, "water"),
-            BinType::VacuumAndWater => write!(f, "vacuum and water"),
+            BinType::Vacuum => write!(f, "vacuum bin"),
+            BinType::Water => write!(f, "water bin"),
+            BinType::VacuumAndWater => write!(f, "vacuum and water bin"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize_repr, PartialEq, Serialize_repr)]
+#[repr(u8)]
+pub enum CleanMode {
+    Vacuum = 0,
+    VacuumAndMop = 1,
+    Mop = 2,
+    CleanZone = 3,
+    CleanSpot = 4,
+}
+
+impl fmt::Display for CleanMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CleanMode::Vacuum => write!(f, "vacuum"),
+            CleanMode::VacuumAndMop => write!(f, "vacuum and mop"),
+            CleanMode::Mop => write!(f, "mop"),
+            CleanMode::CleanZone => write!(f, "clean zone"),
+            CleanMode::CleanSpot => write!(f, "clean spot"),
         }
     }
 }
@@ -142,12 +165,14 @@ impl<'de> Visitor<'de> for StatusVisitor {
         let fan_speed: FanSpeed = seq
             .next_element()?
             .ok_or(Error::missing_field("fan_speed"))?;
+        let clean_mode: CleanMode = seq.next_element()?.ok_or(Error::missing_field("is_mop"))?;
 
         Ok(Status {
             battery,
             bin_type,
             state,
             fan_speed,
+            clean_mode,
         })
     }
 
@@ -156,7 +181,13 @@ impl<'de> Visitor<'de> for StatusVisitor {
     }
 }
 
-pub const FIELDS: &[&str] = &["battary_life", "box_type", "run_state", "suction_grade"];
+pub const FIELDS: &[&str] = &[
+    "battary_life",
+    "box_type",
+    "run_state",
+    "suction_grade",
+    "is_mop",
+];
 
 #[cfg(test)]
 mod tests {
@@ -166,12 +197,13 @@ mod tests {
 
     #[test]
     fn test_parsing() {
-        let data = json!([99, 3, 6, 3]);
+        let data = json!([99, 3, 6, 3, 2]);
         let status: Status = serde_json::from_value(data).unwrap();
 
         assert_eq!(status.battery, 99);
         assert_eq!(status.bin_type, BinType::VacuumAndWater);
         assert_eq!(status.state, State::VacuumingAndMopping);
         assert_eq!(status.fan_speed, FanSpeed::Turbo);
+        assert_eq!(status.clean_mode, CleanMode::Mop);
     }
 }

@@ -1,18 +1,22 @@
 mod command;
 mod status;
 
-use serde_json::Value;
+use log::info;
 pub use status::FanSpeed;
 pub use status::Status;
 
 use command::Command::{self, *};
 use command::Mode::*;
 
+use status::BinType;
+use status::CleanMode;
+
 use crate::device::Device;
 use crate::Result;
 use elisheba::Token;
 
 use serde_json::from_value;
+use serde_json::Value;
 
 pub struct Vacuum {
     device: Device,
@@ -38,7 +42,28 @@ impl Vacuum {
         Ok(())
     }
 
+    pub async fn set_clean_mode(&mut self, clean_mode: CleanMode) -> Result<()> {
+        self.execute_command(SetCleanMode(clean_mode)).await?;
+        Ok(())
+    }
+
     pub async fn start(&mut self, room_ids: Vec<u8>) -> Result<()> {
+        let status = self.status().await?;
+
+        info!("{} and {}", status.bin_type, status.clean_mode);
+
+        match (status.bin_type, status.clean_mode) {
+            (BinType::NoBin | BinType::Water, _) => todo!(),
+            (BinType::Vacuum, CleanMode::Vacuum) => {
+                info!("don't change clean mode");
+            }
+            (BinType::VacuumAndWater, CleanMode::VacuumAndMop) => {
+                info!("vacuum and water bin and vacuum and mop clean mode, do nothing")
+            }
+            (BinType::Vacuum, _) => self.set_clean_mode(CleanMode::Vacuum).await?,
+            (BinType::VacuumAndWater, _) => self.set_clean_mode(CleanMode::VacuumAndMop).await?,
+        };
+
         self.last_cleaning_rooms = room_ids.clone();
 
         self.execute_command(SetModeWithRooms(Start, &room_ids))

@@ -5,12 +5,13 @@ use super::WaterGrade;
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use serde_repr::Serialize_repr;
 
-pub enum Command<'a> {
-    GetProperties(&'a [&'a str]),
+#[derive(PartialEq)]
+pub enum Command {
+    GetProperties(&'static [&'static str]),
     SetFanSpeed(FanSpeed),
     SetWaterGrade(WaterGrade),
     SetCleanMode(CleanMode),
-    SetModeWithRooms(Mode, &'a [u8]),
+    SetModeWithRooms(Mode, Vec<u8>),
     SetMode(Mode),
     SetCharge,
 }
@@ -23,7 +24,7 @@ pub enum Mode {
     Pause = 2,
 }
 
-impl Command<'_> {
+impl Command {
     pub fn name(&self) -> &'static str {
         match self {
             Command::GetProperties(_) => "get_prop",
@@ -37,7 +38,7 @@ impl Command<'_> {
     }
 }
 
-impl Serialize for Command<'_> {
+impl Serialize for Command {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -161,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_set_mode_with_rooms() {
-        let command = Command::SetModeWithRooms(Mode::Pause, &[1, 11, 21]);
+        let command = Command::SetModeWithRooms(Mode::Pause, vec![1, 11, 21]);
 
         assert_eq!(command.name(), "set_mode_withroom");
 

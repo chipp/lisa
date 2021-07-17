@@ -15,7 +15,8 @@ use std::{
 
 use log::{error, info, trace};
 
-use serde_json::Value;
+use serde::Serialize;
+use serde_json::{json, Value};
 use tokio::{
     net::UdpSocket,
     time::{error::Elapsed, timeout, Duration},
@@ -54,7 +55,7 @@ impl Device {
         discover(Some(self.addr.ip)).await
     }
 
-    pub async fn send(&mut self, command: &str, params: Value) -> Result<Value> {
+    pub async fn send<P: Serialize>(&mut self, command: &str, params: P) -> Result<Value> {
         let addr = SocketAddr::from(&self.addr);
 
         let header = self.handshake().await?;
@@ -68,11 +69,7 @@ impl Device {
 
             trace!("sending command {} with id {}", command, self.command_id);
 
-            let json = serde_json::json!({
-                "id": self.command_id,
-                "method": command,
-                "params": params
-            });
+            let json = prepare_send_params(self.command_id, command, &params);
 
             let data = serde_json::to_vec(&json)?;
             let message = Message::encode(data, self.token, header.id, send_ts)?;
@@ -141,5 +138,45 @@ async fn send_message(message: Message, addr: SocketAddr) -> Result<Message> {
 
             return Ok(message);
         }
+    }
+}
+
+fn prepare_send_params<P: Serialize>(command_id: u16, command: &str, params: &P) -> Value {
+    json!({
+        "id": command_id,
+        "command": command,
+        "params": params
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Serialize)]
+    struct SomeCommand<'a> {
+        some_key: &'a str,
+    }
+
+    #[test]
+    fn test_send_params() {
+        let params = prepare_send_params(
+            1,
+            "some_command",
+            &SomeCommand {
+                some_key: "some_value",
+            },
+        );
+
+        assert_eq!(
+            params,
+            json!({
+                "id": 1,
+                "command": "some_command",
+                "params": {
+                    "some_key": "some_value"
+                }
+            })
+        )
     }
 }

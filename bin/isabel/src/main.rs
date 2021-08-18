@@ -17,8 +17,6 @@ use isabel::{Result, SocketHandler, Vacuum, VacuumController};
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
 
-    info!("Change the message");
-
     let vacuum_token = std::env::var("VACUUM_TOKEN").expect("set ENV variable VACUUM_TOKEN");
     let vacuum_token = parse_token::<16>(&vacuum_token);
 

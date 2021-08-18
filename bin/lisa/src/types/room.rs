@@ -40,14 +40,14 @@ impl Room {
 
     pub fn vacuum_id(&self) -> u8 {
         match self {
-            Room::Hallway => 18,
-            Room::Corridor => 17,
-            Room::Bathroom => 12,
-            Room::Nursery => 11,
-            Room::Bedroom => 10,
-            Room::Kitchen => 16,
-            Room::LivingRoom => 15,
-            Room::Balcony => 14,
+            Room::Hallway => 11,
+            Room::Corridor => 14,
+            Room::Bathroom => 16,
+            Room::Nursery => 13,
+            Room::Bedroom => 12,
+            Room::Kitchen => 15,
+            Room::LivingRoom => 17,
+            Room::Balcony => 10,
         }
     }
 }

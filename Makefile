@@ -16,13 +16,13 @@ logs_lisa:
 
 install_lisa_from_tar:
 	docker-compose down || true
-	docker image rm $(LISA_ID)
+	docker image rm $(LISA_ID) || true
 	docker image load -i lisa.tar
 	docker-compose up -d
 
 install_lisa:
 	docker-compose down || true
-	docker image rm $(LISA_ID)
+	docker image rm $(LISA_ID) || true
 	docker pull $(LISA_ID)
 	docker-compose up -d
 
@@ -70,6 +70,6 @@ action_deploy:
 
 action_deploy_staging:
 	docker-compose down || true
-	docker image rm $(LISA_ID):staging
+	docker image rm $(LISA_ID):staging || true
 	docker pull $(LISA_ID):staging
 	docker-compose up -d

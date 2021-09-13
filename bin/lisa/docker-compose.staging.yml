@@ -1,0 +1,24 @@
+version: "3"
+services:
+  lisa:
+    build: .
+    image: ghcr.io/chipp/lisa:staging
+    expose:
+      - 8080
+    ports:
+      - 8081:8081
+    entrypoint: ["./lisa"]
+    env_file:
+      - .alice.env
+      - .lisa.env
+    environment:
+      - RUST_LOG=info
+      - VIRTUAL_HOST=staging.lisa.chipp.dev
+      - VIRTUAL_PORT=8080
+      - LETSENCRYPT_HOST=stating.lisa.chipp.dev
+      - LETSENCRYPT_EMAIL=lisa@chipp.dev
+    restart: unless-stopped
+networks:
+  default:
+    external:
+      name: nginxproxy_default

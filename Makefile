@@ -68,3 +68,8 @@ action_deploy:
 	scp isabel pi:/usr/local/bin
 	ssh pi "sudo service isabel start"
 
+action_deploy_staging:
+	docker-compose down || true
+	docker image rm $(LISA_ID):staging
+	docker pull $(LISA_ID):staging
+	docker-compose up -d

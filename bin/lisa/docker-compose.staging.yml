@@ -5,8 +5,6 @@ services:
     image: ghcr.io/chipp/lisa:staging
     expose:
       - 8080
-    ports:
-      - 8081:8081
     entrypoint: ["./lisa"]
     env_file:
       - .alice.env
@@ -15,7 +13,7 @@ services:
       - RUST_LOG=info
       - VIRTUAL_HOST=staging.lisa.chipp.dev
       - VIRTUAL_PORT=8080
-      - LETSENCRYPT_HOST=stating.lisa.chipp.dev
+      - LETSENCRYPT_HOST=staging.lisa.chipp.dev
       - LETSENCRYPT_EMAIL=lisa@chipp.dev
     restart: unless-stopped
 networks:

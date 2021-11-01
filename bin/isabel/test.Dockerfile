@@ -1,4 +1,4 @@
-FROM ghcr.io/chipp/build.rust.x86_64_musl:1.53.0_1 AS builder
+FROM ghcr.io/chipp/build.rust.x86_64_musl:1.56.1_1 AS builder
 
 ENV HOST=x86_64-unknown-linux-musl
 

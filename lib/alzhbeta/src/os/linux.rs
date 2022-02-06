@@ -139,12 +139,16 @@ impl Scanner {
                 std::mem::size_of_val(&buf),
             );
 
+            debug!("wants to read {} bytes", len);
+
             while len < 0 {
                 len = libc::read(
                     dd,
                     buf.as_mut_ptr() as *mut c_void,
                     std::mem::size_of_val(&buf),
                 );
+
+                debug!("read {} bytes", len);
             }
 
             let ptr: *const u8 = buf.as_ptr().offset(1 + HCI_EVENT_HDR_SIZE);
@@ -162,6 +166,8 @@ impl Scanner {
             let mut offset = 0;
             while offset < (*info).length {
                 let eir_data_len = *(*info).data.as_ptr().offset(offset as isize);
+                debug!("parsing event {} bytes", eir_data_len);
+
                 if let Some(evt) = Self::read_event((*info).data.as_ptr().offset(offset as isize)) {
                     event = Some(evt);
                     break;

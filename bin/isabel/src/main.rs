@@ -123,6 +123,8 @@ fn report_sensors_task(socket_handler: SocketHandler, abort: Arc<AtomicBool>) ->
         }
     }
 
+    debug!("start listening bluetooth");
+
     task::spawn(async move {
         let mut socket_handler = socket_handler;
         let mut rx = scanner.start_scan();

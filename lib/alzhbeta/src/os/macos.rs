@@ -2,7 +2,7 @@ use core_bluetooth::central::{CentralEvent, CentralManager};
 use core_bluetooth::uuid::Uuid;
 use core_bluetooth::ManagerState;
 
-use log::info;
+use log::{debug, info};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
 use crate::{event::parse_event, Event, MacAddr};
@@ -32,6 +32,8 @@ impl super::CommonScanner for Scanner {
 
 impl Scanner {
     fn handle_event(event: CentralEvent, tx: Sender<(MacAddr, Event)>, central: &CentralManager) {
+        debug!("{:?}", event);
+
         match event {
             CentralEvent::ManagerStateChanged { new_state }
                 if new_state == ManagerState::PoweredOn =>

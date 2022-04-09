@@ -40,13 +40,10 @@ impl From<&Addr> for SocketAddr {
 }
 
 impl Device {
-    pub fn new(ip: [u8; 4], token: Token<16>) -> Device {
+    pub fn new(ip: Ipv4Addr, token: Token<16>) -> Device {
         Device {
             command_id: 1,
-            addr: Addr {
-                ip: ip.into(),
-                port: 54321,
-            },
+            addr: Addr { ip, port: 54321 },
             token,
         }
     }

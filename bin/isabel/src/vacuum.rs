@@ -2,6 +2,8 @@ mod command;
 mod command_executor;
 mod status;
 
+use std::net::Ipv4Addr;
+
 pub use status::FanSpeed;
 pub use status::Status;
 pub use status::WaterGrade;
@@ -26,7 +28,7 @@ pub struct Vacuum {
 }
 
 impl Vacuum {
-    pub fn new(ip: [u8; 4], token: Token<16>) -> Vacuum {
+    pub fn new(ip: Ipv4Addr, token: Token<16>) -> Vacuum {
         Vacuum {
             executor: Box::new(CommandExecutor::new(Device::new(ip, token))),
             last_cleaning_rooms: vec![],

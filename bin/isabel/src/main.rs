@@ -20,7 +20,11 @@ async fn main() -> Result<()> {
     let vacuum_token = std::env::var("VACUUM_TOKEN").expect("set ENV variable VACUUM_TOKEN");
     let vacuum_token = parse_token::<16>(&vacuum_token);
 
-    let mut vacuum = Vacuum::new([10, 0, 1, 150], vacuum_token);
+    let vacuum_ip = std::env::var("VACUUM_IP")
+        .unwrap_or("10.0.1.150".to_string())
+        .parse()?;
+
+    let mut vacuum = Vacuum::new(vacuum_ip, vacuum_token);
     let status = vacuum.status().await?;
 
     let vacuum_controller = VacuumController::new(vacuum);

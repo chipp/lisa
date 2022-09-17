@@ -127,20 +127,19 @@ impl StateManager {
     pub fn state_for_device(&self, device_id: DeviceId) -> Option<StateDevice> {
         let DeviceId { room, device_type } = &device_id;
         match (room, device_type) {
-            (Hallway, VacuumCleaner)
-            | (Corridor, VacuumCleaner)
-            | (Bathroom, VacuumCleaner)
-            | (Nursery, VacuumCleaner)
+            (Bathroom, VacuumCleaner)
             | (Bedroom, VacuumCleaner)
+            | (Corridor, VacuumCleaner)
+            | (Hallway, VacuumCleaner)
+            | (HomeOffice, VacuumCleaner)
             | (Kitchen, VacuumCleaner)
-            | (Balcony, VacuumCleaner)
-            | (LivingRoom, VacuumCleaner) => {
-                Some(StateDevice::new_with_properties_and_capabilities(
-                    device_id.to_string(),
-                    self.vacuum_state.properties(false),
-                    self.vacuum_state.capabilities(false),
-                ))
-            }
+            | (LivingRoom, VacuumCleaner)
+            | (Nursery, VacuumCleaner)
+            | (Toilet, VacuumCleaner) => Some(StateDevice::new_with_properties_and_capabilities(
+                device_id.to_string(),
+                self.vacuum_state.properties(false),
+                self.vacuum_state.capabilities(false),
+            )),
             (Nursery, TemperatureSensor) => Some(StateDevice::new_with_properties(
                 device_id.to_string(),
                 self.nursery_sensor_state.properties(false),

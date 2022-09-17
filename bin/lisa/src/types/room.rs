@@ -6,14 +6,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Room {
-    Hallway,
-    Corridor,
     Bathroom,
-    Nursery,
     Bedroom,
+    Corridor,
+    Hallway,
+    HomeOffice,
     Kitchen,
     LivingRoom,
-    Balcony,
+    Nursery,
+    Toilet,
 }
 
 impl Room {
@@ -21,33 +22,35 @@ impl Room {
         use Room::*;
 
         &[
-            Hallway, Corridor, Bathroom, Nursery, Bedroom, Kitchen, LivingRoom, Balcony,
+            Bathroom, Bedroom, Corridor, Hallway, HomeOffice, Kitchen, LivingRoom, Nursery, Toilet,
         ]
     }
 
     pub fn name(&self) -> &str {
         match self {
-            Room::Hallway => "Прихожая",
-            Room::Corridor => "Коридор",
             Room::Bathroom => "Ванная",
-            Room::Nursery => "Детская",
             Room::Bedroom => "Спальня",
+            Room::Corridor => "Коридор",
+            Room::Hallway => "Прихожая",
+            Room::HomeOffice => "Кабинет",
             Room::Kitchen => "Кухня",
             Room::LivingRoom => "Зал",
-            Room::Balcony => "Балкон",
+            Room::Nursery => "Детская",
+            Room::Toilet => "Туалет",
         }
     }
 
     pub fn vacuum_id(&self) -> u8 {
         match self {
-            Room::Hallway => 10,
-            Room::Corridor => 13,
-            Room::Bathroom => 0,
-            Room::Nursery => 12,
-            Room::Bedroom => 11,
-            Room::Kitchen => 15,
-            Room::LivingRoom => 14,
-            Room::Balcony => 0,
+            Room::Bathroom => 11,
+            Room::Bedroom => 13,
+            Room::Corridor => 15,
+            Room::Hallway => 12,
+            Room::HomeOffice => 17,
+            Room::Kitchen => 16,
+            Room::LivingRoom => 18,
+            Room::Nursery => 14,
+            Room::Toilet => 10,
         }
     }
 }

@@ -13,7 +13,7 @@ use std::{
     time::Instant,
 };
 
-use log::{error, info, trace};
+use log::{debug, error, trace};
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -77,7 +77,7 @@ impl Device {
                     let response: Response = serde_json::from_slice(&data)?;
 
                     self.set_command_id(response.id() + 1);
-                    info!("next command id {}", self.command_id);
+                    debug!("next command id {}", self.command_id);
 
                     return match response {
                         Response::Ok { id: _, result } => Ok(result),
@@ -89,7 +89,7 @@ impl Device {
                 }
                 Err(err) => match err.downcast::<Elapsed>() {
                     Ok(_) => {
-                        self.set_command_id(self.command_id + 100);
+                        self.set_command_id(self.command_id + 10);
                         error!("retrying with command_id {}", self.command_id)
                     }
                     Err(err) => return Err(err),

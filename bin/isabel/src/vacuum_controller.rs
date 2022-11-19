@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use elisheba::{Command, CommandResponse};
-use log::{error, info};
+use log::{debug, error, info};
 use tokio::{
     sync::{mpsc, Mutex},
     task,
@@ -71,7 +71,7 @@ impl VacuumController {
         let (tx, rx) = mpsc::channel::<Status>(1);
 
         task::spawn(async move {
-            let mut timer = interval(Duration::from_secs(60));
+            let mut timer = interval(Duration::from_secs(180));
 
             loop {
                 timer.tick().await;
@@ -81,7 +81,7 @@ impl VacuumController {
 
                 if let Ok(status) = vacuum.status().await {
                     if let Err(_) = tx.send(status).await {
-                        info!("status observer has been dropped, aborting timer");
+                        debug!("status observer has been dropped, aborting timer");
                         break;
                     }
                 }

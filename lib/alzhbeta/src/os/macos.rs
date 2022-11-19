@@ -2,7 +2,7 @@ use core_bluetooth::central::{CentralEvent, CentralManager};
 use core_bluetooth::uuid::Uuid;
 use core_bluetooth::ManagerState;
 
-use log::{debug, info};
+use log::{debug, trace};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
 use crate::{event::parse_event, Event, MacAddr};
@@ -32,7 +32,7 @@ impl super::CommonScanner for Scanner {
 
 impl Scanner {
     fn handle_event(event: CentralEvent, tx: Sender<(MacAddr, Event)>, central: &CentralManager) {
-        debug!("{:?}", event);
+        trace!("{:?}", event);
 
         match event {
             CentralEvent::ManagerStateChanged { new_state }
@@ -51,7 +51,7 @@ impl Scanner {
                     .and_then(parse_event)
                 {
                     if let Err(_) = tx.blocking_send(event) {
-                        info!("scanner observer has been dropped, cancelling scanning");
+                        debug!("scanner observer has been dropped, cancelling scanning");
                         central.cancel_scan();
                     }
                 }

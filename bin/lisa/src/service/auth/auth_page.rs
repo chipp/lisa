@@ -3,14 +3,14 @@ use std::borrow::Cow;
 use serde::Deserialize;
 
 use hyper::{Body, Request, Response, StatusCode};
-use log::info;
+use log::debug;
 
 use crate::Result;
 
 pub fn auth_page(request: Request<Body>) -> Result<Response<Body>> {
     Ok(match params_for_auth_page(&request).and_then(auth_html) {
         Some(html) => {
-            info!("starting authentication process");
+            debug!("starting authentication process");
 
             Response::builder()
                 .status(StatusCode::OK)

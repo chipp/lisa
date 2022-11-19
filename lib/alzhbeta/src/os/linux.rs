@@ -155,7 +155,7 @@ impl Scanner {
             meta = ptr.cast();
 
             if (*meta).subevent != EVT_LE_ADVERTISING_REPORT {
-                debug!("got meta.subevent {:x}", (*meta).subevent);
+                trace!("got meta.subevent {:x}", (*meta).subevent);
                 break;
             }
 
@@ -176,7 +176,7 @@ impl Scanner {
 
             if let Some(event) = event.as_ref().map(Vec::as_slice).and_then(parse_event) {
                 if let Err(_) = tx.blocking_send(event) {
-                    info!("scanner observer has been dropped, cancelling scanning");
+                    debug!("scanner observer has been dropped, cancelling scanning");
                     break;
                 }
             }
@@ -223,7 +223,7 @@ impl Scanner {
 impl Drop for Scanner {
     fn drop(&mut self) {
         unsafe {
-            info!("Scanner has been dropped");
+            debug!("Scanner has been dropped");
             let dd = *self.dd.lock().unwrap();
             Scanner::stop_scan(dd);
         }

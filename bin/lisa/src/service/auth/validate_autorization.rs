@@ -1,6 +1,6 @@
 use crate::Result;
 use hyper::{header, Body, Request, Response, StatusCode};
-use log::{error, info};
+use log::{error, trace};
 
 use super::token::{is_valid_token, TokenType};
 
@@ -15,7 +15,7 @@ where
 {
     match extract_token_from_headers(&request.headers()) {
         Some(token) if is_valid_token(token, TokenType::Access) => {
-            info!(target: request_name, "received a valid access token");
+            trace!(target: request_name, "received a valid access token");
             success(request).await
         }
         Some(_) => {

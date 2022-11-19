@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use bytes::Buf;
 use chrono::Duration;
 use hyper::{Body, Request, Response, StatusCode};
-use log::info;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_urlencoded::de;
 
@@ -28,13 +28,13 @@ pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
             if is_valid_token(auth_code.value, TokenType::Code) {
                 // TODO: save token version
 
-                info!("received a valid authorization code, generating access and refresh tokens");
+                debug!("received a valid authorization code, generating access and refresh tokens");
 
                 Ok(Response::builder()
                     .status(StatusCode::OK)
                     .body(Body::from(serde_json::to_vec(&TokenResponse::new())?))?)
             } else {
-                info!("received an invalid authorization code");
+                debug!("received an invalid authorization code");
 
                 Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)
@@ -47,13 +47,13 @@ pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
             if is_valid_token(refresh_token.value, TokenType::Refresh) {
                 // TODO: increment token version
 
-                info!("received a valid refresh token, generating new access and refresh tokens");
+                debug!("received a valid refresh token, generating new access and refresh tokens");
 
                 Ok(Response::builder()
                     .status(StatusCode::OK)
                     .body(Body::from(serde_json::to_vec(&TokenResponse::new())?))?)
             } else {
-                info!("received an invalid refresh token");
+                debug!("received an invalid refresh token");
 
                 Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)

@@ -25,9 +25,9 @@ pub enum SensorData {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum SensorRoom {
-    Nursery,
     Bedroom,
-    LivingRoom,
+    HomeOffice,
+    Kitchen,
 }
 
 impl SensorData {

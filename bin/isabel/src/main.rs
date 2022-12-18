@@ -120,9 +120,9 @@ fn report_sensors_task(socket_handler: SocketHandler, abort: Arc<AtomicBool>) ->
 
     fn match_addr_to_room(addr: MacAddr) -> Option<SensorRoom> {
         match addr.octets {
-            [0x4c, 0x65, 0xa8, 0xdd, 0x82, 0xcf] => Some(SensorRoom::Nursery),
-            [0x58, 0x2d, 0x34, 0x39, 0x97, 0x66] => Some(SensorRoom::Bedroom),
-            [0x58, 0x2d, 0x34, 0x39, 0x95, 0xf2] => Some(SensorRoom::LivingRoom),
+            [0x58, 0x2d, 0x34, 0x39, 0x95, 0xf2] => Some(SensorRoom::Bedroom),
+            [0x4c, 0x65, 0xa8, 0xdd, 0x82, 0xcf] => Some(SensorRoom::HomeOffice),
+            [0x58, 0x2d, 0x34, 0x39, 0x97, 0x66] => Some(SensorRoom::Kitchen),
             _ => None,
         }
     }

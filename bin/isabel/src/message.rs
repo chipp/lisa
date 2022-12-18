@@ -98,8 +98,8 @@ impl Message {
 
     pub fn write_to(self, bytes: &mut [u8]) {
         self.header.write_to(bytes);
-        &bytes[16..32].copy_from_slice(&self.checksum);
-        &bytes[32..].copy_from_slice(&self.data);
+        let _ = &bytes[16..32].copy_from_slice(&self.checksum);
+        let _ = &bytes[32..].copy_from_slice(&self.data);
     }
 
     pub fn len(&self) -> usize {

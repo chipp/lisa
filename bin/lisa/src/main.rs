@@ -179,9 +179,9 @@ async fn read_from_socket(
                         let mut state = state_manager.clone().lock_owned().await;
 
                         let room_state = match sensor_data.room() {
-                            SensorRoom::Nursery => &mut state.nursery_sensor_state,
                             SensorRoom::Bedroom => &mut state.bedroom_sensor_state,
-                            SensorRoom::LivingRoom => &mut state.living_room_sensor_state,
+                            SensorRoom::HomeOffice => &mut state.home_office_sensor_state,
+                            SensorRoom::Kitchen => &mut state.kitchen_sensor_state,
                         };
 
                         match sensor_data {

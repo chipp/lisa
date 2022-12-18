@@ -18,8 +18,6 @@ hyper = { version = "0.14", features = ["full"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util", "net", "time"] }
 futures = "0.3"
 
-http_client = { git = "https://github.com/chipp/http_client", tag = "0.4.9" }
-
 bytes = "1"
 url = "2.0"
 

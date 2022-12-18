@@ -6,7 +6,7 @@ use sensor_state::SensorState;
 
 use alice::{StateDevice, StateResponse};
 use chrono::Utc;
-use http_client::{parse_void, HttpClient};
+use hyper::{Body, Client, Method, Request, StatusCode};
 use log::{debug, error};
 
 use crate::DeviceId;
@@ -99,28 +99,35 @@ impl StateManager {
         let skill_id = std::env::var("ALICE_SKILL_ID").expect("skill id is required");
         let token = std::env::var("ALICE_TOKEN").expect("token is required");
 
-        let client = HttpClient::new("https://dialogs.yandex.net/api/v1/skills").unwrap();
+        let client = Client::new();
 
-        let mut request = client.new_request(&[&skill_id, "callback", "state"]);
-        request.set_method(http_client::HttpMethod::Post);
-        request.set_json_body(&body);
-        request.add_header("Authorization", format!("OAuth {}", token));
-        request.set_retry_count(3);
+        let body = serde_json::to_vec(&body).unwrap();
 
-        let body = request.body.as_ref().unwrap().clone();
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(format!(
+                "https://dialogs.yandex.net/api/v1/skills/{}/callback/state",
+                skill_id
+            ))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("OAuth {}", token))
+            .body(Body::from(body))
+            .unwrap();
 
-        match client.perform_request(request, parse_void).await {
-            Ok(_) => {
-                debug!("successfully notified alice about changes");
-                self.vacuum_state.reset_modified();
-                self.bedroom_sensor_state.reset_modified();
-                self.home_office_sensor_state.reset_modified();
-                self.kitchen_sensor_state.reset_modified();
+        match client.request(request).await {
+            Ok(response) => {
+                if let StatusCode::ACCEPTED = response.status() {
+                    debug!("successfully notified alice about changes");
+                    self.vacuum_state.reset_modified();
+                    self.bedroom_sensor_state.reset_modified();
+                    self.home_office_sensor_state.reset_modified();
+                    self.kitchen_sensor_state.reset_modified();
+                } else {
+                    error!("unable to report state changes {}", response.status());
+                    error!("{:#?}", response);
+                }
             }
-            Err(err) => {
-                error!("unable to report state changes {}", err);
-                error!("{}", std::str::from_utf8(&body).unwrap());
-            }
+            Err(err) => error!("unable to report state changes {}", err),
         }
     }
 

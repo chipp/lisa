@@ -7,6 +7,7 @@ use sensor_state::SensorState;
 use alice::{StateDevice, StateResponse};
 use chrono::Utc;
 use hyper::{Body, Client, Method, Request, StatusCode};
+use hyper_tls::HttpsConnector;
 use log::{debug, error};
 
 use crate::DeviceId;
@@ -99,7 +100,8 @@ impl StateManager {
         let skill_id = std::env::var("ALICE_SKILL_ID").expect("skill id is required");
         let token = std::env::var("ALICE_TOKEN").expect("token is required");
 
-        let client = Client::new();
+        let https = HttpsConnector::new();
+        let client = Client::builder().build(https);
 
         let body = serde_json::to_vec(&body).unwrap();
 

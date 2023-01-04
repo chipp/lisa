@@ -20,5 +20,8 @@ mod update_state;
 pub use state::StateManager;
 pub use update_state::update_devices_state;
 
+mod handle_socket_client;
+pub use handle_socket_client::read_from_socket;
+
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;

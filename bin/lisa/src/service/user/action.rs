@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use alice::{UpdateStateRequest, UpdateStateResponse};
 use bytes::Buf;
-use elisheba::Command;
+use elisheba::Command as VacuumCommand;
 use hyper::{Body, Request, Response, StatusCode};
 use tokio::sync::Mutex;
 
@@ -11,7 +11,7 @@ use crate::{update_devices_state, Result};
 
 pub async fn action<F>(
     request: Request<Body>,
-    send_command: Arc<Mutex<impl Fn(Command) -> F>>,
+    send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
 ) -> Result<Response<Body>>
 where
     F: std::future::Future<Output = Result<()>>,
@@ -27,12 +27,13 @@ where
         }
 
         let action: UpdateStateRequest = serde_json::from_slice(body.chunk())?;
-        let devices = update_devices_state(action.payload.devices, send_command).await;
+        let devices = update_devices_state(action.payload.devices, send_vacuum_command).await;
 
         let response = UpdateStateResponse::new(request_id, devices);
 
         Ok(Response::builder()
             .status(StatusCode::OK)
+            .header("Content-Type", "application/json")
             .body(Body::from(serde_json::to_vec(&response)?))?)
     })
     .await

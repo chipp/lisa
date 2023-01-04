@@ -28,7 +28,7 @@ mod user {
 use std::sync::Arc;
 
 use bytes::Buf;
-use elisheba::Command;
+use elisheba::Command as VacuumCommand;
 use log::error;
 
 use hyper::{Body, Method, Request, Response, StatusCode};
@@ -38,7 +38,7 @@ use crate::{Result, StateManager};
 
 pub async fn service<F>(
     request: Request<Body>,
-    send_command: Arc<Mutex<impl Fn(Command) -> F>>,
+    send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
     state_manager: Arc<Mutex<StateManager>>,
 ) -> Result<Response<Body>>
 where
@@ -51,7 +51,9 @@ where
         ("/v1.0", &Method::HEAD) => user::pong(),
         ("/v1.0/user/devices", &Method::GET) => user::devices(request).await,
         ("/v1.0/user/devices/query", &Method::POST) => user::query(request, state_manager).await,
-        ("/v1.0/user/devices/action", &Method::POST) => user::action(request, send_command).await,
+        ("/v1.0/user/devices/action", &Method::POST) => {
+            user::action(request, send_vacuum_command).await
+        }
         ("/v1.0/user/unlink", &Method::POST) => user::unlink(request).await,
         _ => {
             error!("Unsupported request: {:?}", request);

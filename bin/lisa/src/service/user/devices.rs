@@ -35,6 +35,7 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
 
         Ok(Response::builder()
             .status(StatusCode::OK)
+            .header("Content-Type", "application/json")
             .body(Body::from(serde_json::to_vec(&json)?))?)
     })
     .await
@@ -50,9 +51,9 @@ fn sensor_device(room: Room) -> Device {
         room: room_name,
         device_type: DeviceType::Sensor,
         properties: vec![
-            DeviceProperty::humidity().retrievable().reportable(),
-            DeviceProperty::temperature().retrievable().reportable(),
-            DeviceProperty::battery_level().retrievable().reportable(),
+            DeviceProperty::humidity().reportable(),
+            DeviceProperty::temperature().reportable(),
+            DeviceProperty::battery_level().reportable(),
         ],
         capabilities: vec![],
     }

@@ -48,6 +48,7 @@ where
                         function: ToggleFunction::Pause,
                         value,
                     } => toggle_pause = Some(value),
+                    StateCapability::Range { .. } => panic!("unexpected capability"),
                 }
             }
         }

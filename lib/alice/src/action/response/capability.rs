@@ -1,7 +1,7 @@
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 
-use crate::{ModeFunction, ToggleFunction};
+use crate::{ModeFunction, RangeFunction, ToggleFunction};
 
 #[derive(Debug)]
 pub enum ActionResult {
@@ -53,6 +53,10 @@ pub enum Capability {
         function: ToggleFunction,
         result: ActionResult,
     },
+    Range {
+        function: RangeFunction,
+        result: ActionResult,
+    },
 }
 
 impl Capability {
@@ -66,6 +70,10 @@ impl Capability {
 
     pub fn toggle(function: ToggleFunction, result: ActionResult) -> Capability {
         Capability::Toggle { function, result }
+    }
+
+    pub fn range(function: RangeFunction, result: ActionResult) -> Capability {
+        Capability::Range { function, result }
     }
 }
 
@@ -127,6 +135,16 @@ impl serde::ser::Serialize for Capability {
             }
             Capability::Toggle { function, result } => {
                 property.serialize_field("type", "devices.capabilities.toggle")?;
+                property.serialize_field(
+                    "state",
+                    &State {
+                        instance: function,
+                        action_result: result,
+                    },
+                )?;
+            }
+            Capability::Range { function, result } => {
+                property.serialize_field("type", "devices.capabilities.range")?;
                 property.serialize_field(
                     "state",
                     &State {
@@ -209,6 +227,21 @@ mod tests {
                 "type": "devices.capabilities.toggle",
                 "state": {
                     "instance": "pause",
+                    "action_result": {"status": "DONE"}
+                }
+            })
+        );
+
+        assert_eq!(
+            to_value(&Capability::Range {
+                function: RangeFunction::Temperature,
+                result: ActionResult::Ok
+            })
+            .unwrap(),
+            json!({
+                "type": "devices.capabilities.range",
+                "state": {
+                    "instance": "temperature",
                     "action_result": {"status": "DONE"}
                 }
             })

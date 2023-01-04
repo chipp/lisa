@@ -4,7 +4,7 @@ use serde::de;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 
-use crate::{Mode, ModeFunction, ToggleFunction};
+use crate::{Mode, ModeFunction, RangeFunction, ToggleFunction};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Capability {
@@ -18,6 +18,11 @@ pub enum Capability {
     Toggle {
         function: ToggleFunction,
         value: bool,
+    },
+    Range {
+        function: RangeFunction,
+        value: f32,
+        relative: bool,
     },
 }
 
@@ -33,12 +38,34 @@ impl Capability {
     pub fn toggle(function: ToggleFunction, value: bool) -> Capability {
         Capability::Toggle { function, value }
     }
+
+    pub fn range(function: RangeFunction, value: f32) -> Capability {
+        Capability::Range {
+            function,
+            value,
+            relative: false,
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize)]
 struct State<S, U> {
     instance: S,
     value: U,
+
+    #[serde(skip_serializing)]
+    #[serde(default)]
+    relative: bool,
+}
+
+impl<S, U> State<S, U> {
+    fn new(instance: S, value: U) -> State<S, U> {
+        State {
+            instance,
+            value,
+            relative: false,
+        }
+    }
 }
 
 impl serde::ser::Serialize for Capability {
@@ -51,33 +78,23 @@ impl serde::ser::Serialize for Capability {
         match self {
             Capability::OnOff { value } => {
                 property.serialize_field("type", "devices.capabilities.on_off")?;
-                property.serialize_field(
-                    "state",
-                    &State {
-                        instance: "on",
-                        value,
-                    },
-                )?;
+                property.serialize_field("state", &State::new("on", value))?;
             }
             Capability::Mode { function, mode } => {
                 property.serialize_field("type", "devices.capabilities.mode")?;
-                property.serialize_field(
-                    "state",
-                    &State {
-                        instance: function,
-                        value: mode,
-                    },
-                )?;
+                property.serialize_field("state", &State::new(function, mode))?;
             }
             Capability::Toggle { function, value } => {
                 property.serialize_field("type", "devices.capabilities.toggle")?;
-                property.serialize_field(
-                    "state",
-                    &State {
-                        instance: function,
-                        value,
-                    },
-                )?;
+                property.serialize_field("state", &State::new(function, value))?;
+            }
+            Capability::Range {
+                function,
+                value,
+                relative: _,
+            } => {
+                property.serialize_field("type", "devices.capabilities.range")?;
+                property.serialize_field("state", &State::new(function, value))?;
             }
         }
 
@@ -109,6 +126,7 @@ const FIELDS: &[&str] = &["type", "state"];
 enum Value {
     String(String),
     Bool(bool),
+    Float(f32),
 }
 
 impl<'de> de::Visitor<'de> for CapabilityVisitor {
@@ -159,9 +177,28 @@ impl<'de> de::Visitor<'de> for CapabilityVisitor {
                     todo!()
                 }
             }
-            _ => Err(de::Error::invalid_value(
-                de::Unexpected::Str(&cap_type),
-                &"devices.capabilities.on_off or devices.capabilities.mode",
+            "devices.capabilities.range" => {
+                if let Value::Float(value) = state.value {
+                    let function =
+                        RangeFunction::from_str(&state.instance).map_err(de::Error::custom)?;
+
+                    Ok(Capability::Range {
+                        function,
+                        value,
+                        relative: state.relative,
+                    })
+                } else {
+                    todo!()
+                }
+            }
+            _ => Err(de::Error::unknown_variant(
+                &cap_type,
+                &[
+                    "devices.capabilities.on_off",
+                    "devices.capabilities.mode",
+                    "devices.capabilities.toggle",
+                    "devices.capabilities.range",
+                ],
             )),
         }
     }
@@ -246,6 +283,48 @@ mod tests {
             Capability::Toggle {
                 function: ToggleFunction::Pause,
                 value: true
+            }
+        );
+    }
+
+    #[test]
+    fn test_range() {
+        assert_eq!(
+            to_value(&Capability::Range {
+                function: RangeFunction::Temperature,
+                value: 22.0,
+                relative: false
+            })
+            .unwrap(),
+            json!({
+                "type": "devices.capabilities.range",
+                "state": {"instance": "temperature", "value": 22.0}
+            })
+        );
+
+        assert_eq!(
+            from_value::<Capability>(json!({
+                "type": "devices.capabilities.range",
+                "state": {"instance": "temperature", "value": 23.0}
+            }))
+            .unwrap(),
+            Capability::Range {
+                function: RangeFunction::Temperature,
+                value: 23.0,
+                relative: false
+            }
+        );
+
+        assert_eq!(
+            from_value::<Capability>(json!({
+                "type": "devices.capabilities.range",
+                "state": {"instance": "temperature", "value": 2.0, "relative": true}
+            }))
+            .unwrap(),
+            Capability::Range {
+                function: RangeFunction::Temperature,
+                value: 2.0,
+                relative: true
             }
         );
     }

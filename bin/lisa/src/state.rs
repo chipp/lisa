@@ -76,6 +76,11 @@ impl StateManager {
         let now = Utc::now();
         let body = StateResponse::notification_body(now.timestamp(), "chipp", devices);
 
+        debug!(
+            "state update: {}",
+            serde_json::to_string_pretty(&body).unwrap()
+        );
+
         let skill_id = std::env::var("ALICE_SKILL_ID").expect("skill id is required");
         let token = std::env::var("ALICE_TOKEN").expect("token is required");
 

@@ -14,7 +14,7 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
 
         let mut devices = vec![
             sensor_device(Room::Bedroom),
-            sensor_device(Room::LivingRoom),
+            sensor_device(Room::Kitchen),
             sensor_device(Room::Nursery),
             vacuum_cleaner_device(Room::Bathroom),
             vacuum_cleaner_device(Room::Bedroom),

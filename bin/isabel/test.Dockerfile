@@ -8,6 +8,7 @@ RUN ./install_static_libs.sh && rm ./install_static_libs.sh
 WORKDIR /home/rust/src
 RUN USER=rust \
   cargo new --lib /home/rust/src/lib/alice && \
+  cargo new --lib /home/rust/src/lib/alisa && \
   cargo new --lib /home/rust/src/lib/elisheba && \
   cargo new --lib /home/rust/src/lib/alzhbeta && \
   cargo new --bin /home/rust/src/bin/lisa && \

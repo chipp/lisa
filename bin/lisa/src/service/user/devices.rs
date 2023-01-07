@@ -12,29 +12,34 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
         let request_id =
             std::str::from_utf8(request.headers().get("X-Request-Id").unwrap().as_bytes()).unwrap();
 
+        let mut devices = vec![
+            sensor_device(Room::Bedroom),
+            sensor_device(Room::LivingRoom),
+            sensor_device(Room::Nursery),
+            vacuum_cleaner_device(Room::Bathroom),
+            vacuum_cleaner_device(Room::Bedroom),
+            vacuum_cleaner_device(Room::Corridor),
+            vacuum_cleaner_device(Room::Hallway),
+            vacuum_cleaner_device(Room::HomeOffice),
+            vacuum_cleaner_device(Room::Kitchen),
+            vacuum_cleaner_device(Room::LivingRoom),
+            vacuum_cleaner_device(Room::Nursery),
+            vacuum_cleaner_device(Room::Toilet),
+        ];
+
+        if cfg!(feature = "inspinia") {
+            devices.push(thermostat_device(Room::Bedroom));
+            devices.push(thermostat_device(Room::HomeOffice));
+            devices.push(thermostat_device(Room::LivingRoom));
+            devices.push(thermostat_device(Room::Nursery));
+            devices.push(recuperator_device());
+        }
+
         let json = json!({
             "request_id": request_id,
             "payload": {
                 "user_id": "chipp",
-                "devices": [
-                    sensor_device(Room::Bedroom),
-                    sensor_device(Room::LivingRoom),
-                    sensor_device(Room::Nursery),
-                    vacuum_cleaner_device(Room::Bathroom),
-                    vacuum_cleaner_device(Room::Bedroom),
-                    vacuum_cleaner_device(Room::Corridor),
-                    vacuum_cleaner_device(Room::Hallway),
-                    vacuum_cleaner_device(Room::HomeOffice),
-                    vacuum_cleaner_device(Room::Kitchen),
-                    vacuum_cleaner_device(Room::LivingRoom),
-                    vacuum_cleaner_device(Room::Nursery),
-                    vacuum_cleaner_device(Room::Toilet),
-                    thermostat_device(Room::Bedroom),
-                    thermostat_device(Room::HomeOffice),
-                    thermostat_device(Room::LivingRoom),
-                    thermostat_device(Room::Nursery),
-                    recuperator_device()
-                ]
+                "devices": devices
             }
         });
 

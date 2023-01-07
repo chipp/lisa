@@ -38,6 +38,7 @@ pub async fn query(
 
         Ok(Response::builder()
             .status(StatusCode::OK)
+            .header("Content-Type", "application/json")
             .body(Body::from(serde_json::to_vec(&response)?))?)
     })
     .await

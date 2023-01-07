@@ -26,8 +26,9 @@ install_lisa:
 	docker pull $(LISA_ID)
 	docker-compose up -d
 
-run_lisa: RUST_LOG = trace
+run_lisa: RUST_LOG = info
 run_lisa: ELISHEBA_TOKEN = 0000000000000000000000000000000000000000000000000000000000000000
+run_lisa: INSPINIA_TOKEN = kek
 run_lisa: JWT_SECRET = 123456
 run_lisa: LISA_USER = chipp
 run_lisa: LISA_PASSWORD = kek
@@ -35,7 +36,7 @@ run_lisa: ALICE_SKILL_ID = invalid
 run_lisa: ALICE_TOKEN = super_invalid
 run_lisa:
 	RUST_LOG=${RUST_LOG} ELISHEBA_TOKEN=${ELISHEBA_TOKEN} JWT_SECRET=${JWT_SECRET} \
-	LISA_USER=${LISA_USER} LISA_PASSWORD=${LISA_PASSWORD} \
+	LISA_USER=${LISA_USER} LISA_PASSWORD=${LISA_PASSWORD} INSPINIA_TOKEN=${INSPINIA_TOKEN} \
 	ALICE_SKILL_ID=${ALICE_SKILL_ID} ALICE_TOKEN=${ALICE_TOKEN} \
 	cargo run --bin lisa
 

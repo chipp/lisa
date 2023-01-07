@@ -1,7 +1,11 @@
-use alice::StateProperty;
+use crate::{DeviceId, Room};
+use alice::{StateCapability, StateDevice, StateProperty};
 
-#[derive(Default, PartialEq)]
+use super::State;
+
+#[derive(PartialEq)]
 pub struct SensorState {
+    room: Room,
     temperature: u16,
     humidity: u16,
     battery: u8,
@@ -12,6 +16,18 @@ pub struct SensorState {
 }
 
 impl SensorState {
+    pub fn new(room: Room) -> SensorState {
+        SensorState {
+            room,
+            temperature: 0,
+            humidity: 0,
+            battery: 0,
+            temperature_modified: false,
+            humidity_modified: false,
+            battery_modified: false,
+        }
+    }
+
     pub fn set_temperature(&mut self, temperature: u16) {
         if self.temperature != temperature {
             self.temperature = temperature;
@@ -34,8 +50,23 @@ impl SensorState {
     }
 }
 
-impl SensorState {
-    pub fn properties(&self, only_updated: bool) -> Vec<StateProperty> {
+impl State for SensorState {
+    fn prepare_updates(&self, devices: &mut Vec<StateDevice>) {
+        let properties = self.properties(true);
+
+        if properties.is_empty() {
+            return;
+        }
+
+        let device_id = DeviceId::temperature_sensor_at_room(self.room);
+
+        devices.push(StateDevice::new_with_properties(
+            device_id.to_string(),
+            properties,
+        ));
+    }
+
+    fn properties(&self, only_updated: bool) -> Vec<StateProperty> {
         let mut properties = vec![];
 
         if !only_updated || (only_updated && self.temperature_modified) {
@@ -53,7 +84,11 @@ impl SensorState {
         properties
     }
 
-    pub fn reset_modified(&mut self) {
+    fn capabilities(&self, _: bool) -> Vec<StateCapability> {
+        vec![]
+    }
+
+    fn reset_modified(&mut self) {
         self.temperature_modified = false;
         self.humidity_modified = false;
         self.battery_modified = false;

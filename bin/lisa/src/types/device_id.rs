@@ -12,10 +12,10 @@ pub struct DeviceId {
 }
 
 impl DeviceId {
-    pub fn vacuum_cleaner_at_room(room: Room) -> DeviceId {
+    pub fn recuperator_at_room(room: Room) -> DeviceId {
         DeviceId {
             room,
-            device_type: DeviceType::VacuumCleaner,
+            device_type: DeviceType::Recuperator,
         }
     }
 
@@ -23,6 +23,20 @@ impl DeviceId {
         DeviceId {
             room,
             device_type: DeviceType::TemperatureSensor,
+        }
+    }
+
+    pub fn thermostat_at_room(room: Room) -> DeviceId {
+        DeviceId {
+            room,
+            device_type: DeviceType::Thermostat,
+        }
+    }
+
+    pub fn vacuum_cleaner_at_room(room: Room) -> DeviceId {
+        DeviceId {
+            room,
+            device_type: DeviceType::VacuumCleaner,
         }
     }
 }

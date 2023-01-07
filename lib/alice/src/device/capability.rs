@@ -1,7 +1,8 @@
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 
-use crate::{Mode, ModeFunction, ToggleFunction};
+use crate::range::Range;
+use crate::{Mode, ModeFunction, RangeFunction, TemperatureUnit, ToggleFunction};
 
 #[derive(Debug)]
 pub enum Capability {
@@ -18,6 +19,13 @@ pub enum Capability {
     },
     Toggle {
         function: ToggleFunction,
+        retreivable: bool,
+        reportable: bool,
+    },
+    Range {
+        function: RangeFunction,
+        unit: TemperatureUnit,
+        range: Range,
         retreivable: bool,
         reportable: bool,
     },
@@ -49,6 +57,16 @@ impl Capability {
         }
     }
 
+    pub fn range(function: RangeFunction, unit: TemperatureUnit, range: Range) -> Capability {
+        Capability::Range {
+            function,
+            unit,
+            range,
+            retreivable: false,
+            reportable: false,
+        }
+    }
+
     pub fn retrievable(self) -> Capability {
         let mut value = self;
 
@@ -66,6 +84,13 @@ impl Capability {
             } => *retreivable = true,
             Capability::Toggle {
                 function: _,
+                ref mut retreivable,
+                reportable: _,
+            } => *retreivable = true,
+            Capability::Range {
+                function: _,
+                unit: _,
+                range: _,
                 ref mut retreivable,
                 reportable: _,
             } => *retreivable = true,
@@ -91,6 +116,13 @@ impl Capability {
             } => *reportable = true,
             Capability::Toggle {
                 function: _,
+                retreivable: _,
+                ref mut reportable,
+            } => *reportable = true,
+            Capability::Range {
+                function: _,
+                unit: _,
+                range: _,
                 retreivable: _,
                 ref mut reportable,
             } => *reportable = true,
@@ -165,6 +197,32 @@ impl serde::ser::Serialize for Capability {
                 property.serialize_field("retreivable", retreivable)?;
                 property.serialize_field("reportable", reportable)?;
                 property.serialize_field("parameters", &Parameters { instance: function })?;
+            }
+            Capability::Range {
+                function,
+                unit,
+                range,
+                retreivable,
+                reportable,
+            } => {
+                #[derive(Serialize)]
+                struct Parameters<'a> {
+                    instance: &'a RangeFunction,
+                    unit: &'a TemperatureUnit,
+                    range: &'a Range,
+                }
+
+                property.serialize_field("type", "devices.capabilities.range")?;
+                property.serialize_field("retreivable", retreivable)?;
+                property.serialize_field("reportable", reportable)?;
+                property.serialize_field(
+                    "parameters",
+                    &Parameters {
+                        instance: function,
+                        unit: &unit,
+                        range: &range,
+                    },
+                )?;
             }
         }
 
@@ -242,6 +300,39 @@ mod tests {
                 "retreivable": false,
                 "parameters": {
                     "instance": "pause",
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn test_range_capability() {
+        let capability = Capability::Range {
+            function: RangeFunction::Temperature,
+            unit: TemperatureUnit::Celsius,
+            range: Range {
+                min: 0.0,
+                max: 28.0,
+                precision: 0.5,
+            },
+            reportable: true,
+            retreivable: false,
+        };
+
+        assert_eq!(
+            to_value(&capability).unwrap(),
+            json!({
+                "type": "devices.capabilities.range",
+                "reportable": true,
+                "retreivable": false,
+                "parameters": {
+                    "instance": "temperature",
+                    "unit": "unit.temperature.celsius",
+                    "range": {
+                        "min": 0.0,
+                        "max": 28.0,
+                        "precision": 0.5
+                    }
                 }
             })
         );

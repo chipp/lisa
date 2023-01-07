@@ -3,7 +3,7 @@ use std::{fmt, str::FromStr};
 use serde::de::{value, IntoDeserializer};
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Room {
     Bathroom,

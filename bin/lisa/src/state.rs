@@ -1,10 +1,13 @@
 mod vacuum_state;
-use vacuum_state::VacuumState;
+pub use vacuum_state::VacuumState;
 
 mod sensor_state;
-use sensor_state::SensorState;
+pub use sensor_state::SensorState;
 
-use alice::{StateDevice, StateResponse};
+mod thermostat_state;
+pub use thermostat_state::ThermostatState;
+
+use alice::{StateCapability, StateDevice, StateProperty, StateResponse};
 use chrono::Utc;
 use hyper::{Body, Client, Method, Request, StatusCode};
 use hyper_tls::HttpsConnector;
@@ -12,83 +15,59 @@ use log::{debug, error};
 
 use crate::DeviceId;
 use crate::DeviceType::*;
-use crate::Room::{self, *};
+use crate::Room::*;
+
+trait State {
+    fn prepare_updates(&self, devices: &mut Vec<StateDevice>);
+    fn properties(&self, only_updated: bool) -> Vec<StateProperty>;
+    fn capabilities(&self, only_updated: bool) -> Vec<StateCapability>;
+    fn reset_modified(&mut self);
+}
 
 pub struct StateManager {
     pub vacuum_state: VacuumState,
+
     pub bedroom_sensor_state: SensorState,
-    pub home_office_sensor_state: SensorState,
     pub kitchen_sensor_state: SensorState,
+    pub home_office_sensor_state: SensorState,
+
+    pub bedroom_thermostat_state: ThermostatState,
+    pub living_room_thermostat_state: ThermostatState,
+    pub nursery_thermostat_state: ThermostatState,
+    pub home_office_thermostat_state: ThermostatState,
 }
 
 impl StateManager {
     pub fn new() -> Self {
         Self {
             vacuum_state: VacuumState::default(),
-            bedroom_sensor_state: SensorState::default(),
-            home_office_sensor_state: SensorState::default(),
-            kitchen_sensor_state: SensorState::default(),
+
+            bedroom_sensor_state: SensorState::new(Bedroom),
+            home_office_sensor_state: SensorState::new(HomeOffice),
+            kitchen_sensor_state: SensorState::new(Kitchen),
+
+            bedroom_thermostat_state: ThermostatState::new(Bedroom),
+            nursery_thermostat_state: ThermostatState::new(Nursery),
+            home_office_thermostat_state: ThermostatState::new(HomeOffice),
+            living_room_thermostat_state: ThermostatState::new(LivingRoom),
         }
     }
 
     pub async fn report_if_necessary(&mut self) {
         let mut devices = vec![];
 
-        {
-            let properties = self.vacuum_state.properties(true);
-            let capabilities = self.vacuum_state.capabilities(true);
+        self.vacuum_state.prepare_updates(&mut devices);
 
-            if !properties.is_empty() && !capabilities.is_empty() {
-                for room in Room::all_rooms() {
-                    let device_id = DeviceId::vacuum_cleaner_at_room(*room);
+        self.bedroom_sensor_state.prepare_updates(&mut devices);
+        self.home_office_sensor_state.prepare_updates(&mut devices);
+        self.kitchen_sensor_state.prepare_updates(&mut devices);
 
-                    devices.push(StateDevice::new_with_properties_and_capabilities(
-                        device_id.to_string(),
-                        properties.clone(),
-                        capabilities.clone(),
-                    ));
-                }
-            }
-        }
-
-        {
-            let properties = self.bedroom_sensor_state.properties(true);
-
-            if !properties.is_empty() {
-                let device_id = DeviceId::temperature_sensor_at_room(Room::Bedroom);
-
-                devices.push(StateDevice::new_with_properties(
-                    device_id.to_string(),
-                    properties,
-                ));
-            }
-        }
-
-        {
-            let properties = self.home_office_sensor_state.properties(true);
-
-            if !properties.is_empty() {
-                let device_id = DeviceId::temperature_sensor_at_room(Room::HomeOffice);
-
-                devices.push(StateDevice::new_with_properties(
-                    device_id.to_string(),
-                    properties,
-                ));
-            }
-        }
-
-        {
-            let properties = self.kitchen_sensor_state.properties(true);
-
-            if !properties.is_empty() {
-                let device_id = DeviceId::temperature_sensor_at_room(Room::Kitchen);
-
-                devices.push(StateDevice::new_with_properties(
-                    device_id.to_string(),
-                    properties,
-                ));
-            }
-        }
+        self.bedroom_thermostat_state.prepare_updates(&mut devices);
+        self.nursery_thermostat_state.prepare_updates(&mut devices);
+        self.home_office_thermostat_state
+            .prepare_updates(&mut devices);
+        self.living_room_thermostat_state
+            .prepare_updates(&mut devices);
 
         if devices.is_empty() {
             return;

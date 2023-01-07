@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceType {
+    Recuperator,
     TemperatureSensor,
+    Thermostat,
     VacuumCleaner,
 }
 

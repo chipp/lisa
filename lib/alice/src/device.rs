@@ -29,6 +29,10 @@ pub enum DeviceType {
     Sensor,
     #[serde(rename = "devices.types.vacuum_cleaner")]
     VacuumCleaner,
+    #[serde(rename = "devices.types.thermostat")]
+    Thermostat,
+    #[serde(rename = "devices.types.thermostat.ac")]
+    ThermostatAc,
 }
 
 #[cfg(test)]
@@ -47,6 +51,14 @@ mod tests {
             to_value(&DeviceType::VacuumCleaner).unwrap(),
             json!("devices.types.vacuum_cleaner")
         );
+        assert_eq!(
+            to_value(&DeviceType::Thermostat).unwrap(),
+            json!("devices.types.thermostat")
+        );
+        assert_eq!(
+            to_value(&DeviceType::ThermostatAc).unwrap(),
+            json!("devices.types.thermostat.ac")
+        );
 
         assert_eq!(
             from_value::<DeviceType>(json!("devices.types.sensor")).unwrap(),
@@ -55,6 +67,14 @@ mod tests {
         assert_eq!(
             from_value::<DeviceType>(json!("devices.types.vacuum_cleaner")).unwrap(),
             DeviceType::VacuumCleaner
+        );
+        assert_eq!(
+            from_value::<DeviceType>(json!("devices.types.thermostat")).unwrap(),
+            DeviceType::Thermostat
+        );
+        assert_eq!(
+            from_value::<DeviceType>(json!("devices.types.thermostat.ac")).unwrap(),
+            DeviceType::ThermostatAc
         );
     }
 

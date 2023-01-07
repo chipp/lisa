@@ -1,15 +1,11 @@
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::{Result, SocketHandler, StateManager};
 use elisheba::{CommandResponse as VacuumCommandResponse, Packet, SensorData, SensorRoom};
 use log::info;
 
 use tokio::sync::{mpsc, Mutex};
-use tokio::task;
-use tokio::time;
 
 pub async fn read_from_socket(
     socket_handler: SocketHandler,
@@ -18,24 +14,6 @@ pub async fn read_from_socket(
     state_manager: Arc<Mutex<StateManager>>,
 ) -> Result<()> {
     info!("A client did connect {}", addr);
-
-    let abort = Arc::from(AtomicBool::from(false));
-
-    let state_manager_report = state_manager.clone();
-    let abort_report = abort.clone();
-    task::spawn(async move {
-        let mut timer = time::interval(Duration::from_secs(30));
-
-        loop {
-            if abort_report.load(Ordering::Relaxed) {
-                break;
-            }
-
-            timer.tick().await;
-            let mut state_manager = state_manager_report.clone().lock_owned().await;
-            state_manager.report_if_necessary().await;
-        }
-    });
 
     let mut socket_handler = socket_handler;
     let _ = socket_handler
@@ -89,8 +67,6 @@ pub async fn read_from_socket(
             }
         })
         .await;
-
-    abort.store(true, Ordering::Relaxed);
 
     info!("The client did disconnect {}", addr);
 

@@ -16,6 +16,9 @@ use tokio::{
 use elisheba::{parse_token, Command as VacuumCommand, CommandResponse as VacuumCommandResponse};
 use lisa::{read_from_socket, service, SocketHandler, StateManager};
 
+#[cfg(feature = "inspinia")]
+use lisa::InspiniaController;
+
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
 
@@ -32,6 +35,17 @@ async fn main() -> Result<()> {
     let cmd_res_rx = Arc::from(Mutex::from(cmd_res_rx));
 
     let state_manager = Arc::from(Mutex::from(StateManager::new()));
+
+    let state_manager_report = state_manager.clone();
+    task::spawn(async move {
+        let mut timer = time::interval(Duration::from_secs(30));
+
+        loop {
+            timer.tick().await;
+            let mut state_manager = state_manager_report.clone().lock_owned().await;
+            state_manager.report_if_necessary().await;
+        }
+    });
 
     // TODO: move to a function
     let send_vacuum_command = {
@@ -59,15 +73,22 @@ async fn main() -> Result<()> {
             }
         }
     };
+
     let send_vacuum_command = Arc::from(Mutex::from(send_vacuum_command));
 
-    let (server, tcp) = tokio::try_join!(
+    let (server, tcp, ws) = tokio::try_join!(
         task::spawn(listen_http(send_vacuum_command, state_manager.clone())),
-        task::spawn(listen_tcp(socket_handler, cmd_res_tx, state_manager))
+        task::spawn(listen_tcp(
+            socket_handler,
+            cmd_res_tx,
+            state_manager.clone()
+        )),
+        task::spawn(listen_inspinia(state_manager)),
     )?;
 
     server?;
     tcp?;
+    ws?;
 
     Ok(())
 }
@@ -126,4 +147,17 @@ async fn listen_tcp(
             Err(error) => eprintln!("{}", error),
         }
     }
+}
+
+#[cfg(feature = "inspinia")]
+async fn listen_inspinia(state_manager: Arc<Mutex<StateManager>>) -> Result<()> {
+    let token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
+
+    let mut controller = InspiniaController::new(token).await?;
+    controller.listen(state_manager).await
+}
+
+#[cfg(not(feature = "inspinia"))]
+async fn listen_inspinia(_state_manager: Arc<Mutex<StateManager>>) -> Result<()> {
+    Ok(())
 }

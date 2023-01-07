@@ -1,6 +1,13 @@
 use std::str::FromStr;
 
-use alice::{Mode, ModeFunction::WorkSpeed, StateCapability, StateProperty, ToggleFunction::Pause};
+use alice::{
+    Mode, ModeFunction::WorkSpeed, StateCapability, StateDevice, StateProperty,
+    ToggleFunction::Pause,
+};
+
+use crate::{DeviceId, Room};
+
+use super::State;
 
 #[derive(Default, PartialEq)]
 pub struct VacuumState {
@@ -46,8 +53,27 @@ impl VacuumState {
     }
 }
 
-impl VacuumState {
-    pub fn properties(&self, only_updated: bool) -> Vec<StateProperty> {
+impl State for VacuumState {
+    fn prepare_updates(&self, devices: &mut Vec<StateDevice>) {
+        let properties = self.properties(true);
+        let capabilities = self.capabilities(true);
+
+        if properties.is_empty() && capabilities.is_empty() {
+            return;
+        }
+
+        for room in Room::all_rooms() {
+            let device_id = DeviceId::vacuum_cleaner_at_room(*room);
+
+            devices.push(StateDevice::new_with_properties_and_capabilities(
+                device_id.to_string(),
+                properties.clone(),
+                capabilities.clone(),
+            ));
+        }
+    }
+
+    fn properties(&self, only_updated: bool) -> Vec<StateProperty> {
         if !only_updated || (only_updated && self.battery_modified) {
             vec![StateProperty::battery_level(self.battery as f32)]
         } else {
@@ -55,7 +81,7 @@ impl VacuumState {
         }
     }
 
-    pub fn capabilities(&self, only_updated: bool) -> Vec<StateCapability> {
+    fn capabilities(&self, only_updated: bool) -> Vec<StateCapability> {
         let mut capabilities = vec![];
 
         if !only_updated || (only_updated && self.is_enabled_modified) {
@@ -73,7 +99,7 @@ impl VacuumState {
         capabilities
     }
 
-    pub fn reset_modified(&mut self) {
+    fn reset_modified(&mut self) {
         self.is_enabled_modified = false;
         self.battery_modified = false;
         self.work_speed_modified = false;

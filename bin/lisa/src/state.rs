@@ -14,10 +14,9 @@ use hyper_tls::HttpsConnector;
 use log::{debug, error};
 
 use crate::DeviceId;
-use crate::DeviceType::*;
 use crate::Room::*;
 
-trait State {
+trait State: Send {
     fn prepare_updates(&self, devices: &mut Vec<StateDevice>);
     fn properties(&self, only_updated: bool) -> Vec<StateProperty>;
     fn capabilities(&self, only_updated: bool) -> Vec<StateCapability>;
@@ -54,20 +53,25 @@ impl StateManager {
     }
 
     pub async fn report_if_necessary(&mut self) {
+        let mut states: Vec<&mut dyn State> = vec![
+            &mut self.vacuum_state,
+            &mut self.bedroom_sensor_state,
+            &mut self.home_office_sensor_state,
+            &mut self.kitchen_sensor_state,
+        ];
+
+        if cfg!(feature = "inspinia") {
+            states.push(&mut self.bedroom_thermostat_state);
+            states.push(&mut self.nursery_thermostat_state);
+            states.push(&mut self.home_office_thermostat_state);
+            states.push(&mut self.living_room_thermostat_state);
+        }
+
         let mut devices = vec![];
 
-        self.vacuum_state.prepare_updates(&mut devices);
-
-        self.bedroom_sensor_state.prepare_updates(&mut devices);
-        self.home_office_sensor_state.prepare_updates(&mut devices);
-        self.kitchen_sensor_state.prepare_updates(&mut devices);
-
-        self.bedroom_thermostat_state.prepare_updates(&mut devices);
-        self.nursery_thermostat_state.prepare_updates(&mut devices);
-        self.home_office_thermostat_state
-            .prepare_updates(&mut devices);
-        self.living_room_thermostat_state
-            .prepare_updates(&mut devices);
+        for state in &states {
+            state.prepare_updates(&mut devices);
+        }
 
         if devices.is_empty() {
             return;
@@ -104,10 +108,10 @@ impl StateManager {
             Ok(response) => {
                 if let StatusCode::ACCEPTED = response.status() {
                     debug!("successfully notified alice about changes");
-                    self.vacuum_state.reset_modified();
-                    self.bedroom_sensor_state.reset_modified();
-                    self.home_office_sensor_state.reset_modified();
-                    self.kitchen_sensor_state.reset_modified();
+
+                    for state in states {
+                        state.reset_modified();
+                    }
                 } else {
                     error!("unable to report state changes {}", response.status());
                     error!("{:#?}", response);
@@ -117,35 +121,7 @@ impl StateManager {
         }
     }
 
-    pub fn state_for_device(&self, device_id: DeviceId) -> Option<StateDevice> {
-        let DeviceId { room, device_type } = &device_id;
-        match (room, device_type) {
-            (Bathroom, VacuumCleaner)
-            | (Bedroom, VacuumCleaner)
-            | (Corridor, VacuumCleaner)
-            | (Hallway, VacuumCleaner)
-            | (HomeOffice, VacuumCleaner)
-            | (Kitchen, VacuumCleaner)
-            | (LivingRoom, VacuumCleaner)
-            | (Nursery, VacuumCleaner)
-            | (Toilet, VacuumCleaner) => Some(StateDevice::new_with_properties_and_capabilities(
-                device_id.to_string(),
-                self.vacuum_state.properties(false),
-                self.vacuum_state.capabilities(false),
-            )),
-            (Nursery, TemperatureSensor) => Some(StateDevice::new_with_properties(
-                device_id.to_string(),
-                self.bedroom_sensor_state.properties(false),
-            )),
-            (Bedroom, TemperatureSensor) => Some(StateDevice::new_with_properties(
-                device_id.to_string(),
-                self.home_office_sensor_state.properties(false),
-            )),
-            (LivingRoom, TemperatureSensor) => Some(StateDevice::new_with_properties(
-                device_id.to_string(),
-                self.kitchen_sensor_state.properties(false),
-            )),
-            _ => None,
-        }
+    pub fn state_for_device(&self, _device_id: DeviceId) -> Option<StateDevice> {
+        None
     }
 }

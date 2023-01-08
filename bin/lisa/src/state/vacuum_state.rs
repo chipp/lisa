@@ -31,10 +31,8 @@ impl VacuumState {
     }
 
     pub fn set_battery(&mut self, battery: u8) {
-        if self.battery != battery {
-            self.battery = battery;
-            self.battery_modified = true;
-        }
+        self.battery = battery;
+        self.battery_modified = true;
     }
 
     pub fn set_work_speed(&mut self, work_speed: String) {

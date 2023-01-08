@@ -29,24 +29,18 @@ impl SensorState {
     }
 
     pub fn set_temperature(&mut self, temperature: u16) {
-        if self.temperature != temperature {
-            self.temperature = temperature;
-            self.temperature_modified = true;
-        }
+        self.temperature = temperature;
+        self.temperature_modified = true;
     }
 
     pub fn set_humidity(&mut self, humidity: u16) {
-        if self.humidity != humidity {
-            self.humidity = humidity;
-            self.humidity_modified = true;
-        }
+        self.humidity = humidity;
+        self.humidity_modified = true;
     }
 
     pub fn set_battery(&mut self, battery: u8) {
-        if self.battery != battery {
-            self.battery = battery;
-            self.battery_modified = true;
-        }
+        self.battery = battery;
+        self.battery_modified = true;
     }
 }
 

@@ -36,10 +36,8 @@ impl ThermostatState {
     }
 
     pub fn set_room_temperature(&mut self, room_temperature: f32) {
-        if self.room_temperature != room_temperature {
-            self.room_temperature = room_temperature;
-            self.room_temperature_modified = true;
-        }
+        self.room_temperature = room_temperature;
+        self.room_temperature_modified = true;
     }
 
     pub fn set_target_temperature(&mut self, target_temperature: f32) {

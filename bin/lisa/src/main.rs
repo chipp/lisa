@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
 
     let state_manager_report = state_manager.clone();
     task::spawn(async move {
-        let mut timer = time::interval(Duration::from_secs(30));
+        let mut timer = time::interval(Duration::from_secs(5));
 
         loop {
             timer.tick().await;

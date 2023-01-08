@@ -28,6 +28,14 @@ impl ThermostatState {
         }
     }
 
+    pub fn room(&self) -> Room {
+        self.room
+    }
+
+    pub fn target_temperature(&self) -> f32 {
+        self.target_temperature
+    }
+
     pub fn set_is_enabled(&mut self, is_enabled: bool) {
         if self.is_enabled != is_enabled {
             self.is_enabled = is_enabled;

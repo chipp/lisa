@@ -1,5 +1,5 @@
 mod device;
-pub use device::{port_name::PortName, Device, Port, Properties, Room};
+pub use device::{port_name::PortName, port_type::PortType, Device, Port, Properties, Room};
 
 mod template;
 pub use template::download_template;
@@ -11,6 +11,9 @@ pub use messages::outgoing::{RegisterMessage, SqlRequestMessage, UpdateStateMess
 
 mod ws_client;
 pub use ws_client::WSClient;
+
+mod device_manager;
+pub use device_manager::DeviceManager;
 
 use serde::Deserialize;
 

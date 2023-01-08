@@ -14,10 +14,7 @@ use tokio::{
 };
 
 use elisheba::{parse_token, Command as VacuumCommand, CommandResponse as VacuumCommandResponse};
-use lisa::{read_from_socket, service, SocketHandler, StateManager};
-
-#[cfg(feature = "inspinia")]
-use lisa::InspiniaController;
+use lisa::{read_from_socket, service, InspiniaController, SocketHandler, StateManager};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -76,14 +73,21 @@ async fn main() -> Result<()> {
 
     let send_vacuum_command = Arc::from(Mutex::from(send_vacuum_command));
 
+    let token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
+    let inspinia_controller = InspiniaController::new(token, state_manager.clone()).await?;
+
     let (server, tcp, ws) = tokio::try_join!(
-        task::spawn(listen_http(send_vacuum_command, state_manager.clone())),
+        task::spawn(listen_http(
+            send_vacuum_command,
+            inspinia_controller.clone(),
+            state_manager.clone(),
+        )),
         task::spawn(listen_tcp(
             socket_handler,
             cmd_res_tx,
             state_manager.clone()
         )),
-        task::spawn(listen_inspinia(state_manager)),
+        task::spawn(listen_inspinia(inspinia_controller)),
     )?;
 
     server?;
@@ -95,6 +99,7 @@ async fn main() -> Result<()> {
 
 async fn listen_http<F>(
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F + Send + Sync + 'static>>,
+    inspinia_controller: InspiniaController,
     state_manager: Arc<Mutex<StateManager>>,
 ) -> Result<()>
 where
@@ -103,13 +108,17 @@ where
     let make_svc = make_service_fn(move |_| {
         let send_vacuum_command = send_vacuum_command.clone();
         let state_manager = state_manager.clone();
+        let inspinia_controller = inspinia_controller.clone();
 
         async move {
             Ok::<_, ErasedError>(service_fn(move |req| {
                 let send_vacuum_command = send_vacuum_command.clone();
                 let state_manager = state_manager.clone();
+                let inspinia_controller = inspinia_controller.clone();
 
-                async move { service(req, send_vacuum_command, state_manager).await }
+                async move {
+                    service(req, send_vacuum_command, inspinia_controller, state_manager).await
+                }
             }))
         }
     });
@@ -149,15 +158,6 @@ async fn listen_tcp(
     }
 }
 
-#[cfg(feature = "inspinia")]
-async fn listen_inspinia(state_manager: Arc<Mutex<StateManager>>) -> Result<()> {
-    let token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
-
-    let mut controller = InspiniaController::new(token).await?;
-    controller.listen(state_manager).await
-}
-
-#[cfg(not(feature = "inspinia"))]
-async fn listen_inspinia(_state_manager: Arc<Mutex<StateManager>>) -> Result<()> {
-    Ok(())
+async fn listen_inspinia(mut controller: InspiniaController) -> Result<()> {
+    controller.listen().await
 }

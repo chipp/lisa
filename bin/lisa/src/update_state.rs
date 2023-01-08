@@ -6,8 +6,8 @@ use thermostat::{update_thermostats, ThermostatUpdate};
 
 use std::{str::FromStr, sync::Arc};
 
-use crate::DeviceType::*;
 use crate::{DeviceId, Result};
+use crate::{DeviceType::*, InspiniaController};
 
 use alice::{
     ModeFunction, RangeFunction, StateCapability, StateUpdateResult, ToggleFunction,
@@ -19,6 +19,7 @@ use tokio::sync::Mutex;
 pub async fn update_devices_state<'a, F>(
     devices: Vec<UpdateStateDevice<'a>>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
+    inspinia_controller: InspiniaController,
 ) -> Vec<UpdatedDeviceState>
 where
     F: std::future::Future<Output = Result<()>>,
@@ -26,7 +27,7 @@ where
     let mut vacuum_update = VacuumUpdate::default();
     let mut thermostats_updates = vec![];
 
-    for device in devices.into_iter() {
+    for device in devices {
         match DeviceId::from_str(device.id) {
             Ok(DeviceId {
                 room,
@@ -34,13 +35,13 @@ where
             }) => {
                 vacuum_update.rooms.push(room);
 
-                if vacuum_update.state != None && vacuum_update.work_speed != None {
+                if vacuum_update.is_enabled != None && vacuum_update.work_speed != None {
                     continue;
                 }
 
-                for capability in device.capabilities.into_iter() {
+                for capability in device.capabilities {
                     match capability {
-                        StateCapability::OnOff { value } => vacuum_update.state = Some(value),
+                        StateCapability::OnOff { value } => vacuum_update.is_enabled = Some(value),
                         StateCapability::Mode {
                             function: ModeFunction::WorkSpeed,
                             mode,
@@ -57,25 +58,27 @@ where
                 room,
                 device_type: Thermostat,
             }) => {
-                let mut thermostat_state = ThermostatUpdate {
+                let mut thermostat_update = ThermostatUpdate {
                     room,
-                    state: None,
+                    is_enabled: None,
                     temperature: None,
                 };
 
-                for capability in device.capabilities.into_iter() {
+                for capability in device.capabilities {
                     match capability {
-                        StateCapability::OnOff { value } => thermostat_state.state = Some(value),
+                        StateCapability::OnOff { value } => {
+                            thermostat_update.is_enabled = Some(value)
+                        }
                         StateCapability::Range {
                             function: RangeFunction::Temperature,
                             value,
                             relative,
-                        } => thermostat_state.temperature = Some((value, relative)),
+                        } => thermostat_update.temperature = Some((value, relative)),
                         _ => panic!("unsupported capability"),
                     }
                 }
 
-                thermostats_updates.push(thermostat_state);
+                thermostats_updates.push(thermostat_update);
             }
             _ => continue,
         }
@@ -84,7 +87,7 @@ where
     let mut devices = vec![];
 
     update_vacuum(vacuum_update, &mut devices, send_vacuum_command).await;
-    update_thermostats(thermostats_updates, &mut devices);
+    update_thermostats(thermostats_updates, &mut devices, inspinia_controller).await;
 
     devices
 }

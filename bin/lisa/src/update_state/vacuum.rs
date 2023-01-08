@@ -14,7 +14,7 @@ use super::prepare_result;
 #[derive(Default)]
 pub struct VacuumUpdate {
     pub rooms: Vec<Room>,
-    pub state: Option<bool>,
+    pub is_enabled: Option<bool>,
     pub work_speed: Option<Mode>,
     pub toggle_pause: Option<bool>,
 }
@@ -27,7 +27,7 @@ pub async fn update_vacuum<F>(
     F: std::future::Future<Output = Result<()>>,
 {
     debug!("update state rooms {:?}", update.rooms);
-    debug!("state {:?}", update.state);
+    debug!("is_enabled {:?}", update.is_enabled);
     debug!("work_speed {:?}", update.work_speed);
     debug!("toggle pause {:?}", update.toggle_pause);
 
@@ -36,7 +36,7 @@ pub async fn update_vacuum<F>(
     }
 
     let set_mode_result;
-    let set_state_result;
+    let set_enabled_result;
     let toggle_pause_result;
 
     {
@@ -52,7 +52,7 @@ pub async fn update_vacuum<F>(
             None => None,
         };
 
-        set_state_result = match update.state {
+        set_enabled_result = match update.is_enabled {
             Some(true) => {
                 let room_ids = update.rooms.iter().map(crate::Room::vacuum_id).collect();
 
@@ -77,19 +77,19 @@ pub async fn update_vacuum<F>(
     for room in update.rooms {
         let capabilities;
 
-        match (&set_state_result, &set_mode_result, &toggle_pause_result) {
-            (Some(toggle_state_result), Some(set_mode_result), None) => {
+        match (&set_enabled_result, &set_mode_result, &toggle_pause_result) {
+            (Some(set_enabled_result), Some(set_mode_result), None) => {
                 capabilities = vec![
-                    UpdateStateCapability::on_off(prepare_result(&toggle_state_result)),
+                    UpdateStateCapability::on_off(prepare_result(&set_enabled_result)),
                     UpdateStateCapability::mode(
                         ModeFunction::WorkSpeed,
                         prepare_result(&set_mode_result),
                     ),
                 ];
             }
-            (Some(set_state_result), None, None) => {
+            (Some(set_enabled_result), None, None) => {
                 capabilities = vec![UpdateStateCapability::on_off(prepare_result(
-                    &set_state_result,
+                    &set_enabled_result,
                 ))];
             }
             (None, Some(set_mode_result), None) => {

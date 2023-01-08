@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use crate::{ReceivedMessage, Result};
 use futures_util::{
@@ -7,19 +7,20 @@ use futures_util::{
 };
 use log::debug;
 use serde::Serialize;
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, sync::Mutex};
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 pub trait OutMessage {
     fn code(&self) -> &'static str;
 }
 
+#[derive(Clone)]
 pub struct WSClient {
     start: Instant,
     sequence: u32,
     target_id: String,
-    write: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
-    read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    write: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
+    read: Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>,
 }
 
 impl WSClient {
@@ -33,8 +34,8 @@ impl WSClient {
             start: Instant::now(),
             sequence: 0,
             target_id,
-            write,
-            read,
+            write: Arc::from(Mutex::from(write)),
+            read: Arc::from(Mutex::from(read)),
         })
     }
 
@@ -73,16 +74,20 @@ impl WSClient {
         let text = serde_json::to_string(&json)?;
         debug!("sent {}", text);
 
-        self.write.send(Message::Text(text)).await?;
+        let mut write = self.write.lock().await;
+        write.send(Message::Text(text)).await?;
 
         Ok(())
     }
 
     pub async fn read_message(&mut self) -> Option<ReceivedMessage> {
-        match self.read.next().await?.ok()? {
+        let mut read = self.read.lock().await;
+        match read.next().await?.ok()? {
             Message::Text(text) => serde_json::from_str(&text).ok()?,
             Message::Ping(payload) => {
-                self.write.send(Message::Pong(payload)).await.ok()?;
+                let mut write = self.write.lock().await;
+                write.send(Message::Pong(payload)).await.ok()?;
+
                 None
             }
             message => {

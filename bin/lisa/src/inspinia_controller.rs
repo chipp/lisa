@@ -10,8 +10,8 @@ use log::info;
 use tokio::sync::Mutex;
 
 use alisa::{
-    download_template, Device, DeviceManager, PortName, PortState, PortType, RegisterMessage, Room,
-    UpdateMessageContent, UpdateStateMessage, WSClient,
+    download_template, Device, DeviceManager, FanSpeed, PortName, PortState, PortType,
+    RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WSClient,
 };
 
 #[derive(Clone)]
@@ -189,6 +189,54 @@ impl InspiniaController {
         }
 
         panic!("set_temperature_in_room")
+    }
+}
+
+impl InspiniaController {
+    pub async fn set_is_enabled_on_recuperator(&mut self, value: bool) -> Result<()> {
+        info!("toggle recuperator = {}", value);
+
+        let value = if value { "1" } else { "0" };
+
+        let device_manager = DeviceManager::new(&self.db_path)?;
+        let recuperator = device_manager.get_recuperator_in_room(Room::LivingRoom)?;
+
+        for (id, port) in recuperator.ports.iter() {
+            if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
+                self.client
+                    .send_message(UpdateStateMessage::new(false, &id, &port.name, &value))
+                    .await?;
+
+                return Ok(());
+            } else {
+                continue;
+            }
+        }
+
+        panic!("set_is_enabled_on_recuperator")
+    }
+
+    pub async fn set_fan_speed_on_recuperator(&mut self, value: FanSpeed) -> Result<()> {
+        info!("change fan speed on recuperator = {:?}", value);
+
+        let value = value.to_string();
+
+        let device_manager = DeviceManager::new(&self.db_path)?;
+        let recuperator = device_manager.get_recuperator_in_room(Room::LivingRoom)?;
+
+        for (id, port) in recuperator.ports.iter() {
+            if let (PortName::FanSpeed, PortType::Output) = (&port.name, &port.r#type) {
+                self.client
+                    .send_message(UpdateStateMessage::new(false, &id, &port.name, &value))
+                    .await?;
+
+                return Ok(());
+            } else {
+                continue;
+            }
+        }
+
+        panic!("set_fan_speed_on_recuperator")
     }
 }
 

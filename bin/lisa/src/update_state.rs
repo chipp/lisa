@@ -4,6 +4,9 @@ use vacuum::{update_vacuum, VacuumUpdate};
 mod thermostat;
 use thermostat::{update_thermostats, ThermostatUpdate};
 
+mod recuperator;
+use recuperator::{update_recuperator, RecuperatorUpdate};
+
 use std::{str::FromStr, sync::Arc};
 
 use crate::{DeviceId, Result};
@@ -26,6 +29,7 @@ where
 {
     let mut vacuum_update = VacuumUpdate::default();
     let mut thermostats_updates = vec![];
+    let mut recuperator_update = RecuperatorUpdate::default();
 
     for device in devices {
         match DeviceId::from_str(device.id) {
@@ -50,7 +54,7 @@ where
                             function: ToggleFunction::Pause,
                             value,
                         } => vacuum_update.toggle_pause = Some(value),
-                        _ => panic!("unsupported capability"),
+                        _ => panic!("unsupported capability {:?}", capability),
                     }
                 }
             }
@@ -74,11 +78,28 @@ where
                             value,
                             relative,
                         } => thermostat_update.temperature = Some((value, relative)),
-                        _ => panic!("unsupported capability"),
+                        _ => panic!("unsupported capability {:?}", capability),
                     }
                 }
 
                 thermostats_updates.push(thermostat_update);
+            }
+            Ok(DeviceId {
+                room: _,
+                device_type: Recuperator,
+            }) => {
+                for capability in device.capabilities {
+                    match capability {
+                        StateCapability::OnOff { value } => {
+                            recuperator_update.is_enabled = Some(value)
+                        }
+                        StateCapability::Mode {
+                            function: ModeFunction::FanSpeed,
+                            mode,
+                        } => recuperator_update.mode = Some(mode),
+                        _ => panic!("unsupported capability {:?}", capability),
+                    }
+                }
             }
             _ => continue,
         }
@@ -87,7 +108,13 @@ where
     let mut devices = vec![];
 
     update_vacuum(vacuum_update, &mut devices, send_vacuum_command).await;
-    update_thermostats(thermostats_updates, &mut devices, inspinia_controller).await;
+    update_thermostats(
+        thermostats_updates,
+        &mut devices,
+        inspinia_controller.clone(),
+    )
+    .await;
+    update_recuperator(recuperator_update, &mut devices, inspinia_controller).await;
 
     devices
 }

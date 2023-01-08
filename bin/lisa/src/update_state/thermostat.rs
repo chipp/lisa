@@ -7,7 +7,6 @@ use alice::{RangeFunction, UpdateStateCapability, UpdatedDeviceState};
 
 use super::prepare_result;
 
-#[allow(dead_code)]
 pub struct ThermostatUpdate {
     pub room: Room,
     pub is_enabled: Option<bool>,

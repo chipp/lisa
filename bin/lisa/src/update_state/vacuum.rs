@@ -31,7 +31,7 @@ pub async fn update_vacuum<F>(
     debug!("work_speed {:?}", update.work_speed);
     debug!("toggle pause {:?}", update.toggle_pause);
 
-    if !update.rooms.is_empty() {
+    if update.rooms.is_empty() {
         return;
     }
 

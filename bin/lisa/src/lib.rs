@@ -23,10 +23,7 @@ pub use update_state::update_devices_state;
 mod handle_socket_client;
 pub use handle_socket_client::read_from_socket;
 
-#[cfg(feature = "inspinia")]
 mod inspinia_controller;
-
-#[cfg(feature = "inspinia")]
 pub use inspinia_controller::InspiniaController;
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;

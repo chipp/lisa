@@ -7,11 +7,12 @@ use hyper::{Body, Request, Response, StatusCode};
 use tokio::sync::Mutex;
 
 use super::super::auth::validate_autorization;
-use crate::{update_devices_state, Result};
+use crate::{update_devices_state, InspiniaController, Result};
 
 pub async fn action<F>(
     request: Request<Body>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
+    inspinia_controller: InspiniaController,
 ) -> Result<Response<Body>>
 where
     F: std::future::Future<Output = Result<()>>,
@@ -27,7 +28,12 @@ where
         }
 
         let action: UpdateStateRequest = serde_json::from_slice(body.chunk())?;
-        let devices = update_devices_state(action.payload.devices, send_vacuum_command).await;
+        let devices = update_devices_state(
+            action.payload.devices,
+            send_vacuum_command,
+            inspinia_controller,
+        )
+        .await;
 
         let response = UpdateStateResponse::new(request_id, devices);
 

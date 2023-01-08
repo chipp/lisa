@@ -5,22 +5,22 @@ use crate::PortName;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpdateStateMessage<'p, 'v> {
-    pub message: UpdateStateMessageContent<'p, 'v>,
+pub struct UpdateStateMessage<'v> {
+    pub message: UpdateStateMessageContent<'v>,
 }
 
-impl UpdateStateMessage<'_, '_> {
-    pub fn new<'p, 'v>(
+impl UpdateStateMessage<'_> {
+    pub fn new<'v>(
         force: bool,
-        id: &'p str,
-        r#type: PortName,
+        id: &'v str,
+        name: &'v PortName,
         value: &'v str,
-    ) -> UpdateStateMessage<'p, 'v> {
+    ) -> UpdateStateMessage<'v> {
         UpdateStateMessage {
             message: UpdateStateMessageContent {
                 force,
                 id,
-                r#type,
+                name,
                 value,
             },
         }
@@ -28,14 +28,15 @@ impl UpdateStateMessage<'_, '_> {
 }
 
 #[derive(Debug, Serialize)]
-pub struct UpdateStateMessageContent<'p, 'v> {
+pub struct UpdateStateMessageContent<'v> {
     pub force: bool,
-    pub id: &'p str,
-    pub r#type: PortName,
+    pub id: &'v str,
+    #[serde(rename = "type")]
+    pub name: &'v PortName,
     pub value: &'v str,
 }
 
-impl OutMessage for UpdateStateMessage<'_, '_> {
+impl OutMessage for UpdateStateMessage<'_> {
     fn code(&self) -> &'static str {
         "104"
     }

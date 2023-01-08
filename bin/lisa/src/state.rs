@@ -14,6 +14,7 @@ use hyper_tls::HttpsConnector;
 use log::{debug, error};
 
 use crate::DeviceId;
+use crate::Room;
 use crate::Room::*;
 
 trait State: Send {
@@ -30,26 +31,33 @@ pub struct StateManager {
     pub kitchen_sensor_state: SensorState,
     pub home_office_sensor_state: SensorState,
 
-    pub bedroom_thermostat_state: ThermostatState,
-    pub living_room_thermostat_state: ThermostatState,
-    pub nursery_thermostat_state: ThermostatState,
-    pub home_office_thermostat_state: ThermostatState,
+    pub thermostats: [ThermostatState; 4],
 }
 
 impl StateManager {
     pub fn new() -> Self {
         Self {
             vacuum_state: VacuumState::default(),
-
             bedroom_sensor_state: SensorState::new(Bedroom),
             home_office_sensor_state: SensorState::new(HomeOffice),
             kitchen_sensor_state: SensorState::new(Kitchen),
-
-            bedroom_thermostat_state: ThermostatState::new(Bedroom),
-            nursery_thermostat_state: ThermostatState::new(Nursery),
-            home_office_thermostat_state: ThermostatState::new(HomeOffice),
-            living_room_thermostat_state: ThermostatState::new(LivingRoom),
+            thermostats: [
+                ThermostatState::new(Bedroom),
+                ThermostatState::new(Nursery),
+                ThermostatState::new(HomeOffice),
+                ThermostatState::new(LivingRoom),
+            ],
         }
+    }
+
+    pub fn thermostat_state_in_room(&mut self, room: Room) -> Option<&mut ThermostatState> {
+        for state in self.thermostats.iter_mut() {
+            if room == state.room() {
+                return Some(state);
+            }
+        }
+
+        None
     }
 
     pub async fn report_if_necessary(&mut self) {
@@ -60,12 +68,7 @@ impl StateManager {
             &mut self.kitchen_sensor_state,
         ];
 
-        if cfg!(feature = "inspinia") {
-            states.push(&mut self.bedroom_thermostat_state);
-            states.push(&mut self.nursery_thermostat_state);
-            states.push(&mut self.home_office_thermostat_state);
-            states.push(&mut self.living_room_thermostat_state);
-        }
+        states.extend(self.thermostats.iter_mut().map(|s| s as &mut dyn State));
 
         let mut devices = vec![];
 

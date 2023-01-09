@@ -27,17 +27,17 @@ pub async fn read_from_socket(
                     Packet::VacuumStatus(status) => {
                         let mut state = state_manager.clone().lock_owned().await;
 
-                        state.vacuum_state.set_battery(status.battery);
-                        state.vacuum_state.set_is_enabled(status.is_enabled);
-                        state.vacuum_state.set_work_speed(status.work_speed);
+                        state.vacuum.set_battery(status.battery);
+                        state.vacuum.set_is_enabled(status.is_enabled);
+                        state.vacuum.set_work_speed(status.work_speed);
                     }
                     Packet::SensorData(sensor_data) => {
                         let mut state = state_manager.clone().lock_owned().await;
 
                         let room_state = match sensor_data.room() {
-                            SensorRoom::Bedroom => &mut state.bedroom_sensor_state,
-                            SensorRoom::HomeOffice => &mut state.home_office_sensor_state,
-                            SensorRoom::Kitchen => &mut state.kitchen_sensor_state,
+                            SensorRoom::Bedroom => &mut state.bedroom_sensor,
+                            SensorRoom::HomeOffice => &mut state.home_office_sensor,
+                            SensorRoom::Kitchen => &mut state.kitchen_sensor,
                         };
 
                         match sensor_data {

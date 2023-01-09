@@ -1,6 +1,7 @@
 mod error;
 use error::Error;
 
+use std::convert::TryFrom;
 use std::sync::Arc;
 use std::{path::PathBuf, str::FromStr};
 
@@ -86,7 +87,17 @@ impl InspiniaController {
         ])
     }
 
+    fn get_recuperator(&self) -> Result<Device> {
+        let device_manager = DeviceManager::new(&self.db_path)?;
+        let recuperator = device_manager.get_recuperator_in_room(Room::LivingRoom)?;
+        Ok(recuperator)
+    }
+
     async fn update_state(&self, port_id: &str, value: &str) -> Result<()> {
+        if self.update_recuperator(port_id, value).await? {
+            return Ok(());
+        }
+
         let thermostats = self.get_thermostats()?;
 
         for thermostat in thermostats.iter() {
@@ -117,6 +128,29 @@ impl InspiniaController {
         }
 
         Err(Error::UnsupportedDevice(port_id.to_string()).into())
+    }
+
+    async fn update_recuperator(&self, port_id: &str, value: &str) -> Result<bool> {
+        let recuperator = self.get_recuperator()?;
+        let mut state_manager = self.state_manager.clone().lock_owned().await;
+
+        if let Some(port) = recuperator.ports.get(port_id) {
+            let state = state_manager.recuperator_state();
+
+            match port.name {
+                PortName::OnOff => state.set_is_enabled(value == "1"),
+                PortName::FanSpeed => {
+                    if let Ok(value) = FanSpeed::try_from(value) {
+                        state.set_fan_speed(value);
+                    }
+                }
+                PortName::Mode | PortName::RoomTemp | PortName::SetTemp => (),
+            }
+
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 
@@ -199,8 +233,7 @@ impl InspiniaController {
 
         let value = if value { "1" } else { "0" };
 
-        let device_manager = DeviceManager::new(&self.db_path)?;
-        let recuperator = device_manager.get_recuperator_in_room(Room::LivingRoom)?;
+        let recuperator = self.get_recuperator()?;
 
         for (id, port) in recuperator.ports.iter() {
             if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {

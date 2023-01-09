@@ -128,7 +128,7 @@ fn recuperator_device() -> Device {
         capabilities: vec![
             DeviceCapability::on_off(false).reportable(),
             DeviceCapability::mode(
-                ModeFunction::WorkSpeed,
+                ModeFunction::FanSpeed,
                 vec![Mode::Low, Mode::Medium, Mode::High],
             )
             .reportable(),

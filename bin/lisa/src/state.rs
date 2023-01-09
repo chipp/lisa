@@ -7,6 +7,9 @@ pub use sensor_state::SensorState;
 mod thermostat_state;
 pub use thermostat_state::ThermostatState;
 
+mod recuperator_state;
+pub use recuperator_state::RecuperatorState;
+
 use alice::{StateCapability, StateDevice, StateProperty, StateResponse};
 use chrono::Utc;
 use hyper::{Body, Client, Method, Request, StatusCode};
@@ -25,28 +28,30 @@ trait State: Send {
 }
 
 pub struct StateManager {
-    pub vacuum_state: VacuumState,
+    pub vacuum: VacuumState,
 
-    pub bedroom_sensor_state: SensorState,
-    pub kitchen_sensor_state: SensorState,
-    pub home_office_sensor_state: SensorState,
+    pub bedroom_sensor: SensorState,
+    pub kitchen_sensor: SensorState,
+    pub home_office_sensor: SensorState,
 
-    pub thermostats: [ThermostatState; 4],
+    thermostats: [ThermostatState; 4],
+    recuperator: RecuperatorState,
 }
 
 impl StateManager {
     pub fn new() -> Self {
         Self {
-            vacuum_state: VacuumState::default(),
-            bedroom_sensor_state: SensorState::new(Bedroom),
-            home_office_sensor_state: SensorState::new(HomeOffice),
-            kitchen_sensor_state: SensorState::new(Kitchen),
+            vacuum: VacuumState::default(),
+            bedroom_sensor: SensorState::new(Bedroom),
+            home_office_sensor: SensorState::new(HomeOffice),
+            kitchen_sensor: SensorState::new(Kitchen),
             thermostats: [
                 ThermostatState::new(Bedroom),
                 ThermostatState::new(Nursery),
                 ThermostatState::new(HomeOffice),
                 ThermostatState::new(LivingRoom),
             ],
+            recuperator: RecuperatorState::new(),
         }
     }
 
@@ -60,12 +65,17 @@ impl StateManager {
         None
     }
 
+    pub fn recuperator_state(&mut self) -> &mut RecuperatorState {
+        &mut self.recuperator
+    }
+
     pub async fn report_if_necessary(&mut self) {
         let mut states: Vec<&mut dyn State> = vec![
-            &mut self.vacuum_state,
-            &mut self.bedroom_sensor_state,
-            &mut self.home_office_sensor_state,
-            &mut self.kitchen_sensor_state,
+            &mut self.vacuum,
+            &mut self.bedroom_sensor,
+            &mut self.home_office_sensor,
+            &mut self.kitchen_sensor,
+            &mut self.recuperator,
         ];
 
         states.extend(self.thermostats.iter_mut().map(|s| s as &mut dyn State));

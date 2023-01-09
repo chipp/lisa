@@ -108,8 +108,7 @@ impl InspiniaController {
                                 state.set_room_temperature(value);
                             }
                         }
-                        PortName::Mode => panic!("unsupported"),
-                        PortName::FanSpeed => panic!("unsupported"),
+                        PortName::Mode | PortName::FanSpeed => (),
                     }
                 }
 
@@ -167,6 +166,8 @@ impl InspiniaController {
             value
         }
         .to_string();
+
+        info!("set temperature in room {:?} = {}", room, temp);
 
         let thermostats = self.get_thermostats()?;
 

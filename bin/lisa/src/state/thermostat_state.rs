@@ -59,16 +59,18 @@ impl ThermostatState {
 impl State for ThermostatState {
     fn prepare_updates(&self, devices: &mut Vec<StateDevice>) {
         let properties = self.properties(true);
+        let capabilities = self.capabilities(true);
 
-        if properties.is_empty() {
+        if properties.is_empty() && capabilities.is_empty() {
             return;
         }
 
         let device_id = DeviceId::thermostat_at_room(self.room);
 
-        devices.push(StateDevice::new_with_properties(
+        devices.push(StateDevice::new_with_properties_and_capabilities(
             device_id.to_string(),
             properties,
+            capabilities,
         ));
     }
 

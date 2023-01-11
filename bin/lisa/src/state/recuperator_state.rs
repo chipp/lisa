@@ -2,39 +2,28 @@ use crate::{DeviceId, Room};
 use alice::{Mode, ModeFunction, StateCapability, StateDevice, StateProperty};
 use alisa::FanSpeed;
 
-use super::State;
+use super::{reportable_property::ReportableProperty, State};
 
 #[derive(PartialEq)]
 pub struct RecuperatorState {
-    is_enabled: bool,
-    fan_speed: FanSpeed,
-
-    is_enabled_modified: bool,
-    fan_speed_modified: bool,
+    is_enabled: ReportableProperty<bool>,
+    fan_speed: ReportableProperty<FanSpeed>,
 }
 
 impl RecuperatorState {
     pub fn new() -> RecuperatorState {
         RecuperatorState {
-            is_enabled: false,
-            fan_speed: FanSpeed::Low,
-            is_enabled_modified: false,
-            fan_speed_modified: false,
+            is_enabled: ReportableProperty::new(false),
+            fan_speed: ReportableProperty::new(FanSpeed::Low),
         }
     }
 
     pub fn set_is_enabled(&mut self, is_enabled: bool) {
-        if self.is_enabled != is_enabled {
-            self.is_enabled = is_enabled;
-            self.is_enabled_modified = true;
-        }
+        self.is_enabled.set_value(is_enabled, false);
     }
 
     pub fn set_fan_speed(&mut self, fan_speed: FanSpeed) {
-        if self.fan_speed != fan_speed {
-            self.fan_speed = fan_speed;
-            self.fan_speed_modified = true;
-        }
+        self.fan_speed.set_value(fan_speed, false);
     }
 }
 
@@ -61,14 +50,14 @@ impl State for RecuperatorState {
     fn capabilities(&self, only_updated: bool) -> Vec<StateCapability> {
         let mut capabilities = vec![];
 
-        if !only_updated || (only_updated && self.is_enabled_modified) {
-            capabilities.push(StateCapability::on_off(self.is_enabled));
+        if !only_updated || (only_updated && self.is_enabled.modified()) {
+            capabilities.push(StateCapability::on_off(self.is_enabled.get_value()));
         }
 
-        if !only_updated || (only_updated && self.fan_speed_modified) {
+        if !only_updated || (only_updated && self.fan_speed.modified()) {
             capabilities.push(StateCapability::mode(
                 ModeFunction::FanSpeed,
-                map_fan_speed(&self.fan_speed),
+                map_fan_speed(&self.fan_speed.get_value()),
             ));
         }
 
@@ -76,8 +65,8 @@ impl State for RecuperatorState {
     }
 
     fn reset_modified(&mut self) {
-        self.is_enabled_modified = false;
-        self.fan_speed_modified = false;
+        self.is_enabled.reset_modified();
+        self.fan_speed.reset_modified();
     }
 }
 fn map_fan_speed(fan_speed: &FanSpeed) -> Mode {

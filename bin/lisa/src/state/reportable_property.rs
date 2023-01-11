@@ -15,10 +15,13 @@ impl<Value: PartialEq + Copy> ReportableProperty<Value> {
         self.value
     }
 
-    pub fn set_value(&mut self, value: Value, force: bool) {
+    pub fn set_value(&mut self, value: Value, force: bool) -> bool {
         if force || self.value != value {
             self.value = value;
             self.modified = true;
+            true
+        } else {
+            false
         }
     }
 

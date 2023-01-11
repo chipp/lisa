@@ -2,6 +2,7 @@ use crate::{DeviceId, Room};
 
 use super::{reportable_property::ReportableProperty, State};
 use alice::{RangeFunction, StateCapability, StateDevice, StateProperty};
+use log::info;
 
 #[derive(PartialEq)]
 pub struct ThermostatState {
@@ -30,15 +31,27 @@ impl ThermostatState {
     }
 
     pub fn set_is_enabled(&mut self, is_enabled: bool) {
-        self.is_enabled.set_value(is_enabled, false)
+        if self.is_enabled.set_value(is_enabled, false) {
+            info!("set thermostat {:?} is enabled = {}", self.room, is_enabled);
+        }
     }
 
     pub fn set_room_temperature(&mut self, room_temperature: f32) {
-        self.room_temperature.set_value(room_temperature, true)
+        if self.room_temperature.set_value(room_temperature, true) {
+            info!(
+                "set thermostat {:?} room temperature = {}",
+                self.room, room_temperature
+            );
+        }
     }
 
     pub fn set_target_temperature(&mut self, target_temperature: f32) {
-        self.target_temperature.set_value(target_temperature, false)
+        if self.target_temperature.set_value(target_temperature, false) {
+            info!(
+                "set thermostat {:?} target temperature = {}",
+                self.room, target_temperature
+            );
+        }
     }
 }
 

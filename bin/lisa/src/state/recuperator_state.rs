@@ -1,6 +1,7 @@
 use crate::{DeviceId, Room};
 use alice::{Mode, ModeFunction, StateCapability, StateDevice, StateProperty};
 use alisa::FanSpeed;
+use log::info;
 
 use super::{reportable_property::ReportableProperty, State};
 
@@ -19,11 +20,15 @@ impl RecuperatorState {
     }
 
     pub fn set_is_enabled(&mut self, is_enabled: bool) {
-        self.is_enabled.set_value(is_enabled, false);
+        if self.is_enabled.set_value(is_enabled, false) {
+            info!("set recuperator is enabled = {}", is_enabled);
+        }
     }
 
     pub fn set_fan_speed(&mut self, fan_speed: FanSpeed) {
-        self.fan_speed.set_value(fan_speed, false);
+        if self.fan_speed.set_value(fan_speed, false) {
+            info!("set recuperator fan speed = {:?}", fan_speed);
+        }
     }
 }
 

@@ -22,15 +22,15 @@ impl SensorState {
     }
 
     pub fn set_temperature(&mut self, temperature: u16) {
-        self.temperature.set_value(temperature, true)
+        self.temperature.set_value(temperature, true);
     }
 
     pub fn set_humidity(&mut self, humidity: u16) {
-        self.humidity.set_value(humidity, true)
+        self.humidity.set_value(humidity, true);
     }
 
     pub fn set_battery(&mut self, battery: u8) {
-        self.battery.set_value(battery, true)
+        self.battery.set_value(battery, true);
     }
 }
 

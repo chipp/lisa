@@ -40,7 +40,7 @@ impl State for RecuperatorState {
             return;
         }
 
-        let device_id = DeviceId::thermostat_at_room(Room::LivingRoom);
+        let device_id = DeviceId::recuperator_at_room(Room::LivingRoom);
 
         devices.push(StateDevice::new_with_capabilities(
             device_id.to_string(),

@@ -7,47 +7,32 @@ use alice::{
 
 use crate::{DeviceId, Room};
 
-use super::State;
+use super::{reportable_property::ReportableProperty, State};
 
 #[derive(Default, PartialEq)]
 pub struct VacuumState {
-    is_enabled: bool,
-    battery: u8,
-    work_speed: Mode,
-    is_paused: bool,
-
-    is_enabled_modified: bool,
-    battery_modified: bool,
-    work_speed_modified: bool,
-    is_paused_modified: bool,
+    is_enabled: ReportableProperty<bool>,
+    battery: ReportableProperty<u8>,
+    work_speed: ReportableProperty<Mode>,
+    is_paused: ReportableProperty<bool>,
 }
 
 impl VacuumState {
     pub fn set_is_enabled(&mut self, is_enabled: bool) {
-        if self.is_enabled != is_enabled {
-            self.is_enabled = is_enabled;
-            self.is_enabled_modified = true;
-        }
+        self.is_enabled.set_value(is_enabled, false);
     }
 
     pub fn set_battery(&mut self, battery: u8) {
-        self.battery = battery;
-        self.battery_modified = true;
+        self.battery.set_value(battery, true);
     }
 
     pub fn set_work_speed(&mut self, work_speed: String) {
         let vacuum_work_speed = Mode::from_str(&work_speed).unwrap();
-        if self.work_speed != vacuum_work_speed {
-            self.work_speed = vacuum_work_speed;
-            self.work_speed_modified = true;
-        }
+        self.work_speed.set_value(vacuum_work_speed, false);
     }
 
     pub fn set_is_paused(&mut self, is_paused: bool) {
-        if self.is_paused != is_paused {
-            self.is_paused = is_paused;
-            self.is_paused_modified = true;
-        }
+        self.is_paused.set_value(is_paused, false);
     }
 }
 
@@ -72,8 +57,8 @@ impl State for VacuumState {
     }
 
     fn properties(&self, only_updated: bool) -> Vec<StateProperty> {
-        if !only_updated || (only_updated && self.battery_modified) {
-            vec![StateProperty::battery_level(self.battery as f32)]
+        if !only_updated || (only_updated && self.battery.modified()) {
+            vec![StateProperty::battery_level(self.battery.get_value() as f32)]
         } else {
             vec![]
         }
@@ -82,25 +67,28 @@ impl State for VacuumState {
     fn capabilities(&self, only_updated: bool) -> Vec<StateCapability> {
         let mut capabilities = vec![];
 
-        if !only_updated || (only_updated && self.is_enabled_modified) {
-            capabilities.push(StateCapability::on_off(self.is_enabled));
+        if !only_updated || (only_updated && self.is_enabled.modified()) {
+            capabilities.push(StateCapability::on_off(self.is_enabled.get_value()));
         }
 
-        if !only_updated || (only_updated && self.work_speed_modified) {
-            capabilities.push(StateCapability::mode(WorkSpeed, self.work_speed));
+        if !only_updated || (only_updated && self.work_speed.modified()) {
+            capabilities.push(StateCapability::mode(
+                WorkSpeed,
+                self.work_speed.get_value(),
+            ));
         }
 
-        if !only_updated || (only_updated && self.is_paused_modified) {
-            capabilities.push(StateCapability::toggle(Pause, self.is_paused));
+        if !only_updated || (only_updated && self.is_paused.modified()) {
+            capabilities.push(StateCapability::toggle(Pause, self.is_paused.get_value()));
         }
 
         capabilities
     }
 
     fn reset_modified(&mut self) {
-        self.is_enabled_modified = false;
-        self.battery_modified = false;
-        self.work_speed_modified = false;
-        self.is_paused_modified = false;
+        self.is_enabled.reset_modified();
+        self.battery.reset_modified();
+        self.work_speed.reset_modified();
+        self.is_paused.reset_modified();
     }
 }

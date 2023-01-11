@@ -1,30 +1,23 @@
 use crate::{DeviceId, Room};
-use alice::{RangeFunction, StateCapability, StateDevice, StateProperty};
 
-use super::State;
+use super::{reportable_property::ReportableProperty, State};
+use alice::{RangeFunction, StateCapability, StateDevice, StateProperty};
 
 #[derive(PartialEq)]
 pub struct ThermostatState {
     room: Room,
-    is_enabled: bool,
-    room_temperature: f32,
-    target_temperature: f32,
-
-    is_enabled_modified: bool,
-    room_temperature_modified: bool,
-    target_temperature_modified: bool,
+    is_enabled: ReportableProperty<bool>,
+    room_temperature: ReportableProperty<f32>,
+    target_temperature: ReportableProperty<f32>,
 }
 
 impl ThermostatState {
     pub fn new(room: Room) -> ThermostatState {
         ThermostatState {
             room,
-            is_enabled: false,
-            room_temperature: 0.0,
-            target_temperature: 0.0,
-            is_enabled_modified: false,
-            room_temperature_modified: false,
-            target_temperature_modified: false,
+            is_enabled: ReportableProperty::default(),
+            room_temperature: ReportableProperty::default(),
+            target_temperature: ReportableProperty::default(),
         }
     }
 
@@ -33,26 +26,19 @@ impl ThermostatState {
     }
 
     pub fn target_temperature(&self) -> f32 {
-        self.target_temperature
+        self.target_temperature.get_value()
     }
 
     pub fn set_is_enabled(&mut self, is_enabled: bool) {
-        if self.is_enabled != is_enabled {
-            self.is_enabled = is_enabled;
-            self.is_enabled_modified = true;
-        }
+        self.is_enabled.set_value(is_enabled, false)
     }
 
     pub fn set_room_temperature(&mut self, room_temperature: f32) {
-        self.room_temperature = room_temperature;
-        self.room_temperature_modified = true;
+        self.room_temperature.set_value(room_temperature, true)
     }
 
     pub fn set_target_temperature(&mut self, target_temperature: f32) {
-        if self.target_temperature != target_temperature {
-            self.target_temperature = target_temperature;
-            self.target_temperature_modified = true;
-        }
+        self.target_temperature.set_value(target_temperature, false)
     }
 }
 
@@ -75,8 +61,10 @@ impl State for ThermostatState {
     }
 
     fn properties(&self, only_updated: bool) -> Vec<StateProperty> {
-        if !only_updated || (only_updated && self.room_temperature_modified) {
-            vec![StateProperty::temperature(self.room_temperature)]
+        if !only_updated || (only_updated && self.room_temperature.modified()) {
+            vec![StateProperty::temperature(
+                self.room_temperature.get_value(),
+            )]
         } else {
             vec![]
         }
@@ -85,14 +73,14 @@ impl State for ThermostatState {
     fn capabilities(&self, only_updated: bool) -> Vec<StateCapability> {
         let mut capabilities = vec![];
 
-        if !only_updated || (only_updated && self.is_enabled_modified) {
-            capabilities.push(StateCapability::on_off(self.is_enabled));
+        if !only_updated || (only_updated && self.is_enabled.modified()) {
+            capabilities.push(StateCapability::on_off(self.is_enabled.get_value()));
         }
 
-        if !only_updated || (only_updated && self.target_temperature_modified) {
+        if !only_updated || (only_updated && self.target_temperature.modified()) {
             capabilities.push(StateCapability::range(
                 RangeFunction::Temperature,
-                self.target_temperature,
+                self.target_temperature.get_value(),
             ));
         }
 
@@ -100,8 +88,8 @@ impl State for ThermostatState {
     }
 
     fn reset_modified(&mut self) {
-        self.is_enabled_modified = false;
-        self.room_temperature_modified = false;
-        self.target_temperature_modified = false;
+        self.is_enabled.reset_modified();
+        self.room_temperature.reset_modified();
+        self.target_temperature.reset_modified();
     }
 }

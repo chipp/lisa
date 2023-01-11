@@ -1,46 +1,36 @@
 use crate::{DeviceId, Room};
 use alice::{StateCapability, StateDevice, StateProperty};
 
-use super::State;
+use super::{reportable_property::ReportableProperty, State};
 
 #[derive(PartialEq)]
 pub struct SensorState {
     room: Room,
-    temperature: u16,
-    humidity: u16,
-    battery: u8,
-
-    temperature_modified: bool,
-    humidity_modified: bool,
-    battery_modified: bool,
+    temperature: ReportableProperty<u16>,
+    humidity: ReportableProperty<u16>,
+    battery: ReportableProperty<u8>,
 }
 
 impl SensorState {
     pub fn new(room: Room) -> SensorState {
         SensorState {
             room,
-            temperature: 0,
-            humidity: 0,
-            battery: 0,
-            temperature_modified: false,
-            humidity_modified: false,
-            battery_modified: false,
+            temperature: ReportableProperty::default(),
+            humidity: ReportableProperty::default(),
+            battery: ReportableProperty::default(),
         }
     }
 
     pub fn set_temperature(&mut self, temperature: u16) {
-        self.temperature = temperature;
-        self.temperature_modified = true;
+        self.temperature.set_value(temperature, true)
     }
 
     pub fn set_humidity(&mut self, humidity: u16) {
-        self.humidity = humidity;
-        self.humidity_modified = true;
+        self.humidity.set_value(humidity, true)
     }
 
     pub fn set_battery(&mut self, battery: u8) {
-        self.battery = battery;
-        self.battery_modified = true;
+        self.battery.set_value(battery, true)
     }
 }
 
@@ -63,16 +53,20 @@ impl State for SensorState {
     fn properties(&self, only_updated: bool) -> Vec<StateProperty> {
         let mut properties = vec![];
 
-        if !only_updated || (only_updated && self.temperature_modified) {
-            properties.push(StateProperty::temperature(self.temperature as f32 / 10.0))
+        if !only_updated || (only_updated && self.temperature.modified()) {
+            properties.push(StateProperty::temperature(
+                self.temperature.get_value() as f32 / 10.0,
+            ))
         }
 
-        if !only_updated || (only_updated && self.humidity_modified) {
-            properties.push(StateProperty::humidity(self.humidity as f32 / 10.0))
+        if !only_updated || (only_updated && self.humidity.modified()) {
+            properties.push(StateProperty::humidity(
+                self.humidity.get_value() as f32 / 10.0,
+            ))
         }
 
-        if !only_updated || (only_updated && self.battery_modified) {
-            properties.push(StateProperty::battery_level(self.battery as f32))
+        if !only_updated || (only_updated && self.battery.modified()) {
+            properties.push(StateProperty::battery_level(self.battery.get_value() as f32))
         }
 
         properties
@@ -83,8 +77,8 @@ impl State for SensorState {
     }
 
     fn reset_modified(&mut self) {
-        self.temperature_modified = false;
-        self.humidity_modified = false;
-        self.battery_modified = false;
+        self.temperature.reset_modified();
+        self.humidity.reset_modified();
+        self.battery.reset_modified();
     }
 }

@@ -1,3 +1,5 @@
+mod reportable_property;
+
 mod vacuum_state;
 pub use vacuum_state::VacuumState;
 

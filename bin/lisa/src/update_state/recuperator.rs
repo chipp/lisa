@@ -36,7 +36,7 @@ pub async fn update_recuperator(
             .set_fan_speed_on_recuperator(map_mode(mode))
             .await;
         capabilities.push(UpdateStateCapability::mode(
-            ModeFunction::WorkSpeed,
+            ModeFunction::FanSpeed,
             prepare_result(&Ok(())),
         ));
     }

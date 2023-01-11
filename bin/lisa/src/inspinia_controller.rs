@@ -107,11 +107,6 @@ impl InspiniaController {
                 if let Some(state) =
                     state_manager.thermostat_state_in_room(map_room(&thermostat.room))
                 {
-                    info!(
-                        "going to update thermostat in {:?}: {:?} = {}",
-                        thermostat.room, port.name, value
-                    );
-
                     match port.name {
                         PortName::OnOff => state.set_is_enabled(value == "1"),
                         PortName::SetTemp => {
@@ -141,8 +136,6 @@ impl InspiniaController {
 
         if let Some(port) = recuperator.ports.get(port_id) {
             let state = state_manager.recuperator_state();
-
-            info!("going to update recuperat: {:?} = {}", port.name, value);
 
             match port.name {
                 PortName::OnOff => state.set_is_enabled(value == "1"),

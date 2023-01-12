@@ -1,4 +1,4 @@
-use crate::OutMessage;
+use crate::OutgoingMessage;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -17,7 +17,7 @@ impl<'q> SqlRequestMessage<'q> {
     }
 }
 
-impl OutMessage for SqlRequestMessage<'_> {
+impl OutgoingMessage for SqlRequestMessage<'_> {
     fn code(&self) -> &'static str {
         "303"
     }

@@ -15,12 +15,13 @@ pub mod incoming {
 }
 
 pub mod outgoing {
+    mod keep_alive;
     mod register;
-    pub use register::RegisterMessage;
-
     mod sql_request;
-    pub use sql_request::SqlRequestMessage;
-
     mod update_state;
+
+    pub use keep_alive::KeepAliveMessage;
+    pub use register::RegisterMessage;
+    pub use sql_request::SqlRequestMessage;
     pub use update_state::{UpdateStateMessage, UpdateStateMessageContent};
 }

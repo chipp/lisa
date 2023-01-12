@@ -1,4 +1,4 @@
-use crate::OutMessage;
+use crate::OutgoingMessage;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -23,7 +23,7 @@ impl RegisterMessage<'_> {
     }
 }
 
-impl OutMessage for RegisterMessage<'_> {
+impl OutgoingMessage for RegisterMessage<'_> {
     fn code(&self) -> &'static str {
         "101"
     }

@@ -6,15 +6,18 @@ use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::{DeviceType, Result, StateManager};
 
-use log::info;
+use log::{debug, info};
 use tokio::sync::Mutex;
+use tokio::task::{self, JoinHandle};
+use tokio::time;
 
 use alisa::{
-    download_template, Device, DeviceManager, FanSpeed, PortName, PortState, PortType,
-    RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WSClient,
+    download_template, Device, DeviceManager, FanSpeed, KeepAliveMessage, PortName, PortState,
+    PortType, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WSClient,
 };
 
 #[derive(Clone)]
@@ -22,6 +25,7 @@ pub struct InspiniaController {
     db_path: PathBuf,
     client: WSClient,
     state_manager: Arc<Mutex<StateManager>>,
+    keep_alive_handle: Arc<JoinHandle<()>>,
 }
 
 impl InspiniaController {
@@ -32,14 +36,17 @@ impl InspiniaController {
         let target_id = token_as_uuid(format!("{:x}", md5::compute(token)));
 
         let db_path = download_template(&target_id).await?;
-        let (client, port_states) = Self::connect(target_id).await?;
 
+        let (client, port_states) = Self::connect(target_id).await?;
         Self::set_current_state(port_states, state_manager.clone(), &db_path).await?;
+
+        let keep_alive_handle = Self::keep_alive(client.clone());
 
         Ok(InspiniaController {
             db_path,
             client,
             state_manager,
+            keep_alive_handle: Arc::from(keep_alive_handle),
         })
     }
 
@@ -160,9 +167,30 @@ impl InspiniaController {
         loop {
             if let Some(payload) = client.read_message().await {
                 let states: Vec<PortState> = serde_json::from_value(payload.message)?;
+
                 return Ok((client, states));
             }
         }
+    }
+
+    fn keep_alive(mut client: WSClient) -> JoinHandle<()> {
+        task::spawn(async move {
+            let mut timer = time::interval(Duration::from_secs(1));
+
+            loop {
+                timer.tick().await;
+                match client.send_message(KeepAliveMessage::new()).await {
+                    Ok(()) => debug!("keep alive"),
+                    Err(err) => debug!("keep alive failed {}", err),
+                }
+            }
+        })
+    }
+}
+
+impl Drop for InspiniaController {
+    fn drop(&mut self) {
+        self.keep_alive_handle.abort();
     }
 }
 
@@ -180,6 +208,9 @@ impl InspiniaController {
                             Err(_err) => (),
                             // error!("unable to update device state {} {:#?}", err, update)
                         }
+                    }
+                    "203" => {
+                        debug!("alive: {}", payload.message.as_str().unwrap_or_default())
                     }
                     _ => info!("unsupported message: {:?}", payload),
                 }

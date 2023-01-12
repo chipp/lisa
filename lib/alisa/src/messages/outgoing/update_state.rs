@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::OutMessage;
+use crate::OutgoingMessage;
 use crate::PortName;
 
 #[derive(Debug, Serialize)]
@@ -36,7 +36,7 @@ pub struct UpdateStateMessageContent<'v> {
     pub value: &'v str,
 }
 
-impl OutMessage for UpdateStateMessage<'_> {
+impl OutgoingMessage for UpdateStateMessage<'_> {
     fn code(&self) -> &'static str {
         "104"
     }

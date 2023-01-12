@@ -1,11 +1,13 @@
 mod error;
 use error::Error;
 
+use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
-use std::{path::PathBuf, str::FromStr};
 
-use crate::{Result, StateManager};
+use crate::{DeviceType, Result, StateManager};
 
 use log::info;
 use tokio::sync::Mutex;
@@ -30,13 +32,121 @@ impl InspiniaController {
         let target_id = token_as_uuid(format!("{:x}", md5::compute(token)));
 
         let db_path = download_template(&target_id).await?;
-        let (client, _port_states) = Self::connect(target_id).await?;
+        let (client, port_states) = Self::connect(target_id).await?;
+
+        Self::set_current_state(port_states, state_manager.clone(), &db_path).await?;
 
         Ok(InspiniaController {
             db_path,
             client,
             state_manager,
         })
+    }
+
+    async fn set_current_state(
+        port_states: Vec<PortState>,
+        state_manager: Arc<Mutex<StateManager>>,
+        db_path: &Path,
+    ) -> Result<()> {
+        struct PortContext {
+            device_type: DeviceType,
+            room: Room,
+            port_name: PortName,
+        }
+
+        let device_manager = DeviceManager::new(&db_path)?;
+        let devices = [
+            (
+                DeviceType::Thermostat,
+                device_manager.get_thermostat_in_room(Room::Bedroom)?,
+            ),
+            (
+                DeviceType::Thermostat,
+                device_manager.get_thermostat_in_room(Room::Nursery)?,
+            ),
+            (
+                DeviceType::Thermostat,
+                device_manager.get_thermostat_in_room(Room::HomeOffice)?,
+            ),
+            (
+                DeviceType::Thermostat,
+                device_manager.get_thermostat_in_room(Room::LivingRoom)?,
+            ),
+            (
+                DeviceType::Recuperator,
+                device_manager.get_recuperator_in_room(Room::LivingRoom)?,
+            ),
+        ];
+
+        let mut ports: HashMap<String, PortContext> = HashMap::new();
+
+        for (device_type, device) in devices {
+            for (key, port) in device.ports {
+                ports.insert(
+                    key,
+                    PortContext {
+                        device_type,
+                        room: device.room,
+                        port_name: port.name,
+                    },
+                );
+            }
+        }
+
+        for port_state in port_states {
+            let value = if let Some(value) = port_state.value {
+                value
+            } else {
+                continue;
+            };
+
+            if let Some(context) = ports.get(&port_state.id) {
+                match context.device_type {
+                    DeviceType::Recuperator => {
+                        let mut state_manager = state_manager.clone().lock_owned().await;
+                        let state = state_manager.recuperator_state();
+
+                        match context.port_name {
+                            PortName::OnOff => state.set_is_enabled(value == "1"),
+                            PortName::FanSpeed => {
+                                if let Ok(value) = FanSpeed::try_from(value.as_str()) {
+                                    state.set_fan_speed(value);
+                                }
+                            }
+                            PortName::SetTemp | PortName::RoomTemp | PortName::Mode => (),
+                        }
+                    }
+                    DeviceType::Thermostat => {
+                        let mut state_manager = state_manager.clone().lock_owned().await;
+                        let state = if let Some(state) =
+                            state_manager.thermostat_state_in_room(map_room(&context.room))
+                        {
+                            state
+                        } else {
+                            continue;
+                        };
+
+                        match context.port_name {
+                            PortName::OnOff => state.set_is_enabled(value == "1"),
+                            PortName::SetTemp => {
+                                if let Ok(value) = f32::from_str(&value) {
+                                    state.set_target_temperature(value);
+                                }
+                            }
+                            PortName::RoomTemp => {
+                                if let Ok(value) = f32::from_str(&value) {
+                                    state.set_room_temperature(value);
+                                }
+                            }
+                            PortName::Mode | PortName::FanSpeed => (),
+                        }
+                    }
+                    DeviceType::TemperatureSensor | DeviceType::VacuumCleaner => continue,
+                }
+            }
+        }
+
+        Ok(())
     }
 
     async fn connect(target_id: String) -> Result<(WSClient, Vec<PortState>)> {
@@ -71,7 +181,7 @@ impl InspiniaController {
                             // error!("unable to update device state {} {:#?}", err, update)
                         }
                     }
-                    _ => println!("unsupported message: {:?}", payload),
+                    _ => info!("unsupported message: {:?}", payload),
                 }
             }
         }

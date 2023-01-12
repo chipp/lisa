@@ -10,7 +10,7 @@ use serde::Serialize;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
-pub trait OutMessage {
+pub trait OutgoingMessage {
     fn code(&self) -> &'static str;
 }
 
@@ -41,7 +41,7 @@ impl WSClient {
 
     pub async fn send_message<Msg>(&mut self, message: Msg) -> Result<()>
     where
-        Msg: Serialize + OutMessage,
+        Msg: Serialize + OutgoingMessage,
     {
         let code = message.code().to_string();
         let mut json = serde_json::to_value(message)?;

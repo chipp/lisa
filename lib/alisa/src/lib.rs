@@ -6,10 +6,12 @@ pub use template::download_template;
 
 mod messages;
 pub use messages::incoming::{ReceivedMessage, UpdateMessageContent};
-pub use messages::outgoing::{RegisterMessage, SqlRequestMessage, UpdateStateMessage};
+pub use messages::outgoing::{
+    KeepAliveMessage, RegisterMessage, SqlRequestMessage, UpdateStateMessage,
+};
 
 mod ws_client;
-use ws_client::OutMessage;
+use ws_client::OutgoingMessage;
 pub use ws_client::WSClient;
 
 mod device_manager;

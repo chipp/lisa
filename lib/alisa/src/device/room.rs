@@ -7,7 +7,7 @@ const HOME_OFFICE_ID: &str = "0fdf9634-5e47-4ca7-b1eb-3339bbdedc14";
 const LIVING_ROOM_ID: &str = "ef8f4a07-6fc4-4b7e-99e2-d1c71f4fd96d";
 const NURSERY_ID: &str = "abaff06a-9d8a-49fb-9c20-ba3892f16073";
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Room {
     Bedroom,
     HomeOffice,

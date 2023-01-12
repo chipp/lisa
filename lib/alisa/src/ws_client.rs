@@ -5,7 +5,7 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
-use log::debug;
+use log::{debug, error};
 use serde::Serialize;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
@@ -91,7 +91,8 @@ impl WSClient {
                 None
             }
             message => {
-                println!("unexpected message: {}", message);
+                error!("unexpected message: {:?}", message);
+
                 None
             }
         }

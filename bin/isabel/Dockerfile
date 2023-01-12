@@ -34,12 +34,7 @@ RUN cargo build --release -p isabel && \
   mv target/armv7-unknown-linux-musleabihf/release/isabel ./ && \
   rm -rf target/armv7-unknown-linux-musleabihf/release/ target/release/
 
-FROM alpine:3.11
-RUN apk --no-cache add ca-certificates && update-ca-certificates
-
+FROM alpine:3.17.1
 WORKDIR /root/
-ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-ENV SSL_CERT_DIR=/etc/ssl/certs
-ENV RUST_BACKTRACE=full
 
 COPY --from=0 /home/rust/src/isabel .

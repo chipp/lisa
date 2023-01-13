@@ -30,12 +30,8 @@ trait State: Send {
 }
 
 pub struct StateManager {
-    pub vacuum: VacuumState,
-
-    pub bedroom_sensor: SensorState,
-    pub kitchen_sensor: SensorState,
-    pub home_office_sensor: SensorState,
-
+    vacuum: VacuumState,
+    sensors: [SensorState; 4],
     thermostats: [ThermostatState; 4],
     recuperator: RecuperatorState,
 }
@@ -44,9 +40,12 @@ impl StateManager {
     pub fn new() -> Self {
         Self {
             vacuum: VacuumState::default(),
-            bedroom_sensor: SensorState::new(Bedroom),
-            home_office_sensor: SensorState::new(HomeOffice),
-            kitchen_sensor: SensorState::new(Kitchen),
+            sensors: [
+                SensorState::new(Bedroom),
+                SensorState::new(HomeOffice),
+                SensorState::new(Nursery),
+                SensorState::new(Kitchen),
+            ],
             thermostats: [
                 ThermostatState::new(Bedroom),
                 ThermostatState::new(Nursery),
@@ -55,6 +54,20 @@ impl StateManager {
             ],
             recuperator: RecuperatorState::new(),
         }
+    }
+
+    pub fn vacuum_state(&mut self) -> &mut VacuumState {
+        &mut self.vacuum
+    }
+
+    pub fn sensor_state_in_room(&mut self, room: Room) -> Option<&mut SensorState> {
+        for state in self.sensors.iter_mut() {
+            if room == state.room() {
+                return Some(state);
+            }
+        }
+
+        None
     }
 
     pub fn thermostat_state_in_room(&mut self, room: Room) -> Option<&mut ThermostatState> {
@@ -72,14 +85,9 @@ impl StateManager {
     }
 
     pub async fn report_if_necessary(&mut self) {
-        let mut states: Vec<&mut dyn State> = vec![
-            &mut self.vacuum,
-            &mut self.bedroom_sensor,
-            &mut self.home_office_sensor,
-            &mut self.kitchen_sensor,
-            &mut self.recuperator,
-        ];
+        let mut states: Vec<&mut dyn State> = vec![&mut self.vacuum, &mut self.recuperator];
 
+        states.extend(self.sensors.iter_mut().map(|s| s as &mut dyn State));
         states.extend(self.thermostats.iter_mut().map(|s| s as &mut dyn State));
 
         let mut devices = vec![];

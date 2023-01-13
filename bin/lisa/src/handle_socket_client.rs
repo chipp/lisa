@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::{Result, SocketHandler, StateManager};
+use crate::{Result, Room, SocketHandler, StateManager};
 use elisheba::{CommandResponse as VacuumCommandResponse, Packet, SensorData, SensorRoom};
 use log::info;
 
@@ -26,40 +26,39 @@ pub async fn read_from_socket(
                     Packet::CommandResponse(response) => cmd_res_tx.send(response).await.unwrap(),
                     Packet::VacuumStatus(status) => {
                         let mut state = state_manager.clone().lock_owned().await;
+                        let vacuum_state = state.vacuum_state();
 
-                        state.vacuum.set_battery(status.battery);
-                        state.vacuum.set_is_enabled(status.is_enabled);
-                        state.vacuum.set_work_speed(status.work_speed);
+                        vacuum_state.set_battery(status.battery);
+                        vacuum_state.set_is_enabled(status.is_enabled);
+                        vacuum_state.set_work_speed(status.work_speed);
                     }
                     Packet::SensorData(sensor_data) => {
                         let mut state = state_manager.clone().lock_owned().await;
 
-                        let room_state = match sensor_data.room() {
-                            SensorRoom::Bedroom => &mut state.bedroom_sensor,
-                            SensorRoom::HomeOffice => &mut state.home_office_sensor,
-                            SensorRoom::Kitchen => &mut state.kitchen_sensor,
-                        };
-
-                        match sensor_data {
-                            SensorData::Temperature {
-                                room: _,
-                                temperature,
-                            } => {
-                                room_state.set_temperature(temperature);
-                            }
-                            SensorData::Humidity { room: _, humidity } => {
-                                room_state.set_humidity(humidity);
-                            }
-                            SensorData::Battery { room: _, battery } => {
-                                room_state.set_battery(battery);
-                            }
-                            SensorData::TemperatureAndHumidity {
-                                room: _,
-                                temperature,
-                                humidity,
-                            } => {
-                                room_state.set_temperature(temperature);
-                                room_state.set_humidity(humidity);
+                        if let Some(room_state) =
+                            state.sensor_state_in_room(map_room(sensor_data.room()))
+                        {
+                            match sensor_data {
+                                SensorData::Temperature {
+                                    room: _,
+                                    temperature,
+                                } => {
+                                    room_state.set_temperature(temperature);
+                                }
+                                SensorData::Humidity { room: _, humidity } => {
+                                    room_state.set_humidity(humidity);
+                                }
+                                SensorData::Battery { room: _, battery } => {
+                                    room_state.set_battery(battery);
+                                }
+                                SensorData::TemperatureAndHumidity {
+                                    room: _,
+                                    temperature,
+                                    humidity,
+                                } => {
+                                    room_state.set_temperature(temperature);
+                                    room_state.set_humidity(humidity);
+                                }
                             }
                         }
                     }
@@ -71,4 +70,13 @@ pub async fn read_from_socket(
     info!("The client did disconnect {}", addr);
 
     Ok(())
+}
+
+fn map_room(room: &SensorRoom) -> Room {
+    match room {
+        SensorRoom::Bedroom => Room::Bedroom,
+        SensorRoom::HomeOffice => Room::HomeOffice,
+        SensorRoom::Kitchen => Room::Kitchen,
+        SensorRoom::Nursery => Room::Nursery,
+    }
 }

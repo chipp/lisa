@@ -21,6 +21,10 @@ impl SensorState {
         }
     }
 
+    pub fn room(&self) -> Room {
+        self.room
+    }
+
     pub fn set_temperature(&mut self, temperature: u16) {
         self.temperature.set_value(temperature, true);
     }

@@ -28,6 +28,7 @@ pub enum SensorRoom {
     Bedroom,
     HomeOffice,
     Kitchen,
+    Nursery,
 }
 
 impl SensorData {

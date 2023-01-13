@@ -20,6 +20,7 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
                     sensor_device(Room::Bedroom),
                     sensor_device(Room::HomeOffice),
                     sensor_device(Room::Kitchen),
+                    sensor_device(Room::Nursery),
                     vacuum_cleaner_device(Room::Bathroom),
                     vacuum_cleaner_device(Room::Bedroom),
                     vacuum_cleaner_device(Room::Corridor),

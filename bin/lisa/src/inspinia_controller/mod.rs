@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use crate::{DeviceType, Result, StateManager};
 
-use log::{debug, info};
+use log::{debug, error, info};
 use tokio::sync::Mutex;
 use tokio::task::{self, JoinHandle};
 use tokio::time;
@@ -181,7 +181,7 @@ impl InspiniaController {
                 timer.tick().await;
                 match client.send_message(KeepAliveMessage::new()).await {
                     Ok(()) => debug!("keep alive"),
-                    Err(err) => debug!("keep alive failed {}", err),
+                    Err(err) => error!("keep alive failed {}", err),
                 }
             }
         })

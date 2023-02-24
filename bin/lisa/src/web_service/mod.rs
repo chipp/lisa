@@ -36,7 +36,7 @@ use tokio::sync::Mutex;
 
 use crate::{InspiniaController, Result, StateManager};
 
-pub async fn service<F>(
+pub async fn web_handler<F>(
     request: Request<Body>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
     inspinia_controller: InspiniaController,

@@ -1,22 +1,25 @@
+mod handler;
+pub use handler::Handler;
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::{Result, Room, SocketHandler, StateManager};
+use crate::{Result, Room, StateManager};
 use elisheba::{CommandResponse as VacuumCommandResponse, Packet, SensorData, SensorRoom};
 use log::info;
 
 use tokio::sync::{mpsc, Mutex};
 
 pub async fn read_from_socket(
-    socket_handler: SocketHandler,
+    handler: Handler,
     addr: SocketAddr,
     cmd_res_tx: mpsc::Sender<VacuumCommandResponse>,
     state_manager: Arc<Mutex<StateManager>>,
 ) -> Result<()> {
     info!("A client did connect {}", addr);
 
-    let mut socket_handler = socket_handler;
-    let _ = socket_handler
+    let mut handler = handler;
+    let _ = handler
         .read_packets(|packet| {
             let cmd_res_tx = cmd_res_tx.clone();
             let state_manager = state_manager.clone();

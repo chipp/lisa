@@ -14,7 +14,7 @@ use tokio::{
 };
 
 use elisheba::{parse_token, Command as VacuumCommand, CommandResponse as VacuumCommandResponse};
-use lisa::{read_from_socket, service, InspiniaController, SocketHandler, StateManager};
+use lisa::{read_from_socket, web_handler, InspiniaController, SocketHandler, StateManager};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -45,6 +45,7 @@ async fn main() -> Result<()> {
     });
 
     // TODO: move to a function
+    // https://github.com/rust-lang/rust/issues/99697
     let send_vacuum_command = {
         let socket_handler = socket_handler.clone();
         let cmd_res_rx = cmd_res_rx.clone();
@@ -77,17 +78,17 @@ async fn main() -> Result<()> {
     let inspinia_controller = InspiniaController::new(token, state_manager.clone()).await?;
 
     let (server, tcp, ws) = tokio::try_join!(
-        task::spawn(listen_http(
+        task::spawn(listen_web(
             send_vacuum_command,
             inspinia_controller.clone(),
             state_manager.clone(),
         )),
-        task::spawn(listen_tcp(
+        task::spawn(listen_socket(
             socket_handler,
             cmd_res_tx,
             state_manager.clone()
         )),
-        task::spawn(listen_inspinia(inspinia_controller)),
+        task::spawn(listen_web_socket(inspinia_controller)),
     )?;
 
     server?;
@@ -97,7 +98,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn listen_http<F>(
+async fn listen_web<F>(
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F + Send + Sync + 'static>>,
     inspinia_controller: InspiniaController,
     state_manager: Arc<Mutex<StateManager>>,
@@ -117,7 +118,7 @@ where
                 let inspinia_controller = inspinia_controller.clone();
 
                 async move {
-                    service(req, send_vacuum_command, inspinia_controller, state_manager).await
+                    web_handler(req, send_vacuum_command, inspinia_controller, state_manager).await
                 }
             }))
         }
@@ -132,7 +133,7 @@ where
     Ok(())
 }
 
-async fn listen_tcp(
+async fn listen_socket(
     socket_handler: SocketHandler,
     cmd_res_tx: mpsc::Sender<VacuumCommandResponse>,
     state_manager: Arc<Mutex<StateManager>>,
@@ -158,6 +159,6 @@ async fn listen_tcp(
     }
 }
 
-async fn listen_inspinia(mut controller: InspiniaController) -> Result<()> {
+async fn listen_web_socket(mut controller: InspiniaController) -> Result<()> {
     controller.listen().await
 }

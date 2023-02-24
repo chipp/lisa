@@ -38,15 +38,15 @@ impl fmt::Display for CommandFailed {
 impl std::error::Error for CommandFailed {}
 
 #[derive(Clone)]
-pub struct SocketHandler {
+pub struct Handler {
     reader: Arc<Mutex<Option<Reader>>>,
     writer: Arc<Mutex<Option<Writer>>>,
     token: Token<32>,
 }
 
-impl SocketHandler {
-    pub fn new(token: Token<32>) -> SocketHandler {
-        SocketHandler {
+impl Handler {
+    pub fn new(token: Token<32>) -> Handler {
+        Handler {
             reader: Arc::from(Mutex::from(None)),
             writer: Arc::from(Mutex::from(None)),
             token,

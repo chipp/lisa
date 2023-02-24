@@ -2,3 +2,7 @@
 /target
 *.tar
 build/
+
+requests.sql
+template-v7.db
+websocket.txt

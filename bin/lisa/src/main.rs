@@ -74,11 +74,6 @@ async fn main() -> Result<()> {
 
     let send_vacuum_command = Arc::from(Mutex::from(send_vacuum_command));
 
-    let token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
-    let inspinia_controller = Arc::from(Mutex::from(
-        InspiniaController::new(token, state_manager.clone()).await?,
-    ));
-
     let (server, tcp, ws) = tokio::try_join!(
         task::spawn(listen_web(
             send_vacuum_command,

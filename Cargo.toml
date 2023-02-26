@@ -1,11 +1,12 @@
 [workspace]
 
 members = [
-  "lib/alice",
-  "lib/alisa",
-  "lib/alzhbeta",
-  "lib/elisheba",
+  # "bin/alisa",
+  # "bin/isabel",
+  "bin/elizabeth",
 
-  "bin/isabel",
-  "bin/lisa",
+  # "lib/alice",
+  "lib/inspinia",
+  # "lib/alzhbeta",
+  # "lib/elisheba",
 ]

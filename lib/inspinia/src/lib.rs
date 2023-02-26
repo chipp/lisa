@@ -22,7 +22,7 @@ use serde::Deserialize;
 pub type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, ErasedError>;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct PortState {
     pub id: String,
     pub value: Option<String>,

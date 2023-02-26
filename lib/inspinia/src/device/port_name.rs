@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::error::Error;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PortName {
     OnOff,

@@ -30,6 +30,7 @@ jobs:
         run: |
           docker buildx build . --file bin/${{ matrix.binary }}/test.Dockerfile \
              --load \
+             --platform linux/amd64,linux/arm64 \
              --tag ghcr.io/$OWNER/${{ matrix.binary }}:latest \
              --cache-from=type=registry,ref=ghcr.io/$OWNER/${{ matrix.binary }}:test-cache \
              --cache-to=type=registry,ref=ghcr.io/$OWNER/${{ matrix.binary }}:test-cache,mode=max

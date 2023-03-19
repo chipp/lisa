@@ -1,14 +1,33 @@
-use std::{sync::Arc, time::Instant};
+use std::{fmt, sync::Arc, time::Instant};
 
 use crate::{ReceivedMessage, Result};
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
-use log::{debug, error};
+use log::debug;
 use serde::Serialize;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+
+#[derive(Debug)]
+pub enum WsError {
+    StreamClosed,
+    UnexpectedMessage(Message),
+    Pong,
+}
+
+impl fmt::Display for WsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WsError::StreamClosed => write!(f, "stream closed"),
+            WsError::UnexpectedMessage(message) => write!(f, "unexpected message: {:?}", message),
+            WsError::Pong => write!(f, "pong"),
+        }
+    }
+}
+
+impl std::error::Error for WsError {}
 
 pub trait OutgoingMessage {
     fn code(&self) -> &'static str;
@@ -80,21 +99,21 @@ impl WSClient {
         Ok(())
     }
 
-    pub async fn read_message(&mut self) -> Option<ReceivedMessage> {
+    pub async fn read_message(&mut self) -> Result<ReceivedMessage> {
         let mut read = self.read.lock().await;
-        match read.next().await?.ok()? {
-            Message::Text(text) => serde_json::from_str(&text).ok()?,
-            Message::Ping(payload) => {
+        match read.next().await.ok_or(WsError::StreamClosed)? {
+            Ok(Message::Text(text)) => {
+                let message: ReceivedMessage = serde_json::from_str(&text)?;
+                Ok(message)
+            }
+            Ok(Message::Ping(payload)) => {
                 let mut write = self.write.lock().await;
-                write.send(Message::Pong(payload)).await.ok()?;
+                write.send(Message::Pong(payload)).await?;
 
-                None
+                Err(Box::new(WsError::Pong))
             }
-            message => {
-                error!("unexpected message: {:?}", message);
-
-                None
-            }
+            Ok(message) => Err(Box::new(WsError::UnexpectedMessage(message))),
+            Err(error) => Err(Box::new(error)),
         }
     }
 }

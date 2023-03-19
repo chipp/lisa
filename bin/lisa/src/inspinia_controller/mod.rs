@@ -165,7 +165,7 @@ impl InspiniaController {
             .await?;
 
         loop {
-            if let Some(payload) = client.read_message().await {
+            if let Ok(payload) = client.read_message().await {
                 let states: Vec<PortState> = serde_json::from_value(payload.message)?;
 
                 return Ok((client, states));
@@ -197,23 +197,26 @@ impl Drop for InspiniaController {
 impl InspiniaController {
     pub async fn listen(&mut self) -> Result<()> {
         loop {
-            if let Some(payload) = self.client.read_message().await {
-                match payload.code.as_str() {
-                    "100" => {
-                        let update: UpdateMessageContent =
-                            serde_json::from_value(payload.message).expect("valid update");
+            match self.client.read_message().await {
+                Ok(payload) => {
+                    match payload.code.as_str() {
+                        "100" => {
+                            let update: UpdateMessageContent =
+                                serde_json::from_value(payload.message).expect("valid update");
 
-                        match self.update_state(&update.id, &update.value).await {
-                            Ok(()) => (),
-                            Err(_err) => (),
-                            // error!("unable to update device state {} {:#?}", err, update)
+                            match self.update_state(&update.id, &update.value).await {
+                                Ok(()) => (),
+                                Err(_err) => (),
+                                // error!("unable to update device state {} {:#?}", err, update)
+                            }
                         }
+                        "203" => {
+                            debug!("alive: {}", payload.message.as_str().unwrap_or_default())
+                        }
+                        _ => info!("unsupported message: {:?}", payload),
                     }
-                    "203" => {
-                        debug!("alive: {}", payload.message.as_str().unwrap_or_default())
-                    }
-                    _ => info!("unsupported message: {:?}", payload),
                 }
+                Err(error) => error!("error reading Inspinia {:?}", error),
             }
         }
     }

@@ -13,6 +13,8 @@ use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, Web
 #[derive(Debug)]
 pub enum WsError {
     StreamClosed,
+    CannotParse(serde_json::Error),
+    WebSocketError(tokio_tungstenite::tungstenite::error::Error),
     UnexpectedMessage(Message),
     Pong,
 }
@@ -21,6 +23,8 @@ impl fmt::Display for WsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WsError::StreamClosed => write!(f, "stream closed"),
+            WsError::CannotParse(error) => write!(f, "cannot parse: {}", error),
+            WsError::WebSocketError(error) => write!(f, "websocket error: {}", error),
             WsError::UnexpectedMessage(message) => write!(f, "unexpected message: {:?}", message),
             WsError::Pong => write!(f, "pong"),
         }
@@ -28,6 +32,18 @@ impl fmt::Display for WsError {
 }
 
 impl std::error::Error for WsError {}
+
+impl From<serde_json::Error> for WsError {
+    fn from(value: serde_json::Error) -> Self {
+        WsError::CannotParse(value)
+    }
+}
+
+impl From<tokio_tungstenite::tungstenite::error::Error> for WsError {
+    fn from(value: tokio_tungstenite::tungstenite::error::Error) -> Self {
+        WsError::WebSocketError(value)
+    }
+}
 
 pub trait OutgoingMessage {
     fn code(&self) -> &'static str;
@@ -99,7 +115,7 @@ impl WSClient {
         Ok(())
     }
 
-    pub async fn read_message(&mut self) -> Result<ReceivedMessage> {
+    pub async fn read_message(&mut self) -> std::result::Result<ReceivedMessage, WsError> {
         let mut read = self.read.lock().await;
         match read.next().await.ok_or(WsError::StreamClosed)? {
             Ok(Message::Text(text)) => {
@@ -110,10 +126,14 @@ impl WSClient {
                 let mut write = self.write.lock().await;
                 write.send(Message::Pong(payload)).await?;
 
-                Err(Box::new(WsError::Pong))
+                Err(WsError::Pong)
             }
-            Ok(message) => Err(Box::new(WsError::UnexpectedMessage(message))),
-            Err(error) => Err(Box::new(error)),
+            Ok(message) => Err(WsError::UnexpectedMessage(message)),
+            Err(error) => Err(error)?,
         }
+    }
+
+    pub fn target_id(&self) -> &str {
+        &self.target_id
     }
 }

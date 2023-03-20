@@ -17,7 +17,7 @@ use tokio::time;
 
 use alisa::{
     download_template, Device, DeviceManager, FanSpeed, KeepAliveMessage, PortName, PortState,
-    PortType, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WSClient,
+    PortType, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WSClient, WsError,
 };
 
 #[derive(Clone)]
@@ -48,6 +48,17 @@ impl InspiniaController {
             state_manager,
             keep_alive_handle: Arc::from(keep_alive_handle),
         })
+    }
+
+    pub async fn reconnect(&mut self) -> Result<()> {
+        self.keep_alive_handle.abort();
+
+        let (client, port_states) = Self::connect(self.client.target_id().to_string()).await?;
+        Self::set_current_state(port_states, self.state_manager.clone(), &self.db_path).await?;
+
+        self.client = client;
+
+        Ok(())
     }
 
     async fn set_current_state(
@@ -216,6 +227,8 @@ impl InspiniaController {
                         _ => info!("unsupported message: {:?}", payload),
                     }
                 }
+                Err(WsError::StreamClosed) => return Err(Box::new(WsError::StreamClosed)),
+                Err(WsError::Pong) => (),
                 Err(error) => error!("error reading Inspinia {:?}", error),
             }
         }

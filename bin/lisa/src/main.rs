@@ -160,5 +160,8 @@ async fn listen_socket(
 }
 
 async fn listen_web_socket(mut controller: InspiniaController) -> Result<()> {
-    controller.listen().await
+    loop {
+        controller.listen().await?;
+        controller.reconnect().await?;
+    }
 }

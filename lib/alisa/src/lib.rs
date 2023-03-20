@@ -12,7 +12,7 @@ pub use messages::outgoing::{
 
 mod ws_client;
 use ws_client::OutgoingMessage;
-pub use ws_client::WSClient;
+pub use ws_client::{WSClient, WsError};
 
 mod device_manager;
 pub use device_manager::DeviceManager;

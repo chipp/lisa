@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::{debug, info};
+use log::{debug, info, warn};
 
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server;
@@ -162,6 +162,26 @@ async fn listen_socket(
 async fn listen_web_socket(mut controller: InspiniaController) -> Result<()> {
     loop {
         controller.listen().await?;
-        controller.reconnect().await?;
+
+        info!("reconnecting to Inspinia...");
+
+        let mut attempt = 1;
+        while let Err(error) = controller.reconnect().await {
+            warn!("failed to reconnect to Inspinia: {}", error);
+
+            let delay = delay_for_attempt(attempt);
+            warn!("timeout {} sec", delay);
+            time::sleep(Duration::from_secs(delay)).await;
+
+            attempt += 1;
+        }
+
+        info!("reconnected to Inspinia!");
     }
+}
+
+fn delay_for_attempt(attempt: u8) -> u64 {
+    let delay = (attempt as f64) * 0.5 + 1_f64;
+    let delay = delay.exp() * 100_f64;
+    10.min(delay as u64)
 }

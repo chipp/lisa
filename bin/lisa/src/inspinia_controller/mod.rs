@@ -229,7 +229,10 @@ impl InspiniaController {
                 }
                 Err(WsError::StreamClosed) => return Err(Box::new(WsError::StreamClosed)),
                 Err(WsError::Pong) => (),
-                Err(error) => error!("error reading Inspinia {:?}", error),
+                Err(error) => {
+                    error!("error reading Inspinia {:?}", error);
+                    return Err(Box::new(error));
+                }
             }
         }
     }

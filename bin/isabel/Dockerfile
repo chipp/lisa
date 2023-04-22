@@ -7,7 +7,7 @@ ENV PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
 COPY ./bin/isabel/install_static_libs.sh ./install_static_libs.sh
 RUN ./install_static_libs.sh && rm ./install_static_libs.sh
 
-FROM ghcr.io/chipp/build.rust.armv7_musl:1.69.0_1 AS builder
+FROM ghcr.io/chipp/build.rust.armv7_musl:1.69.0_2 AS builder
 
 ENV HOST=armv7-unknown-linux-musleabihf
 

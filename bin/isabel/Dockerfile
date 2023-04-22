@@ -11,6 +11,8 @@ FROM ghcr.io/chipp/build.rust.armv7_musl:1.69.0_2 AS builder
 
 ENV HOST=armv7-unknown-linux-musleabihf
 
+COPY --from=0 /bluez $PREFIX
+
 WORKDIR /home/rust/src
 RUN USER=rust \
   cargo new --lib /home/rust/src/lib/alice && \

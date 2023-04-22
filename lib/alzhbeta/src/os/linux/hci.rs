@@ -24,7 +24,6 @@ pub struct EvtLeMetaEvent {
 }
 
 #[repr(C, packed)]
-#[derive(Debug)]
 pub struct LeAdvertisingInfo {
     pub evt_type: u8,
     pub bdaddr_type: u8,

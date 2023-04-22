@@ -1,9 +1,15 @@
-FROM ghcr.io/chipp/build.rust.armv7_musl:1.67.1_1 AS builder
+FROM ghcr.io/chipp/build.musl.armv7_musl:musl_0.9.9_zlib_1.2.13_ssl_1.1.1s_curl_7.86.0_4 as libs_builder
 
 ENV HOST=armv7-unknown-linux-musleabihf
+ENV PREFIX=/bluez
+ENV PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
 
 COPY ./bin/isabel/install_static_libs.sh ./install_static_libs.sh
 RUN ./install_static_libs.sh && rm ./install_static_libs.sh
+
+FROM ghcr.io/chipp/build.rust.armv7_musl:1.69.0_1 AS builder
+
+ENV HOST=armv7-unknown-linux-musleabihf
 
 WORKDIR /home/rust/src
 RUN USER=rust \
@@ -37,4 +43,4 @@ RUN cargo build --release -p isabel && \
 FROM alpine:3.17.1
 WORKDIR /root/
 
-COPY --from=0 /home/rust/src/isabel .
+COPY --from=1 /home/rust/src/isabel .

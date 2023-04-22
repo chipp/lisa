@@ -9,7 +9,7 @@ pub mod incoming {
     #[serde(rename_all = "camelCase")]
     pub struct ReceivedMessage {
         pub code: String,
-        pub sequence: u32,
+        // pub sequence: Option<u32>,
         pub message: Value,
     }
 }

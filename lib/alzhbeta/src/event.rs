@@ -1,10 +1,11 @@
 use super::data::Data;
 
-use enumflags2::BitFlags;
+use enumflags2::{bitflags, BitFlags};
 
 use std::fmt;
 
-#[derive(BitFlags, Copy, Clone, Debug, PartialEq)]
+#[bitflags]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u16)]
 pub enum FrameControlFlags {
     IsFactoryNew = 1 << 0,

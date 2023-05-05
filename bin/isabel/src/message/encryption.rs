@@ -1,30 +1,31 @@
-use aes::Aes128;
-use block_modes::block_padding::Pkcs7;
-use block_modes::{BlockMode, Cbc};
+use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use md5::{Digest, Md5};
 
 use crate::Result;
 use elisheba::Token;
 
-type Aes128Cbc = Cbc<Aes128, Pkcs7>;
+type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
+type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
+
 const BLOCK_SIZE: usize = 16;
 
 pub fn encrypt(data: &mut Vec<u8>, token: Token<16>) -> Result<&[u8]> {
     let (key, iv) = key_iv_from_token(token);
-    let cipher = Aes128Cbc::new_var(&key, &iv)?;
 
     let pos = data.len();
     if pos % BLOCK_SIZE != 0 {
         data.append(&mut vec![0; BLOCK_SIZE - pos % BLOCK_SIZE]);
     }
 
-    Ok(cipher.encrypt(data, pos)?)
+    let ct = Aes128CbcEnc::new(&key.into(), &iv.into()).encrypt_padded_mut::<Pkcs7>(data, pos)?;
+    Ok(ct)
 }
 
 pub fn decrypt(data: &mut Vec<u8>, token: Token<16>) -> Result<&[u8]> {
     let (key, iv) = key_iv_from_token(token);
-    let cipher = Aes128Cbc::new_var(&key, &iv)?;
-    Ok(cipher.decrypt(data)?)
+
+    let pt = Aes128CbcDec::new(&key.into(), &iv.into()).decrypt_padded_mut::<Pkcs7>(data)?;
+    Ok(pt)
 }
 
 fn key_iv_from_token(token: Token<16>) -> ([u8; 16], [u8; 16]) {

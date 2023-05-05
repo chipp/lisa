@@ -1,5 +1,7 @@
-use aes_gcm_siv::aead::{generic_array::GenericArray, Aead, NewAead, Payload};
-use aes_gcm_siv::Aes256GcmSiv;
+use aes_gcm_siv::{
+    aead::{generic_array::GenericArray, Aead, Payload},
+    Aes256GcmSiv, KeyInit,
+};
 use rand::{thread_rng, Rng};
 
 use crate::Result;

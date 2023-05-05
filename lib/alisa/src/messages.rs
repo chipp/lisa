@@ -10,7 +10,7 @@ pub mod incoming {
     pub struct ReceivedMessage {
         pub code: String,
         // pub sequence: Option<u32>,
-        pub message: Value,
+        pub message: Option<Value>,
     }
 }
 

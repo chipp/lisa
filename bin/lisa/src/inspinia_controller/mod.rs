@@ -17,7 +17,8 @@ use tokio::time;
 
 use alisa::{
     download_template, Device, DeviceManager, FanSpeed, KeepAliveMessage, PortName, PortState,
-    PortType, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WSClient, WsError,
+    PortType, ReceivedMessage, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage,
+    WSClient, WsError,
 };
 
 #[derive(Clone)]
@@ -176,8 +177,12 @@ impl InspiniaController {
             .await?;
 
         loop {
-            if let Ok(payload) = client.read_message().await {
-                let states: Vec<PortState> = serde_json::from_value(payload.message)?;
+            if let Ok(ReceivedMessage {
+                code: _,
+                message: Some(message),
+            }) = client.read_message().await
+            {
+                let states: Vec<PortState> = serde_json::from_value(message)?;
 
                 return Ok((client, states));
             }
@@ -209,24 +214,7 @@ impl InspiniaController {
     pub async fn listen(&mut self) -> Result<()> {
         loop {
             match self.client.read_message().await {
-                Ok(payload) => {
-                    match payload.code.as_str() {
-                        "100" => {
-                            let update: UpdateMessageContent =
-                                serde_json::from_value(payload.message).expect("valid update");
-
-                            match self.update_state(&update.id, &update.value).await {
-                                Ok(()) => (),
-                                Err(_err) => (),
-                                // error!("unable to update device state {} {:#?}", err, update)
-                            }
-                        }
-                        "203" => {
-                            debug!("alive: {}", payload.message.as_str().unwrap_or_default())
-                        }
-                        _ => info!("unsupported message: {:?}", payload),
-                    }
-                }
+                Ok(payload) => self.parse_payload(payload).await?,
                 Err(WsError::StreamClosed) => return Err(Box::new(WsError::StreamClosed)),
                 Err(WsError::Pong) => (),
                 Err(error) => {
@@ -235,6 +223,31 @@ impl InspiniaController {
                 }
             }
         }
+    }
+
+    async fn parse_payload(&self, payload: ReceivedMessage) -> Result<()> {
+        if let Some(message) = payload.message {
+            match payload.code.as_str() {
+                "100" => {
+                    let update: UpdateMessageContent =
+                        serde_json::from_value(message).expect("valid update");
+
+                    match self.update_state(&update.id, &update.value).await {
+                        Ok(()) => (),
+                        Err(_err) => (),
+                        // error!("unable to update device state {} {:#?}", err, update)
+                    }
+                }
+                "203" => {
+                    debug!("alive: {}", message.as_str().unwrap_or_default())
+                }
+                code => info!("unsupported message: {} {}", code, message),
+            }
+        } else {
+            info!("unsupported message: {:?}", payload);
+        }
+
+        Ok(())
     }
 
     fn get_thermostats(&self) -> Result<[Device; 4]> {

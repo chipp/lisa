@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server;
@@ -161,7 +161,9 @@ async fn listen_socket(
 
 async fn listen_web_socket(mut controller: InspiniaController) -> Result<()> {
     loop {
-        controller.listen().await?;
+        if let Err(error) = controller.listen().await {
+            error!("disconnected from Inspinia {}", error);
+        }
 
         info!("reconnecting to Inspinia...");
 

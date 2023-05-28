@@ -1,4 +1,4 @@
-use std::{fmt, sync::Arc, time::Instant};
+use std::{fmt, time::Instant};
 
 use crate::{ReceivedMessage, Result};
 use futures_util::{
@@ -7,7 +7,7 @@ use futures_util::{
 };
 use log::debug;
 use serde::Serialize;
-use tokio::{net::TcpStream, sync::Mutex};
+use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 #[derive(Debug)]
@@ -49,28 +49,27 @@ pub trait OutgoingMessage {
     fn code(&self) -> &'static str;
 }
 
-#[derive(Clone)]
-pub struct WSClient {
+pub struct WsClient {
     start: Instant,
     sequence: u32,
     target_id: String,
-    write: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
-    read: Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>,
+    write: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
+    read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 }
 
-impl WSClient {
-    pub async fn connect<MI: AsRef<str>>(mobile_id: MI, target_id: String) -> Result<WSClient> {
+impl WsClient {
+    pub async fn connect<MI: AsRef<str>>(mobile_id: MI, target_id: String) -> Result<WsClient> {
         let uri = format!("wss://skyplatform.io:35601/mobileId={}", mobile_id.as_ref());
         let (web_socket, _) = connect_async(uri).await?;
 
         let (write, read) = web_socket.split();
 
-        Ok(WSClient {
+        Ok(WsClient {
             start: Instant::now(),
             sequence: 0,
             target_id,
-            write: Arc::from(Mutex::from(write)),
-            read: Arc::from(Mutex::from(read)),
+            write,
+            read,
         })
     }
 
@@ -109,22 +108,19 @@ impl WSClient {
         let text = serde_json::to_string(&json)?;
         debug!("sent {}", text);
 
-        let mut write = self.write.lock().await;
-        write.send(Message::Text(text)).await?;
+        self.write.send(Message::Text(text)).await?;
 
         Ok(())
     }
 
     pub async fn read_message(&mut self) -> std::result::Result<ReceivedMessage, WsError> {
-        let mut read = self.read.lock().await;
-        match read.next().await.ok_or(WsError::StreamClosed)? {
+        match self.read.next().await.ok_or(WsError::StreamClosed)? {
             Ok(Message::Text(text)) => {
                 let message: ReceivedMessage = serde_json::from_str(&text)?;
                 Ok(message)
             }
             Ok(Message::Ping(payload)) => {
-                let mut write = self.write.lock().await;
-                write.send(Message::Pong(payload)).await?;
+                self.write.send(Message::Pong(payload)).await?;
 
                 Err(WsError::Pong)
             }
@@ -135,5 +131,21 @@ impl WSClient {
 
     pub fn target_id(&self) -> &str {
         &self.target_id
+    }
+
+    pub async fn close(self) -> String {
+        let Self {
+            start: _,
+            sequence: _,
+            target_id,
+            write,
+            read,
+        } = self;
+
+        if let Ok(mut socket) = read.reunite(write) {
+            _ = socket.close(None).await;
+        }
+
+        target_id
     }
 }

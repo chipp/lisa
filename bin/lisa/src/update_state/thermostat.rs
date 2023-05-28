@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use crate::{DeviceId, InspiniaController};
 use crate::{DeviceType::*, Room};
 
 use log::debug;
 
 use alice::{RangeFunction, UpdateStateCapability, UpdatedDeviceState};
+use tokio::sync::Mutex;
 
 use super::prepare_result;
 
@@ -16,7 +19,7 @@ pub struct ThermostatUpdate {
 pub async fn update_thermostats(
     updates: Vec<ThermostatUpdate>,
     devices: &mut Vec<UpdatedDeviceState>,
-    controller: InspiniaController,
+    controller: Arc<Mutex<InspiniaController>>,
 ) {
     debug!("thermostat updates count: {}", updates.len());
 
@@ -25,7 +28,7 @@ pub async fn update_thermostats(
 
         if let Some(enabled) = update.is_enabled {
             if let Some(room) = map_room(&update.room) {
-                let mut controller = controller.clone();
+                let controller = &mut controller.lock().await;
 
                 // TODO: handle error
                 _ = controller.set_is_enabled_in_room(enabled, room).await;
@@ -35,7 +38,7 @@ pub async fn update_thermostats(
 
         if let Some((temperature, relative)) = update.temperature {
             if let Some(room) = map_room(&update.room) {
-                let mut controller = controller.clone();
+                let controller = &mut controller.lock().await;
 
                 // TODO: handle error
                 _ = controller

@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use super::prepare_result;
 use crate::{DeviceId, DeviceType::*, InspiniaController, Room};
 
 use alice::{Mode, ModeFunction, UpdateStateCapability, UpdatedDeviceState};
 use log::debug;
+use tokio::sync::Mutex;
 
 #[derive(Default)]
 pub struct RecuperatorUpdate {
@@ -13,7 +16,7 @@ pub struct RecuperatorUpdate {
 pub async fn update_recuperator(
     update: RecuperatorUpdate,
     devices: &mut Vec<UpdatedDeviceState>,
-    controller: InspiniaController,
+    controller: Arc<Mutex<InspiniaController>>,
 ) {
     debug!("recuperator is enabled: {:?}", update.is_enabled);
     debug!("recuperator work speed: {:?}", update.mode);
@@ -21,7 +24,7 @@ pub async fn update_recuperator(
     let mut capabilities = vec![];
 
     if let Some(enabled) = update.is_enabled {
-        let mut controller = controller.clone();
+        let controller = &mut controller.lock().await;
 
         // TODO: handle error
         _ = controller.set_is_enabled_on_recuperator(enabled).await;
@@ -29,7 +32,7 @@ pub async fn update_recuperator(
     }
 
     if let Some(mode) = update.mode {
-        let mut controller = controller.clone();
+        let controller = &mut controller.lock().await;
 
         // TODO: handle error
         _ = controller

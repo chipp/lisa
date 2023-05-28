@@ -75,7 +75,9 @@ async fn main() -> Result<()> {
     let send_vacuum_command = Arc::from(Mutex::from(send_vacuum_command));
 
     let token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
-    let inspinia_controller = InspiniaController::new(token, state_manager.clone()).await?;
+    let inspinia_controller = Arc::from(Mutex::from(
+        InspiniaController::new(token, state_manager.clone()).await?,
+    ));
 
     let (server, tcp, ws) = tokio::try_join!(
         task::spawn(listen_web(
@@ -100,7 +102,7 @@ async fn main() -> Result<()> {
 
 async fn listen_web<F>(
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F + Send + Sync + 'static>>,
-    inspinia_controller: InspiniaController,
+    inspinia_controller: Arc<Mutex<InspiniaController>>,
     state_manager: Arc<Mutex<StateManager>>,
 ) -> Result<()>
 where
@@ -159,23 +161,32 @@ async fn listen_socket(
     }
 }
 
-async fn listen_web_socket(mut controller: InspiniaController) -> Result<()> {
+async fn listen_web_socket(controller: Arc<Mutex<InspiniaController>>) -> Result<()> {
     loop {
-        if let Err(error) = controller.listen().await {
-            error!("disconnected from Inspinia {}", error);
+        loop {
+            let controller = &mut controller.lock().await;
+
+            if let Err(error) = controller.listen().await {
+                error!("disconnected from Inspinia {}", error);
+                break;
+            }
         }
 
         info!("reconnecting to Inspinia...");
 
-        let mut attempt = 1;
-        while let Err(error) = controller.reconnect().await {
-            warn!("failed to reconnect to Inspinia: {}", error);
+        {
+            let controller = &mut controller.lock().await;
 
-            let delay = delay_for_attempt(attempt);
-            warn!("timeout {} sec", delay);
-            time::sleep(Duration::from_secs(delay)).await;
+            let mut attempt = 1;
+            while let Err(error) = controller.reconnect().await {
+                warn!("failed to reconnect to Inspinia: {}", error);
 
-            attempt += 1;
+                let delay = delay_for_attempt(attempt);
+                warn!("timeout {} sec", delay);
+                time::sleep(Duration::from_secs(delay)).await;
+
+                attempt += 1;
+            }
         }
 
         info!("reconnected to Inspinia!");

@@ -39,7 +39,7 @@ use crate::{InspiniaController, Result, StateManager};
 pub async fn web_handler<F>(
     request: Request<Body>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
-    inspinia_controller: InspiniaController,
+    inspinia_controller: Arc<Mutex<InspiniaController>>,
     state_manager: Arc<Mutex<StateManager>>,
 ) -> Result<Response<Body>>
 where

@@ -6,27 +6,22 @@ use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::{DeviceType, Result, StateManager};
 
 use log::{debug, error, info};
 use tokio::sync::Mutex;
-use tokio::task::{self, JoinHandle};
-use tokio::time;
 
 use alisa::{
-    download_template, Device, DeviceManager, FanSpeed, KeepAliveMessage, PortName, PortState,
-    PortType, ReceivedMessage, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage,
-    WSClient, WsError,
+    download_template, Device, DeviceManager, FanSpeed, PortName, PortState, PortType,
+    ReceivedMessage, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WsClient,
+    WsError,
 };
 
-#[derive(Clone)]
 pub struct InspiniaController {
     db_path: PathBuf,
-    client: WSClient,
+    client: Option<WsClient>,
     state_manager: Arc<Mutex<StateManager>>,
-    keep_alive_handle: Arc<JoinHandle<()>>,
 }
 
 impl InspiniaController {
@@ -41,23 +36,24 @@ impl InspiniaController {
         let (client, port_states) = Self::connect(target_id).await?;
         Self::set_current_state(port_states, state_manager.clone(), &db_path).await?;
 
-        let keep_alive_handle = Self::keep_alive(client.clone());
-
         Ok(InspiniaController {
             db_path,
-            client,
+            client: Some(client),
             state_manager,
-            keep_alive_handle: Arc::from(keep_alive_handle),
         })
     }
 
     pub async fn reconnect(&mut self) -> Result<()> {
-        self.keep_alive_handle.abort();
+        if let Some(old) = self.client.take() {
+            let target_id = old.close().await;
 
-        let (client, port_states) = Self::connect(self.client.target_id().to_string()).await?;
-        Self::set_current_state(port_states, self.state_manager.clone(), &self.db_path).await?;
+            let (client, port_states) = Self::connect(target_id).await?;
+            Self::set_current_state(port_states, self.state_manager.clone(), &self.db_path).await?;
 
-        self.client = client;
+            self.client = Some(client);
+        } else {
+            panic!();
+        }
 
         Ok(())
     }
@@ -168,9 +164,9 @@ impl InspiniaController {
         Ok(())
     }
 
-    async fn connect(target_id: String) -> Result<(WSClient, Vec<PortState>)> {
+    async fn connect(target_id: String) -> Result<(WsClient, Vec<PortState>)> {
         let mut client =
-            WSClient::connect("3af0e0ef-c4dd-4d7e-bb42-f4d24383ed3f", target_id).await?;
+            WsClient::connect("3af0e0ef-c4dd-4d7e-bb42-f4d24383ed3f", target_id).await?;
 
         client
             .send_message(RegisterMessage::new("2", "alisa", ""))
@@ -188,39 +184,19 @@ impl InspiniaController {
             }
         }
     }
-
-    fn keep_alive(mut client: WSClient) -> JoinHandle<()> {
-        task::spawn(async move {
-            let mut timer = time::interval(Duration::from_secs(1));
-
-            loop {
-                timer.tick().await;
-                match client.send_message(KeepAliveMessage::new()).await {
-                    Ok(()) => debug!("keep alive"),
-                    Err(err) => error!("keep alive failed {}", err),
-                }
-            }
-        })
-    }
-}
-
-impl Drop for InspiniaController {
-    fn drop(&mut self) {
-        self.keep_alive_handle.abort();
-    }
 }
 
 impl InspiniaController {
     pub async fn listen(&mut self) -> Result<()> {
-        loop {
-            match self.client.read_message().await {
-                Ok(payload) => self.parse_payload(payload).await?,
-                Err(WsError::StreamClosed) => return Err(Box::new(WsError::StreamClosed)),
-                Err(WsError::Pong) => (),
-                Err(error) => {
-                    error!("error reading Inspinia {:?}", error);
-                    return Err(Box::new(error));
-                }
+        let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
+
+        match client.read_message().await {
+            Ok(payload) => Ok(self.parse_payload(payload).await?),
+            Err(WsError::StreamClosed) => Err(Box::new(WsError::StreamClosed)),
+            Err(WsError::Pong) => Ok(()),
+            Err(error) => {
+                error!("error reading Inspinia {:?}", error);
+                Err(Box::new(error))
             }
         }
     }
@@ -342,7 +318,9 @@ impl InspiniaController {
 
             for (id, port) in thermostat.ports.iter() {
                 if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
-                    self.client
+                    let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
+
+                    client
                         .send_message(UpdateStateMessage::new(false, &id, &port.name, &value))
                         .await?;
 
@@ -385,7 +363,9 @@ impl InspiniaController {
 
             for (id, port) in thermostat.ports.iter() {
                 if let (PortName::SetTemp, PortType::Output) = (&port.name, &port.r#type) {
-                    self.client
+                    let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
+
+                    client
                         .send_message(UpdateStateMessage::new(false, &id, &port.name, &temp))
                         .await?;
 
@@ -410,7 +390,9 @@ impl InspiniaController {
 
         for (id, port) in recuperator.ports.iter() {
             if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
-                self.client
+                let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
+
+                client
                     .send_message(UpdateStateMessage::new(false, &id, &port.name, &value))
                     .await?;
 
@@ -433,7 +415,9 @@ impl InspiniaController {
 
         for (id, port) in recuperator.ports.iter() {
             if let (PortName::FanSpeed, PortType::Output) = (&port.name, &port.r#type) {
-                self.client
+                let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
+
+                client
                     .send_message(UpdateStateMessage::new(false, &id, &port.name, &value))
                     .await?;
 

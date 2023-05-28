@@ -22,7 +22,7 @@ use tokio::sync::Mutex;
 pub async fn update_devices_state<'a, F>(
     devices: Vec<UpdateStateDevice<'a>>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
-    inspinia_controller: InspiniaController,
+    inspinia_controller: Arc<Mutex<InspiniaController>>,
 ) -> Vec<UpdatedDeviceState>
 where
     F: std::future::Future<Output = Result<()>>,

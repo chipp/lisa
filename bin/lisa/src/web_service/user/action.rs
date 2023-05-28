@@ -12,7 +12,7 @@ use crate::{update_devices_state, InspiniaController, Result};
 pub async fn action<F>(
     request: Request<Body>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
-    inspinia_controller: InspiniaController,
+    inspinia_controller: Arc<Mutex<InspiniaController>>,
 ) -> Result<Response<Body>>
 where
     F: std::future::Future<Output = Result<()>>,

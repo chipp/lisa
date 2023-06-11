@@ -93,7 +93,7 @@ async fn get_template_version(
 
     let response = client.request(request).await?;
 
-    const MAX_ALLOWED_RESPONSE_SIZE: u64 = 1024;
+    const MAX_ALLOWED_RESPONSE_SIZE: u64 = 4096;
 
     let response_content_length = match response.body().size_hint().upper() {
         Some(v) => v,
@@ -101,7 +101,10 @@ async fn get_template_version(
     };
 
     if response_content_length >= MAX_ALLOWED_RESPONSE_SIZE {
-        panic!("should throw error {}", response_content_length);
+        panic!(
+            "template file is bigger than expected {} >= {}",
+            response_content_length, MAX_ALLOWED_RESPONSE_SIZE
+        );
     }
 
     let body: ResponseBody =

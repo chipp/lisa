@@ -52,7 +52,7 @@ impl InspiniaController {
 
             self.client = Some(client);
         } else {
-            panic!();
+            panic!("unable to find old WsClient to reconnect");
         }
 
         Ok(())
@@ -217,10 +217,10 @@ impl InspiniaController {
                 "203" => {
                     debug!("alive: {}", message.as_str().unwrap_or_default())
                 }
-                code => info!("unsupported message: {} {}", code, message),
+                code => error!("unsupported message: {} {}", code, message),
             }
         } else {
-            info!("unsupported message: {:?}", payload);
+            error!("unsupported message: {:?}", payload);
         }
 
         Ok(())

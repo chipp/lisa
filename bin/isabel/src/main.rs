@@ -5,7 +5,7 @@ use std::sync::{
 };
 use std::time::Duration;
 
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use tokio::{net::TcpStream, task::JoinHandle};
 use tokio::{task, time::timeout};
 
@@ -106,7 +106,7 @@ fn report_vacuum_status(
                 Err(_) => continue,
             };
 
-            debug!("sending vacuum status {:?}", status);
+            trace!("sending vacuum status {:?}", status);
 
             if let Err(error) = socket_handler.report_vacuum_status(status).await {
                 error!("unable to send vacuum status {}", error);
@@ -142,8 +142,15 @@ fn report_sensors_task(socket_handler: SocketHandler, abort: Arc<AtomicBool>) ->
 
             let (addr, event) = match timeout(Duration::from_secs(5), rx.recv()).await {
                 Ok(Some(tuple)) => tuple,
-                Ok(None) => break,
-                Err(_) => continue,
+                Ok(None) => {
+                    debug!("got None from scanner");
+                    break;
+                }
+                Err(err) => {
+                    error!("unable to read scanner {}", err);
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    continue;
+                }
             };
 
             if let Some(room) = match_addr_to_room(addr) {
@@ -162,12 +169,14 @@ fn report_sensors_task(socket_handler: SocketHandler, abort: Arc<AtomicBool>) ->
                     }
                 };
 
-                debug!("sending sensor data {:?}", sensor_data);
+                trace!("sending sensor data {:?}", sensor_data);
 
                 if let Err(error) = socket_handler.report_sensor_data(sensor_data).await {
                     error!("unable to send sensor data {}", error);
                 }
             }
         }
+
+        debug!("stopped listening bluetooth");
     })
 }

@@ -8,15 +8,15 @@ lisa:
 
 deploy_lisa: lisa
 	docker image save -o lisa.tar $(LISA_ID)
-	scp Makefile bin/lisa/docker-compose.yml lisa.tar ezio:web/lisa
-	ssh ezio "cd web/lisa; make install_lisa_from_tar; docker-compose logs -f"
+	scp Makefile bin/lisa/docker-compose.yml lisa.tar ezio:web/lisa_prod
+	ssh ezio "cd web/lisa_prod; make install_lisa_from_tar; docker-compose logs -f"
 
 logs_lisa:
 	ssh ezio "cd web/lisa; docker-compose logs -f"
 
 install_lisa_from_tar:
 	docker-compose down || true
-	docker image rm $(LISA_ID)
+	docker image rm $(LISA_ID) || true
 	docker image load -i lisa.tar
 	docker-compose up -d
 

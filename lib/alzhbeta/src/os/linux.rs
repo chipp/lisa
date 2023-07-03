@@ -141,7 +141,7 @@ impl Scanner {
                 std::mem::size_of_val(&buf),
             );
 
-            trace!("wants to read {} bytes", len);
+            trace!("read {} bytes", len);
 
             while len < 0 {
                 len = libc::read(
@@ -156,7 +156,7 @@ impl Scanner {
 
             if (*meta).subevent != EVT_LE_ADVERTISING_REPORT {
                 trace!("got meta.subevent {:x}", (*meta).subevent);
-                break;
+                continue;
             }
 
             let ptr: *const u8 = (*meta).data.as_ptr().offset(1);
@@ -164,8 +164,16 @@ impl Scanner {
 
             let mut event = None;
             let mut offset = 0;
+            trace!("info.length: {}", (*info).length);
+
             while offset < (*info).length {
+                trace!("offset: {}", offset);
+
                 let eir_data_len = *(*info).data.as_ptr().offset(offset as isize);
+
+                if eir_data_len == 0 {
+                    break;
+                }
 
                 if let Some(evt) = Self::read_event((*info).data.as_ptr().offset(offset as isize)) {
                     event = Some(evt);
@@ -199,9 +207,6 @@ impl Scanner {
 
     fn read_event(data: *const u8) -> Option<Vec<u8>> {
         let len = unsafe { *data };
-        if len == 0 {
-            return None;
-        }
 
         let r#type = unsafe { *(data.offset(1)) };
 

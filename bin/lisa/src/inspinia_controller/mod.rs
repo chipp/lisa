@@ -47,7 +47,11 @@ impl InspiniaController {
         if let Some(old) = self.client.take() {
             let target_id = old.close().await;
 
+            info!("closed old client");
+
             let (client, port_states) = Self::connect(target_id).await?;
+            info!("reconnected");
+
             Self::set_current_state(port_states, self.state_manager.clone(), &self.db_path).await?;
 
             self.client = Some(client);

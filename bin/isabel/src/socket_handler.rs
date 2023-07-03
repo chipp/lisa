@@ -1,4 +1,4 @@
-use log::error;
+use log::{debug, error, trace};
 use std::{fmt, sync::Arc};
 use tokio::{
     io::{BufReader, BufWriter, ReadHalf, WriteHalf},
@@ -121,8 +121,12 @@ impl SocketHandler {
         let bytes = serde_json::to_vec(&sensor_data.to_packet()).unwrap();
         let bytes = encrypt(bytes, self.token)?;
 
+        trace!("sending {} bytes for sensor data", bytes.len());
+
         if let Some(ref mut writer) = *self.writer.clone().lock_owned().await {
             write_bytes(writer, &bytes).await?;
+
+            trace!("sent {} bytes for sensor data", bytes.len());
 
             Ok(())
         } else {

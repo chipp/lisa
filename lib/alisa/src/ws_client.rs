@@ -2,7 +2,7 @@ use std::{fmt, time::Instant};
 
 use crate::{ReceivedMessage, Result};
 use futures_util::{
-    stream::{SplitSink, SplitStream},
+    stream::{FusedStream, SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
 use log::debug;
@@ -143,7 +143,9 @@ impl WsClient {
         } = self;
 
         if let Ok(mut socket) = read.reunite(write) {
-            _ = socket.close(None).await;
+            if !socket.is_terminated() {
+                _ = socket.close(None).await;
+            }
         }
 
         target_id

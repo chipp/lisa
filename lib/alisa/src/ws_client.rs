@@ -133,11 +133,11 @@ impl WsClient {
         &self.target_id
     }
 
-    pub async fn close(self) -> String {
+    pub async fn close(self) {
         let Self {
             start: _,
             sequence: _,
-            target_id,
+            target_id: _,
             write,
             read,
         } = self;
@@ -147,7 +147,5 @@ impl WsClient {
                 _ = socket.close(None).await;
             }
         }
-
-        target_id
     }
 }

@@ -6,11 +6,13 @@ use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::{DeviceType, Result, StateManager};
 
 use log::{debug, error, info};
 use tokio::sync::Mutex;
+use tokio::time::timeout;
 
 use alisa::{
     download_template, Device, DeviceManager, FanSpeed, PortName, PortState, PortType,
@@ -20,6 +22,7 @@ use alisa::{
 
 pub struct InspiniaController {
     db_path: PathBuf,
+    target_id: String,
     client: Option<WsClient>,
     state_manager: Arc<Mutex<StateManager>>,
 }
@@ -33,11 +36,12 @@ impl InspiniaController {
 
         let db_path = download_template(&target_id).await?;
 
-        let (client, port_states) = Self::connect(target_id).await?;
+        let (client, port_states) = Self::connect(target_id.clone()).await?;
         Self::set_current_state(port_states, state_manager.clone(), &db_path).await?;
 
         Ok(InspiniaController {
             db_path,
+            target_id,
             client: Some(client),
             state_manager,
         })
@@ -45,19 +49,21 @@ impl InspiniaController {
 
     pub async fn reconnect(&mut self) -> Result<()> {
         if let Some(old) = self.client.take() {
-            let target_id = old.close().await;
-
-            info!("closed old client");
-
-            let (client, port_states) = Self::connect(target_id).await?;
-            info!("reconnected");
-
-            Self::set_current_state(port_states, self.state_manager.clone(), &self.db_path).await?;
-
-            self.client = Some(client);
+            old.close().await;
+            info!("closed active client");
         } else {
-            panic!("unable to find old WsClient to reconnect");
+            info!("no active client");
         }
+
+        let (client, port_states) = timeout(
+            Duration::from_secs(5),
+            Self::connect(self.target_id.clone()),
+        )
+        .await??;
+        info!("reconnected");
+
+        Self::set_current_state(port_states, self.state_manager.clone(), &self.db_path).await?;
+        self.client = Some(client);
 
         Ok(())
     }

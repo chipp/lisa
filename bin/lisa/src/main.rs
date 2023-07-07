@@ -194,7 +194,7 @@ async fn listen_web_socket(controller: Arc<Mutex<InspiniaController>>) -> Result
 }
 
 fn delay_for_attempt(attempt: u8) -> u64 {
-    let delay = (attempt as f64) * 0.5 + 1_f64;
-    let delay = delay.exp() * 100_f64;
-    10.min(delay as u64)
+    let delay = (attempt as f64) * 0.5;
+    let delay = delay.exp() * 10_f64;
+    60.min(delay as u64)
 }

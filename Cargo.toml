@@ -1,12 +1,14 @@
 [workspace]
+resolver = "2"
 
 members = [
-  # "bin/alisa",
-  # "bin/isabel",
+  "bin/alisa",
+# "bin/lisa",
+# "bin/isabel",
   "bin/elizabeth",
 
-  # "lib/alice",
+# "lib/alice",
   "lib/inspinia",
-  # "lib/alzhbeta",
-  # "lib/elisheba",
+# "lib/alzhbeta",
+# "lib/elisheba",
 ]

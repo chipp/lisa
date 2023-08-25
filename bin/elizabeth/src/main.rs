@@ -1,7 +1,6 @@
 use elizabeth::{set_topics_and_qos, DeviceType, Topic};
 use elizabeth::{Capability, InspiniaClient, Result, StatePayload};
 use inspinia::FanSpeed;
-use tokio::time;
 
 use std::process;
 use std::str::FromStr;
@@ -12,16 +11,18 @@ use futures_util::stream::StreamExt;
 use log::{error, info};
 use paho_mqtt as mqtt;
 use serde_json::json;
+use tokio::time;
 use tokio::{sync::Mutex, task};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init();
 
-    let token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
-    let inspinia_client = Arc::from(Mutex::from(InspiniaClient::new(token).await?));
+    let inspinia_token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
+    let inspinia_client = Arc::from(Mutex::from(InspiniaClient::new(inspinia_token).await?));
 
-    let mqtt_client = connect_mqtt().await?;
+    let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
+    let mqtt_client = connect_mqtt(mqtt_address).await?;
     info!("connected mqtt");
 
     let (set_handle, state_handle) = tokio::try_join!(
@@ -35,8 +36,8 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn connect_mqtt() -> Result<mqtt::AsyncClient> {
-    let client = mqtt::AsyncClient::new("mqtt://localhost:1883").unwrap_or_else(|err| {
+async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
+    let client = mqtt::AsyncClient::new(address).unwrap_or_else(|err| {
         error!("Error creating the client: {}", err);
         process::exit(1);
     });
@@ -55,7 +56,7 @@ async fn subscribe_set(
     mut mqtt: mqtt::AsyncClient,
     inspinia: Arc<Mutex<InspiniaClient>>,
 ) -> Result<()> {
-    let mut stream = mqtt.get_stream(5);
+    let mut stream = mqtt.get_stream(None);
 
     let (topics, qos) = set_topics_and_qos();
     mqtt.subscribe_many(&topics, &qos);
@@ -150,7 +151,7 @@ async fn subscribe_state(
 fn value_for_payload(payload: &StatePayload) -> Option<serde_json::Value> {
     match payload.capability {
         Capability::IsEnabled => Some(json!(payload.value == "1")),
-        Capability::FanSpeed => Some(json!(payload.value)),
+        Capability::FanSpeed => Some(json!(payload.value.to_lowercase())),
         Capability::CurrentTemperature | Capability::Temperature => {
             let value = f32::from_str(&payload.value).ok()?;
             Some(json!(value))

@@ -10,7 +10,7 @@ use recuperator::{update_recuperator, RecuperatorUpdate};
 use std::{str::FromStr, sync::Arc};
 
 use crate::{DeviceId, Result};
-use crate::{DeviceType::*, InspiniaController};
+use crate::{DeviceType::*};
 
 use alice::{
     ModeFunction, RangeFunction, StateCapability, StateUpdateResult, ToggleFunction,
@@ -22,7 +22,6 @@ use tokio::sync::Mutex;
 pub async fn update_devices_state<'a, F>(
     devices: Vec<UpdateStateDevice<'a>>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
-    inspinia_controller: Arc<Mutex<InspiniaController>>,
 ) -> Vec<UpdatedDeviceState>
 where
     F: std::future::Future<Output = Result<()>>,
@@ -111,10 +110,9 @@ where
     update_thermostats(
         thermostats_updates,
         &mut devices,
-        inspinia_controller.clone(),
     )
     .await;
-    update_recuperator(recuperator_update, &mut devices, inspinia_controller).await;
+    update_recuperator(recuperator_update, &mut devices).await;
 
     devices
 }

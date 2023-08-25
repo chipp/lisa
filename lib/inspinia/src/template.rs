@@ -6,10 +6,13 @@ use std::{
 use crate::Result;
 use hyper::{body::HttpBody, client::HttpConnector, Body, Client, Method, Request, StatusCode};
 use hyper_tls::HttpsConnector;
+use log::info;
 use md5::Context;
 use serde::Deserialize;
 
 pub async fn download_template(target_id: &str) -> Result<PathBuf> {
+    info!("lolkek");
+
     let https = HttpsConnector::new();
     let client = Client::builder().build::<_, hyper::Body>(https);
 
@@ -26,6 +29,8 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
     if response.status() != StatusCode::OK {
         panic!("unable to get template");
     }
+
+    info!("keklol");
 
     let mut context = Context::new();
 

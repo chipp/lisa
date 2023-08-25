@@ -7,12 +7,12 @@ use hyper::{Body, Request, Response, StatusCode};
 use tokio::sync::Mutex;
 
 use super::super::auth::validate_autorization;
-use crate::{update_devices_state, InspiniaController, Result};
+use crate::{update_devices_state, Result};
 
 pub async fn action<F>(
     request: Request<Body>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
-    inspinia_controller: Arc<Mutex<InspiniaController>>,
+    
 ) -> Result<Response<Body>>
 where
     F: std::future::Future<Output = Result<()>>,
@@ -31,7 +31,6 @@ where
         let devices = update_devices_state(
             action.payload.devices,
             send_vacuum_command,
-            inspinia_controller,
         )
         .await;
 

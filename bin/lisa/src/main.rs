@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::{debug, error, info, warn};
+use log::{debug, info};
 
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server;
@@ -14,7 +14,7 @@ use tokio::{
 };
 
 use elisheba::{parse_token, Command as VacuumCommand, CommandResponse as VacuumCommandResponse};
-use lisa::{read_from_socket, web_handler, InspiniaController, SocketHandler, StateManager};
+use lisa::{read_from_socket, web_handler, SocketHandler, StateManager};
 
 type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 type Result<T> = std::result::Result<T, ErasedError>;
@@ -74,30 +74,23 @@ async fn main() -> Result<()> {
 
     let send_vacuum_command = Arc::from(Mutex::from(send_vacuum_command));
 
-    let (server, tcp, ws) = tokio::try_join!(
-        task::spawn(listen_web(
-            send_vacuum_command,
-            inspinia_controller.clone(),
-            state_manager.clone(),
-        )),
+    let (server, tcp) = tokio::try_join!(
+        task::spawn(listen_web(send_vacuum_command, state_manager.clone())),
         task::spawn(listen_socket(
             socket_handler,
             cmd_res_tx,
             state_manager.clone()
         )),
-        task::spawn(listen_web_socket(inspinia_controller)),
     )?;
 
     server?;
     tcp?;
-    ws?;
 
     Ok(())
 }
 
 async fn listen_web<F>(
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F + Send + Sync + 'static>>,
-    inspinia_controller: Arc<Mutex<InspiniaController>>,
     state_manager: Arc<Mutex<StateManager>>,
 ) -> Result<()>
 where
@@ -106,17 +99,13 @@ where
     let make_svc = make_service_fn(move |_| {
         let send_vacuum_command = send_vacuum_command.clone();
         let state_manager = state_manager.clone();
-        let inspinia_controller = inspinia_controller.clone();
 
         async move {
             Ok::<_, ErasedError>(service_fn(move |req| {
                 let send_vacuum_command = send_vacuum_command.clone();
                 let state_manager = state_manager.clone();
-                let inspinia_controller = inspinia_controller.clone();
 
-                async move {
-                    web_handler(req, send_vacuum_command, inspinia_controller, state_manager).await
-                }
+                async move { web_handler(req, send_vacuum_command, state_manager).await }
             }))
         }
     });
@@ -154,42 +143,4 @@ async fn listen_socket(
             Err(error) => eprintln!("{}", error),
         }
     }
-}
-
-async fn listen_web_socket(controller: Arc<Mutex<InspiniaController>>) -> Result<()> {
-    loop {
-        loop {
-            let controller = &mut controller.lock().await;
-
-            if let Err(error) = controller.listen().await {
-                error!("disconnected from Inspinia {}", error);
-                break;
-            }
-        }
-
-        info!("reconnecting to Inspinia...");
-
-        {
-            let controller = &mut controller.lock().await;
-
-            let mut attempt = 1;
-            while let Err(error) = controller.reconnect().await {
-                warn!("failed to reconnect to Inspinia: {}", error);
-
-                let delay = delay_for_attempt(attempt);
-                warn!("timeout {} sec", delay);
-                time::sleep(Duration::from_secs(delay)).await;
-
-                attempt += 1;
-            }
-        }
-
-        info!("reconnected to Inspinia!");
-    }
-}
-
-fn delay_for_attempt(attempt: u8) -> u64 {
-    let delay = (attempt as f64) * 0.5;
-    let delay = delay.exp() * 10_f64;
-    60.min(delay as u64)
 }

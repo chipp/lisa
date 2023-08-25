@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::{ModeFunction, RangeFunction, ToggleFunction};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ActionResult {
     Ok,
     Err(Error),
@@ -19,7 +19,7 @@ impl ActionResult {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Error {
     code: ErrorCode,
     message: String,
@@ -31,7 +31,7 @@ impl Error {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ErrorCode {
     InvalidAction,
@@ -40,7 +40,7 @@ pub enum ErrorCode {
     DeviceBusy,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Capability {
     OnOff {
         result: ActionResult,

@@ -20,11 +20,8 @@ pub enum TopicType {
 }
 
 impl fmt::Display for TopicType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            TopicType::State => write!(f, "state"),
-            TopicType::Set => write!(f, "set"),
-        }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.serialize(f)
     }
 }
 

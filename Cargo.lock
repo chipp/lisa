@@ -333,6 +333,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
+ "topics",
  "xiaomi",
 ]
 
@@ -350,6 +351,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
+ "topics",
 ]
 
 [[package]]
@@ -1433,6 +1435,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
+name = "str_derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1619,6 +1629,14 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "topics"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "str_derive",
 ]
 
 [[package]]

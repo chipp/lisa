@@ -1,6 +1,7 @@
-use elizabeth::{set_topics_and_qos, DeviceType, Topic};
-use elizabeth::{Capability, InspiniaClient, Result, StatePayload};
+use elizabeth::set_topics_and_qos;
+use elizabeth::{InspiniaClient, Result, State, StatePayload};
 use inspinia::FanSpeed;
+use topics::{Device, Topic};
 
 use std::process;
 use std::str::FromStr;
@@ -86,31 +87,37 @@ async fn subscribe_set(
     Ok(())
 }
 
-async fn update_state(topic: Topic, payload: &[u8], inspinia: &mut InspiniaClient) -> Result<()> {
+async fn update_state(
+    topic: Topic<State>,
+    payload: &[u8],
+    inspinia: &mut InspiniaClient,
+) -> Result<()> {
     let value: serde_json::Value = serde_json::from_slice(payload).unwrap();
 
-    match (topic.device_type, topic.capability) {
-        (DeviceType::Recuperator, Capability::IsEnabled) => {
+    match (topic.device, topic.feature) {
+        (Device::Recuperator, State::IsEnabled) => {
             if let Some(value) = value.as_bool() {
                 inspinia.set_recuperator_enabled(value).await?;
             }
         }
-        (DeviceType::Recuperator, Capability::FanSpeed) => {
+        (Device::Recuperator, State::FanSpeed) => {
             if let Some(value) = value.as_str() {
                 let value = FanSpeed::try_from(value)?;
                 inspinia.set_recuperator_fan_speed(value).await?;
             }
         }
-        (DeviceType::Thermostat, Capability::IsEnabled) => {
+        (Device::Thermostat, State::IsEnabled) => {
             if let Some(value) = value.as_bool() {
-                inspinia.set_thermostat_enabled(value, topic.room).await?;
+                if let Some(room) = topic.room.and_then(map_room) {
+                    inspinia.set_thermostat_enabled(value, room).await?;
+                }
             }
         }
-        (DeviceType::Thermostat, Capability::Temperature) => {
+        (Device::Thermostat, State::Temperature) => {
             if let Some(value) = value.as_f64() {
-                inspinia
-                    .set_thermostat_temperature(value, topic.room)
-                    .await?;
+                if let Some(room) = topic.room.and_then(map_room) {
+                    inspinia.set_thermostat_temperature(value, room).await?;
+                }
             }
         }
         _ => (),
@@ -129,9 +136,10 @@ async fn subscribe_state(
         if let Ok(payload) = inspinia.read().await {
             if let Some(value) = value_for_payload(&payload) {
                 let value = serde_json::to_vec(&value)?;
+                let topic: Topic<State> = payload.into();
 
                 let message = mqtt::MessageBuilder::new()
-                    .topic(Topic::from(&payload).to_string())
+                    .topic(topic.to_string())
                     .payload(value)
                     .finalize();
 
@@ -149,13 +157,23 @@ async fn subscribe_state(
 }
 
 fn value_for_payload(payload: &StatePayload) -> Option<serde_json::Value> {
-    match payload.capability {
-        Capability::IsEnabled => Some(json!(payload.value == "1")),
-        Capability::FanSpeed => Some(json!(payload.value.to_lowercase())),
-        Capability::CurrentTemperature | Capability::Temperature => {
+    match payload.state {
+        State::IsEnabled => Some(json!(payload.value == "1")),
+        State::FanSpeed => Some(json!(payload.value.to_lowercase())),
+        State::CurrentTemperature | State::Temperature => {
             let value = f32::from_str(&payload.value).ok()?;
             Some(json!(value))
         }
-        Capability::Mode => None,
+        State::Mode => None,
+    }
+}
+
+fn map_room(room: topics::Room) -> Option<inspinia::Room> {
+    match room {
+        topics::Room::LivingRoom => Some(inspinia::Room::LivingRoom),
+        topics::Room::Bedroom => Some(inspinia::Room::Bedroom),
+        topics::Room::HomeOffice => Some(inspinia::Room::HomeOffice),
+        topics::Room::Nursery => Some(inspinia::Room::Nursery),
+        _ => None,
     }
 }

@@ -4,7 +4,8 @@ use error::Error;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::{DeviceType, Result, StatePayload};
+use crate::state_payload::port_name_to_state;
+use crate::{Device as DeviceType, Result, StatePayload};
 
 use log::{debug, error, info};
 use tokio::time::timeout;
@@ -156,9 +157,9 @@ impl InspiniaClient {
         for (device_type, device) in devices {
             if let Some(port) = device.ports.get(port_id) {
                 return Ok(StatePayload {
-                    device_type,
+                    device: device_type,
                     room: device.room,
-                    capability: port.name.into(),
+                    state: port_name_to_state(port.name),
                     value: value.to_string(),
                 });
             }

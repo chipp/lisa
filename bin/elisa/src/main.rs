@@ -1,4 +1,6 @@
-use elisa::{actions_topics_and_qos, Action, Capability, Result, Room, Status, Topic};
+use elisa::{actions_topics_and_qos, room_id_for_room, topic_for_state};
+use elisa::{Action, Result, Room, State, Status};
+use topics::Topic;
 use xiaomi::{parse_token, FanSpeed, Vacuum};
 
 use std::process;
@@ -101,7 +103,7 @@ async fn perform_action(topic: Topic<Action>, payload: &[u8], vacuum: &mut Vacuu
     match topic.feature {
         Action::Start => {
             let rooms: Vec<Room> = serde_json::from_value(value)?;
-            let room_ids = rooms.iter().map(|room| room.vacuum_id()).collect();
+            let room_ids = rooms.iter().map(room_id_for_room).collect();
 
             info!("wants to start cleaning in rooms: {:?}", rooms);
             vacuum.start(room_ids).await
@@ -142,7 +144,7 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) ->
             info!("publishing state: {:?}", status);
 
             let status = Status::from(status);
-            let topic = Topic::state(Capability::Status);
+            let topic = topic_for_state(State::Status);
             let payload = serde_json::to_vec(&status).unwrap();
 
             let message = mqtt::MessageBuilder::new()

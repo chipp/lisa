@@ -17,27 +17,19 @@ pub enum Room {
     Toilet,
 }
 
-#[allow(dead_code)]
 impl Room {
-    pub const fn all_rooms() -> &'static [Room] {
-        use Room::*;
-
-        &[
-            Bathroom, Bedroom, Corridor, Hallway, HomeOffice, Kitchen, LivingRoom, Nursery, Toilet,
-        ]
-    }
-
-    pub fn name(&self) -> &str {
+    // TODO: read configuration to config file
+    pub fn vacuum_id(&self) -> u8 {
         match self {
-            Room::Bathroom => "Ванная",
-            Room::Bedroom => "Спальня",
-            Room::Corridor => "Коридор",
-            Room::Hallway => "Прихожая",
-            Room::HomeOffice => "Кабинет",
-            Room::Kitchen => "Кухня",
-            Room::LivingRoom => "Зал",
-            Room::Nursery => "Детская",
-            Room::Toilet => "Туалет",
+            Room::Bathroom => 11,
+            Room::Bedroom => 13,
+            Room::Corridor => 15,
+            Room::Hallway => 12,
+            Room::HomeOffice => 17,
+            Room::Kitchen => 16,
+            Room::LivingRoom => 18,
+            Room::Nursery => 14,
+            Room::Toilet => 10,
         }
     }
 }

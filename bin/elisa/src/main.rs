@@ -1,6 +1,5 @@
-use elisa::{set_topics_and_qos, Capability, Result, Room, Topic};
-use xiaomi::FanSpeed;
-use xiaomi::{parse_token, Vacuum};
+use elisa::{actions_topics_and_qos, Action, Capability, Result, Room, Status, Topic};
+use xiaomi::{parse_token, FanSpeed, Vacuum};
 
 use std::process;
 use std::str::FromStr;
@@ -12,7 +11,7 @@ use log::{error, info};
 use paho_mqtt as mqtt;
 use tokio::sync::Mutex;
 use tokio::task;
-use tokio::time;
+use tokio::time::{self, interval};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,21 +24,24 @@ async fn main() -> Result<()> {
         .unwrap_or("10.0.1.150".to_string())
         .parse()?;
 
-    let vacuum = Arc::from(Mutex::from(Vacuum::new(vacuum_ip, vacuum_token)));
+    let mut vacuum = Vacuum::new(vacuum_ip, vacuum_token);
+    if let Ok(status) = vacuum.status().await {
+        info!("vacuum status: {:?}", status);
+    }
+
+    let vacuum = Arc::from(Mutex::from(vacuum));
 
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_client = connect_mqtt(mqtt_address).await?;
     info!("connected mqtt");
 
-    let set_handle = task::spawn(subscribe_set(mqtt_client.clone(), vacuum.clone())).await;
+    let (set_handle, state_handle) = tokio::try_join!(
+        task::spawn(subscribe_actions(mqtt_client.clone(), vacuum.clone())),
+        task::spawn(subscribe_state(mqtt_client, vacuum))
+    )?;
 
-    // let (set_handle, state_handle) = tokio::try_join!(
-    //     task::spawn(subscribe_set(mqtt_client.clone(), vacuum.clone())),
-    //     task::spawn(subscribe_state(mqtt_client, vacuum))
-    // )?;
-
-    let _ = set_handle?;
-    // state_handle?;
+    set_handle?;
+    state_handle?;
 
     Ok(())
 }
@@ -60,10 +62,10 @@ async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
     Ok(client)
 }
 
-async fn subscribe_set(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
+async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    let (topics, qos) = set_topics_and_qos();
+    let (topics, qos) = actions_topics_and_qos();
     mqtt.subscribe_many(&topics, &qos);
 
     info!("Subscribed to topics: {:?}", topics);
@@ -73,7 +75,7 @@ async fn subscribe_set(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) 
 
         if let Some(msg) = msg_opt {
             match Topic::from_str(msg.topic()) {
-                Ok(topic) => match update_state(topic, msg.payload(), vacuum).await {
+                Ok(topic) => match perform_action(topic, msg.payload(), vacuum).await {
                     Ok(_) => (),
                     Err(err) => error!("Error updating state: {}", err),
                 },
@@ -91,25 +93,25 @@ async fn subscribe_set(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) 
     Ok(())
 }
 
-async fn update_state(topic: Topic, payload: &[u8], vacuum: &mut Vacuum) -> Result<()> {
+async fn perform_action(topic: Topic<Action>, payload: &[u8], vacuum: &mut Vacuum) -> Result<()> {
     use serde::de::{value, Error};
 
     let value: serde_json::Value = serde_json::from_slice(payload)?;
 
-    match topic.capability {
-        Capability::Start => {
+    match topic.feature {
+        Action::Start => {
             let rooms: Vec<Room> = serde_json::from_value(value)?;
             let room_ids = rooms.iter().map(|room| room.vacuum_id()).collect();
 
             info!("wants to start cleaning in rooms: {:?}", rooms);
             vacuum.start(room_ids).await
         }
-        Capability::Stop => {
+        Action::Stop => {
             info!("wants to stop cleaning");
             vacuum.stop().await?;
             vacuum.go_home().await
         }
-        Capability::FanSpeed => {
+        Action::SetFanSpeed => {
             let mode = value
                 .as_str()
                 .ok_or(value::Error::custom("expected FanSpeed as string"))?;
@@ -118,13 +120,37 @@ async fn update_state(topic: Topic, payload: &[u8], vacuum: &mut Vacuum) -> Resu
             info!("wants to set mode {}", mode);
             vacuum.set_fan_speed(mode).await
         }
-        Capability::Pause => {
+        Action::Pause => {
             info!("wants to pause");
             vacuum.pause().await
         }
-        Capability::Resume => {
+        Action::Resume => {
             info!("wants to resume");
             vacuum.resume().await
+        }
+    }
+}
+
+async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
+    let mut timer = interval(Duration::from_secs(10));
+
+    loop {
+        timer.tick().await;
+        let mut vacuum = vacuum.lock().await;
+
+        if let Ok(status) = vacuum.status().await {
+            info!("publishing state: {:?}", status);
+
+            let status = Status::from(status);
+            let topic = Topic::state(Capability::Status);
+            let payload = serde_json::to_vec(&status).unwrap();
+
+            let message = mqtt::MessageBuilder::new()
+                .topic(topic.to_string())
+                .payload(payload)
+                .finalize();
+
+            mqtt.publish(message).await?;
         }
     }
 }

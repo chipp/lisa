@@ -8,17 +8,21 @@ use serde::{
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Capability {
-    Status,
+pub enum Action {
+    Start,
+    Stop,
+    SetFanSpeed,
+    Pause,
+    Resume,
 }
 
-impl fmt::Display for Capability {
+impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.serialize(f)
     }
 }
 
-impl FromStr for Capability {
+impl FromStr for Action {
     type Err = value::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

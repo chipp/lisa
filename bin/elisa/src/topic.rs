@@ -1,6 +1,8 @@
-use std::{fmt, str::FromStr};
+use std::fmt::{self, Display};
+use std::str::FromStr;
 
-use crate::capability::Capability::{self, *};
+use crate::action::Action::{self, *};
+use crate::capability::Capability;
 use paho_mqtt::QOS_1;
 use serde::{
     de::{value, Error, IntoDeserializer},
@@ -10,8 +12,8 @@ use serde::{
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TopicType {
+    Action,
     State,
-    Set,
 }
 
 impl fmt::Display for TopicType {
@@ -28,42 +30,52 @@ impl FromStr for TopicType {
     }
 }
 
+trait Feature: FromStr + Display {}
+
 #[derive(Debug)]
-pub struct Topic {
+pub struct Topic<F> {
     pub topic_type: TopicType,
-    pub capability: Capability,
+    pub feature: F,
 }
 
-impl Topic {
-    pub const fn state(capability: Capability) -> Self {
-        Self {
+impl Feature for Action {}
+impl Feature for Capability {}
+
+impl Topic<Action> {
+    pub const fn action(feature: Action) -> Topic<Action> {
+        Topic {
+            topic_type: TopicType::Action,
+            feature,
+        }
+    }
+}
+
+impl Topic<Capability> {
+    pub const fn state(feature: Capability) -> Topic<Capability> {
+        Topic {
             topic_type: TopicType::State,
-            capability,
-        }
-    }
-
-    pub const fn set(capability: Capability) -> Self {
-        Self {
-            topic_type: TopicType::Set,
-            capability,
+            feature,
         }
     }
 }
 
-impl fmt::Display for Topic {
+impl<F: Display> fmt::Display for Topic<F> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "elisa/{}/{}/{}",
-            self.topic_type, "vacuum", self.capability
+            "elisa/{}/none/{}/{}",
+            self.topic_type, "vacuum", self.feature
         )
     }
 }
 
-impl FromStr for Topic {
+impl<F: FromStr<Err = value::Error>> FromStr for Topic<F> {
     type Err = value::Error;
 
-    fn from_str(s: &str) -> std::result::Result<Topic, value::Error> {
+    fn from_str(s: &str) -> std::result::Result<Topic<F>, Self::Err>
+    where
+        F::Err: serde::de::Error,
+    {
         let mut split = s.split('/');
 
         if let Some("elisa") = split.next() {
@@ -76,31 +88,34 @@ impl FromStr for Topic {
             .ok_or(value::Error::custom("missing topic type"))?;
         let topic_type = TopicType::from_str(topic_type)?;
 
+        if let Some("none") = split.next() {
+        } else {
+            return Err(value::Error::custom("missing room"));
+        }
+
         if let Some("vacuum") = split.next() {
         } else {
             return Err(value::Error::custom("missing device type"));
         }
 
-        let capability = split
-            .next()
-            .ok_or(value::Error::custom("missing capability"))?;
-        let capability = Capability::from_str(capability)?;
+        let feature = split.next().ok_or(F::Err::custom("missing feature"))?;
+        let feature = F::from_str(feature)?;
 
         Ok(Self {
             topic_type,
-            capability,
+            feature,
         })
     }
 }
 
-pub fn set_topics_and_qos() -> ([String; 5], [i32; 10]) {
+pub fn actions_topics_and_qos() -> ([String; 5], [i32; 10]) {
     (
         [
-            Topic::set(Start).to_string(),
-            Topic::set(Stop).to_string(),
-            Topic::set(FanSpeed).to_string(),
-            Topic::set(Pause).to_string(),
-            Topic::set(Resume).to_string(),
+            Topic::action(Start).to_string(),
+            Topic::action(Stop).to_string(),
+            Topic::action(SetFanSpeed).to_string(),
+            Topic::action(Pause).to_string(),
+            Topic::action(Resume).to_string(),
         ],
         [QOS_1; 10],
     )

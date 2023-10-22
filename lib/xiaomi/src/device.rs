@@ -1,11 +1,9 @@
 mod response;
 use response::Response;
 
-use crate::{
-    Result, Token
-};
-use crate::message::{Header, Message};
 use crate::discover::discover;
+use crate::message::{Header, Message};
+use crate::{Result, Token};
 
 use std::{
     net::{Ipv4Addr, SocketAddr},
@@ -88,7 +86,7 @@ impl Device {
                 }
                 Err(err) => match err.downcast::<Elapsed>() {
                     Ok(_) => {
-                        self.set_command_id(self.command_id + 10);
+                        self.set_command_id(self.command_id + 50);
                         error!("retrying with command_id {}", self.command_id)
                     }
                     Err(err) => return Err(err),

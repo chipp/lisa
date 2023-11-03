@@ -1,11 +1,10 @@
 use paho_mqtt::QOS_1;
-use topics::{Device, Service, Topic, TopicType};
+use topics::{Device, Topic, TopicType};
 
 use crate::{Action, State};
 
 pub const fn topic_for_action(feature: Action) -> Topic<Action> {
     Topic {
-        service: Service::Elisa,
         topic_type: TopicType::Action,
         room: None,
         device: Device::VacuumCleaner,
@@ -15,7 +14,6 @@ pub const fn topic_for_action(feature: Action) -> Topic<Action> {
 
 pub const fn topic_for_state(feature: State) -> Topic<State> {
     Topic {
-        service: Service::Elisa,
         topic_type: TopicType::State,
         room: None,
         device: Device::VacuumCleaner,

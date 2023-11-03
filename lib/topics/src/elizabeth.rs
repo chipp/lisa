@@ -13,4 +13,8 @@ pub enum State {
     Mode,
 }
 
-impl Feature for State {}
+impl Feature for State {
+    fn service() -> crate::Service {
+        crate::Service::Elizabeth
+    }
+}

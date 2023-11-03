@@ -6,6 +6,7 @@ pub struct Status {
     pub is_enabled: bool,
     pub is_paused: bool,
     pub fan_speed: String,
+    // TODO: add current rooms
 }
 
 impl From<xiaomi::Status> for Status {

@@ -1,5 +1,9 @@
-use alisa::{report_state, state_topics_and_qos, web_handler, ErasedError, Result};
-use alisa::{Service, Topic};
+use alisa::{
+    create_action_topic, report_state, state_topics_and_qos, web_handler, ActionPayload,
+    ErasedError, Event, Result, State,
+};
+use mqtt::Message;
+use topics::{ElisaState, ElizabethState, Service, Topic};
 
 use std::process;
 use std::str::FromStr;
@@ -48,14 +52,13 @@ async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
 }
 
 async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ActionPayload>();
 
     let make_svc = make_service_fn(move |_| {
         let tx = tx.clone();
         async move {
             Ok::<_, ErasedError>(service_fn(move |req| {
                 let tx = tx.clone();
-
                 async move { web_handler(req, tx).await }
             }))
         }
@@ -72,9 +75,10 @@ async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
         task::spawn(async move {
             while let Some(payload) = rx.recv().await {
                 let value = serde_json::to_vec(&payload.value)?;
+                let topic = create_action_topic(payload.device, payload.room, payload.action);
 
                 let message = mqtt::MessageBuilder::new()
-                    .topic(Topic::from((Service::Elizabeth, &payload)).to_string())
+                    .topic(topic)
                     .payload(value)
                     .finalize();
 
@@ -101,12 +105,13 @@ async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
 
     while let Some(msg_opt) = stream.next().await {
         if let Some(msg) = msg_opt {
-            match Topic::from_str(msg.topic()) {
-                Ok(topic) => match report_state(topic, msg.payload()).await {
+            if let Some(event) = parse_event(&msg) {
+                match report_state(event).await {
                     Ok(_) => (),
                     Err(err) => error!("Error updating state: {}", err),
-                },
-                Err(err) => error!("unable to parse topic {} {}", msg.topic(), err),
+                }
+            } else {
+                error!("unable to parse topic {}", msg.topic());
             }
         } else {
             error!("Lost MQTT connection. Attempting reconnect.");
@@ -118,4 +123,35 @@ async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn parse_event(msg: &Message) -> Option<Event> {
+    let topic = msg.topic();
+    let (service, _) = topic.split_once("/")?;
+    let service = Service::from_str(service).ok()?;
+
+    match service {
+        Service::Elisa => {
+            let topic: Topic<ElisaState> = topic.parse().ok()?;
+            let payload = serde_json::from_slice(msg.payload()).ok()?;
+
+            Some(Event {
+                device: topic.device,
+                room: topic.room,
+                state: State::Elisa(topic.feature),
+                payload,
+            })
+        }
+        Service::Elizabeth => {
+            let topic: Topic<ElizabethState> = topic.parse().ok()?;
+            let payload = serde_json::from_slice(msg.payload()).ok()?;
+
+            Some(Event {
+                device: topic.device,
+                room: topic.room,
+                state: State::Elizabeth(topic.feature),
+                payload,
+            })
+        }
+    }
 }

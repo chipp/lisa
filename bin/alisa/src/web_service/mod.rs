@@ -27,15 +27,15 @@ mod user {
 
 use bytes::Buf;
 use log::error;
-use tokio::sync::mpsc::UnboundedSender;
 
 use hyper::{Body, Method, Request, Response, StatusCode};
+use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{types::UpdatePayload, Result};
+use crate::{ActionPayload, Result};
 
 pub async fn web_handler(
     request: Request<Body>,
-    update_device: UnboundedSender<UpdatePayload>,
+    perform_action: UnboundedSender<ActionPayload>,
 ) -> Result<Response<Body>> {
     match (request.uri().path(), request.method()) {
         ("/auth", &Method::GET) => auth::auth_page(request),
@@ -44,7 +44,7 @@ pub async fn web_handler(
         ("/v1.0", &Method::HEAD) => user::pong(),
         ("/v1.0/user/devices", &Method::GET) => user::devices(request).await,
         ("/v1.0/user/devices/query", &Method::POST) => user::query(request).await,
-        ("/v1.0/user/devices/action", &Method::POST) => user::action(request, update_device).await,
+        ("/v1.0/user/devices/action", &Method::POST) => user::action(request, perform_action).await,
         ("/v1.0/user/unlink", &Method::POST) => user::unlink(request).await,
         _ => {
             error!("Unsupported request: {:?}", request);

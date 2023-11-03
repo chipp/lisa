@@ -14,21 +14,21 @@ use serde::{
 };
 use str_derive::Str;
 
-#[derive(Debug, Deserialize, Serialize, Str, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Service {
     Elisa,
     Elizabeth,
 }
 
-#[derive(Debug, Deserialize, Serialize, Str, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum TopicType {
     Action,
     State,
 }
 
-#[derive(Debug, Deserialize, Serialize, Str, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Device {
     Recuperator,
@@ -37,7 +37,7 @@ pub enum Device {
     VacuumCleaner,
 }
 
-#[derive(Debug, Deserialize, Serialize, Str, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Room {
     Bathroom,
@@ -51,18 +51,35 @@ pub enum Room {
     Toilet,
 }
 
-trait Feature: FromStr + Display {}
+impl Room {
+    pub const fn all_rooms() -> [Room; 9] {
+        [
+            Room::Bathroom,
+            Room::Bedroom,
+            Room::Corridor,
+            Room::Hallway,
+            Room::HomeOffice,
+            Room::Kitchen,
+            Room::LivingRoom,
+            Room::Nursery,
+            Room::Toilet,
+        ]
+    }
+}
+
+trait Feature: FromStr + Display {
+    fn service() -> Service;
+}
 
 #[derive(Debug)]
 pub struct Topic<F> {
-    pub service: Service,
     pub topic_type: TopicType,
     pub room: Option<Room>,
     pub device: Device,
     pub feature: F,
 }
 
-impl<F: Display> fmt::Display for Topic<F> {
+impl<F: Feature> fmt::Display for Topic<F> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let room = if let Some(room) = &self.room {
             room.to_string()
@@ -73,12 +90,16 @@ impl<F: Display> fmt::Display for Topic<F> {
         write!(
             f,
             "{}/{}/{}/{}/{}",
-            self.service, self.topic_type, room, self.device, self.feature
+            F::service(),
+            self.topic_type,
+            room,
+            self.device,
+            self.feature
         )
     }
 }
 
-impl<F: FromStr<Err = value::Error>> FromStr for Topic<F> {
+impl<F: FromStr<Err = value::Error> + Feature> FromStr for Topic<F> {
     type Err = value::Error;
 
     fn from_str(s: &str) -> std::result::Result<Topic<F>, Self::Err>
@@ -91,6 +112,14 @@ impl<F: FromStr<Err = value::Error>> FromStr for Topic<F> {
             .next()
             .ok_or(value::Error::custom("missing service"))?;
         let service = Service::from_str(service)?;
+
+        if F::service() != service {
+            return Err(value::Error::custom(format!(
+                "expected service {}, got {}",
+                F::service(),
+                service
+            )));
+        }
 
         let topic_type = split
             .next()
@@ -115,7 +144,6 @@ impl<F: FromStr<Err = value::Error>> FromStr for Topic<F> {
         let feature = F::from_str(feature)?;
 
         Ok(Self {
-            service,
             topic_type,
             room,
             device,
@@ -130,56 +158,70 @@ mod tests {
 
     #[derive(Debug, Deserialize, Serialize, Str, PartialEq)]
     #[serde(rename_all = "snake_case")]
-    enum TestFeature {
+    enum ElisaFeature {
         Start,
         Stop,
     }
 
+    impl Feature for ElisaFeature {
+        fn service() -> Service {
+            Service::Elisa
+        }
+    }
+
+    #[derive(Debug, Deserialize, Serialize, Str, PartialEq)]
+    #[serde(rename_all = "snake_case")]
+    enum ElizabethFeature {
+        IsEnabled,
+        Temperature,
+    }
+
+    impl Feature for ElizabethFeature {
+        fn service() -> Service {
+            Service::Elizabeth
+        }
+    }
+
     #[test]
     fn test_from_str() {
-        let topic: Topic<TestFeature> = "elisa/action/bathroom/thermostat/start".parse().unwrap();
+        let topic: Topic<ElisaFeature> = "elisa/action/bathroom/thermostat/start".parse().unwrap();
 
-        assert_eq!(topic.service, Service::Elisa);
         assert_eq!(topic.topic_type, TopicType::Action);
         assert_eq!(topic.room, Some(Room::Bathroom));
         assert_eq!(topic.device, Device::Thermostat);
-        assert_eq!(topic.feature, TestFeature::Start);
+        assert_eq!(topic.feature, ElisaFeature::Start);
 
-        let topic: Topic<TestFeature> = "elizabeth/state/hallway/vacuum_cleaner/stop"
+        let topic: Topic<ElizabethFeature> = "elizabeth/state/hallway/thermostat/is_enabled"
             .parse()
             .unwrap();
 
-        assert_eq!(topic.service, Service::Elizabeth);
         assert_eq!(topic.topic_type, TopicType::State);
         assert_eq!(topic.room, Some(Room::Hallway));
-        assert_eq!(topic.device, Device::VacuumCleaner);
-        assert_eq!(topic.feature, TestFeature::Stop);
+        assert_eq!(topic.device, Device::Thermostat);
+        assert_eq!(topic.feature, ElizabethFeature::IsEnabled);
     }
 
     #[test]
     fn test_to_string() {
-        let topic = Topic::<TestFeature> {
-            service: Service::Elisa,
+        let topic = Topic::<ElisaFeature> {
             topic_type: TopicType::Action,
             room: Some(Room::Bathroom),
             device: Device::Thermostat,
-            feature: TestFeature::Start,
+            feature: ElisaFeature::Start,
         };
 
         assert_eq!(topic.to_string(), "elisa/action/bathroom/thermostat/start");
 
-        // test all variants
-        let topic = Topic::<TestFeature> {
-            service: Service::Elizabeth,
+        let topic = Topic::<ElizabethFeature> {
             topic_type: TopicType::State,
             room: Some(Room::Hallway),
-            device: Device::VacuumCleaner,
-            feature: TestFeature::Stop,
+            device: Device::Thermostat,
+            feature: ElizabethFeature::Temperature,
         };
 
         assert_eq!(
             topic.to_string(),
-            "elizabeth/state/hallway/vacuum_cleaner/stop"
+            "elizabeth/state/hallway/thermostat/temperature"
         );
     }
 }

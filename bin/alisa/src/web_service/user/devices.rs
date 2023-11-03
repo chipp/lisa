@@ -1,10 +1,11 @@
 use alice::{Device, DeviceCapability, DeviceProperty, DeviceType};
 use alice::{Mode, ModeFunction, Range, RangeFunction, TemperatureUnit, ToggleFunction};
+use topics::Room;
 
 use hyper::{Body, Request, Response, StatusCode};
 use serde_json::json;
 
-use crate::types::{DeviceId, Room};
+use crate::types::DeviceId;
 use crate::web_service::auth::validate_autorization;
 use crate::Result;
 
@@ -48,8 +49,22 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
     .await
 }
 
+fn name_for_room(room: &Room) -> &'static str {
+    match room {
+        Room::Bathroom => "Ванная",
+        Room::Bedroom => "Спальня",
+        Room::Corridor => "Коридор",
+        Room::Hallway => "Прихожая",
+        Room::HomeOffice => "Кабинет",
+        Room::Kitchen => "Кухня",
+        Room::LivingRoom => "Зал",
+        Room::Nursery => "Детская",
+        Room::Toilet => "Туалет",
+    }
+}
+
 fn sensor_device(room: Room) -> Device {
-    let room_name = room.name().to_string();
+    let room_name = name_for_room(&room).to_string();
 
     Device {
         id: DeviceId::temperature_sensor_at_room(room).to_string(),
@@ -67,7 +82,7 @@ fn sensor_device(room: Room) -> Device {
 }
 
 fn vacuum_cleaner_device(room: Room) -> Device {
-    let room_name = room.name().to_string();
+    let room_name = name_for_room(&room).to_string();
 
     Device {
         id: DeviceId::vacuum_cleaner_at_room(room).to_string(),
@@ -92,7 +107,7 @@ fn vacuum_cleaner_device(room: Room) -> Device {
 }
 
 fn thermostat_device(room: Room) -> Device {
-    let room_name = room.name().to_string();
+    let room_name = name_for_room(&room).to_string();
 
     Device {
         id: DeviceId::thermostat_at_room(room).to_string(),
@@ -118,7 +133,7 @@ fn thermostat_device(room: Room) -> Device {
 }
 
 fn recuperator_device() -> Device {
-    let room_name = Room::LivingRoom.name().to_string();
+    let room_name = name_for_room(&Room::LivingRoom).to_string();
 
     Device {
         id: DeviceId::recuperator_at_room(Room::LivingRoom).to_string(),

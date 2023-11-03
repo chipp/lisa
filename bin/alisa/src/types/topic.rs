@@ -1,175 +1,70 @@
-use std::{fmt, str::FromStr};
-
-use crate::{
-    types::Capability::{self, *},
-    types::DeviceType::{self, *},
-    types::Room::{self, *},
-    types::UpdatePayload,
+use topics::{
+    Device::{self, *},
+    ElisaState, ElizabethState,
+    Room::{self, *},
+    Topic, TopicType,
 };
 
 use paho_mqtt::QOS_1;
-use serde::{
-    de::{value, Error, IntoDeserializer},
-    Deserialize, Serialize,
-};
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Service {
-    Elizabeth,
-}
+use crate::Action;
 
-impl fmt::Display for Service {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.serialize(f)
-    }
-}
-
-impl FromStr for Service {
-    type Err = value::Error;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Self::deserialize(s.into_deserializer())
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TopicType {
-    State,
-    Set,
-}
-
-impl fmt::Display for TopicType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.serialize(f)
-    }
-}
-
-impl FromStr for TopicType {
-    type Err = value::Error;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Self::deserialize(s.into_deserializer())
-    }
-}
-
-#[derive(Debug)]
-pub struct Topic {
-    pub service: Service,
-    pub topic_type: TopicType,
-    pub room: Room,
-    pub device_type: DeviceType,
-    pub capability: Capability,
-}
-
-impl Topic {
-    pub const fn state(
-        service: Service,
-        room: Room,
-        device_type: DeviceType,
-        capability: Capability,
-    ) -> Self {
-        Self {
-            service,
-            topic_type: TopicType::State,
-            room,
-            device_type,
-            capability,
+pub fn create_action_topic(device: Device, room: Room, action: Action) -> String {
+    match action {
+        Action::Elizabeth(action) => Topic {
+            topic_type: TopicType::Action,
+            room: Some(room),
+            device,
+            feature: action,
         }
-    }
-
-    pub const fn set(
-        service: Service,
-        room: Room,
-        device_type: DeviceType,
-        capability: Capability,
-    ) -> Self {
-        Self {
-            service,
-            topic_type: TopicType::Set,
-            room,
-            device_type,
-            capability,
+        .to_string(),
+        Action::Elisa(action) => Topic {
+            topic_type: TopicType::Action,
+            room: Some(room),
+            device,
+            feature: action,
         }
+        .to_string(),
     }
 }
 
-impl fmt::Display for Topic {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "elizabeth/{}/{}/{}/{}",
-            self.topic_type, self.room, self.device_type, self.capability
-        )
+const fn elizabeth_topic(
+    room: Room,
+    device: Device,
+    state: ElizabethState,
+) -> Topic<ElizabethState> {
+    Topic {
+        topic_type: TopicType::State,
+        room: Some(room),
+        device,
+        feature: state,
     }
 }
 
-impl FromStr for Topic {
-    type Err = value::Error;
-
-    fn from_str(s: &str) -> std::result::Result<Topic, value::Error> {
-        let mut split = s.split('/');
-
-        let service = split
-            .next()
-            .ok_or(value::Error::custom("missing service"))?;
-        let service = Service::from_str(service)?;
-
-        let topic_type = split
-            .next()
-            .ok_or(value::Error::custom("missing topic type"))?;
-        let topic_type = TopicType::from_str(topic_type)?;
-
-        let room = split.next().ok_or(value::Error::custom("missing room"))?;
-        let room = Room::from_str(room)?;
-
-        let device_type = split
-            .next()
-            .ok_or(value::Error::custom("missing device type"))?;
-        let device_type = DeviceType::from_str(device_type)?;
-
-        let capability = split
-            .next()
-            .ok_or(value::Error::custom("missing capability"))?;
-        let capability = Capability::from_str(capability)?;
-
-        Ok(Self {
-            service,
-            topic_type,
-            room,
-            device_type,
-            capability,
-        })
+const fn elisa_topic() -> Topic<ElisaState> {
+    Topic {
+        topic_type: TopicType::State,
+        room: None,
+        device: Device::VacuumCleaner,
+        feature: ElisaState::Status,
     }
 }
 
-impl From<(Service, &UpdatePayload)> for Topic {
-    fn from(value: (Service, &UpdatePayload)) -> Self {
-        Self {
-            service: value.0,
-            topic_type: TopicType::Set,
-            room: value.1.room,
-            device_type: value.1.device_type,
-            capability: value.1.capability,
-        }
-    }
-}
-
-pub fn state_topics_and_qos() -> ([String; 10], [i32; 10]) {
+pub fn state_topics_and_qos() -> ([String; 11], [i32; 11]) {
     (
         [
-            Topic::state(Service::Elizabeth, LivingRoom, Recuperator, IsEnabled).to_string(),
-            Topic::state(Service::Elizabeth, LivingRoom, Recuperator, FanSpeed).to_string(),
-            Topic::state(Service::Elizabeth, Bedroom, Thermostat, IsEnabled).to_string(),
-            Topic::state(Service::Elizabeth, Bedroom, Thermostat, Temperature).to_string(),
-            Topic::state(Service::Elizabeth, HomeOffice, Thermostat, IsEnabled).to_string(),
-            Topic::state(Service::Elizabeth, HomeOffice, Thermostat, Temperature).to_string(),
-            Topic::state(Service::Elizabeth, LivingRoom, Thermostat, IsEnabled).to_string(),
-            Topic::state(Service::Elizabeth, LivingRoom, Thermostat, Temperature).to_string(),
-            Topic::state(Service::Elizabeth, Nursery, Thermostat, IsEnabled).to_string(),
-            Topic::state(Service::Elizabeth, Nursery, Thermostat, Temperature).to_string(),
+            elizabeth_topic(LivingRoom, Recuperator, ElizabethState::IsEnabled).to_string(),
+            elizabeth_topic(LivingRoom, Recuperator, ElizabethState::FanSpeed).to_string(),
+            elizabeth_topic(Bedroom, Thermostat, ElizabethState::IsEnabled).to_string(),
+            elizabeth_topic(Bedroom, Thermostat, ElizabethState::Temperature).to_string(),
+            elizabeth_topic(HomeOffice, Thermostat, ElizabethState::IsEnabled).to_string(),
+            elizabeth_topic(HomeOffice, Thermostat, ElizabethState::Temperature).to_string(),
+            elizabeth_topic(LivingRoom, Thermostat, ElizabethState::IsEnabled).to_string(),
+            elizabeth_topic(LivingRoom, Thermostat, ElizabethState::Temperature).to_string(),
+            elizabeth_topic(Nursery, Thermostat, ElizabethState::IsEnabled).to_string(),
+            elizabeth_topic(Nursery, Thermostat, ElizabethState::Temperature).to_string(),
+            elisa_topic().to_string(),
         ],
-        [QOS_1; 10],
+        [QOS_1; 11],
     )
 }

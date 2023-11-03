@@ -6,7 +6,7 @@ use crate::{
 use inspinia::Room::*;
 use paho_mqtt::QOS_1;
 
-use topics::{Service, Topic, TopicType};
+use topics::{Topic, TopicType};
 
 pub fn set_topics_and_qos() -> ([String; 10], [i32; 10]) {
     (
@@ -28,7 +28,6 @@ pub fn set_topics_and_qos() -> ([String; 10], [i32; 10]) {
 
 pub const fn topic_for_state(state: State, room: inspinia::Room, device: Device) -> Topic<State> {
     Topic {
-        service: Service::Elizabeth,
         topic_type: TopicType::State,
         room: Some(map_room(room)),
         device,
@@ -39,7 +38,6 @@ pub const fn topic_for_state(state: State, room: inspinia::Room, device: Device)
 impl Into<Topic<State>> for StatePayload {
     fn into(self) -> Topic<State> {
         Topic {
-            service: Service::Elizabeth,
             topic_type: TopicType::State,
             room: Some(map_room(self.room)),
             device: self.device,

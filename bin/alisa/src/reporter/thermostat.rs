@@ -1,38 +1,45 @@
-use crate::{Capability, DeviceId, Result, Room};
 use alice::{RangeFunction, StateCapability, StateDevice, StateProperty};
+use topics::{ElizabethState, Room};
+
+use crate::{DeviceId, Result};
+
+use serde_json::Value;
 
 pub fn prepare_thermostat_update(
-    room: Room,
-    capability: Capability,
-    payload: &[u8],
+    room: Option<Room>,
+    state: ElizabethState,
+    payload: Value,
 ) -> Result<StateDevice> {
+    // TODO: throw an error
+
+    let room = room.unwrap();
     let device_id = DeviceId::thermostat_at_room(room);
 
-    match capability {
-        Capability::IsEnabled => {
-            let value: bool = serde_json::from_slice(payload)?;
+    match state {
+        ElizabethState::IsEnabled => {
+            let value: bool = serde_json::from_value(payload)?;
 
             Ok(StateDevice::new_with_capabilities(
                 device_id.to_string(),
                 vec![StateCapability::on_off(value)],
             ))
         }
-        Capability::Temperature => {
-            let value: f32 = serde_json::from_slice(payload)?;
+        ElizabethState::Temperature => {
+            let value: f32 = serde_json::from_value(payload)?;
 
             Ok(StateDevice::new_with_capabilities(
                 device_id.to_string(),
                 vec![StateCapability::range(RangeFunction::Temperature, value)],
             ))
         }
-        Capability::CurrentTemperature => {
-            let value: f32 = serde_json::from_slice(payload)?;
+        ElizabethState::CurrentTemperature => {
+            let value: f32 = serde_json::from_value(payload)?;
 
             Ok(StateDevice::new_with_properties(
                 device_id.to_string(),
                 vec![StateProperty::temperature(value)],
             ))
         }
-        Capability::FanSpeed | Capability::Mode => unreachable!(),
+        ElizabethState::FanSpeed | ElizabethState::Mode => unreachable!(),
     }
 }

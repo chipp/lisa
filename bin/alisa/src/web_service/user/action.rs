@@ -3,22 +3,22 @@ use alice::{
     UpdateStateCapability, UpdateStateErrorCode, UpdateStateRequest, UpdateStateResponse,
     UpdatedDeviceState,
 };
+use serde_json::{json, Value};
+use tokio::sync::mpsc::UnboundedSender;
+use topics::{Device, ElisaAction, ElizabethState};
 
 use std::str::FromStr;
-use std::todo;
 
 use bytes::Buf;
 use hyper::{Body, Request, Response, StatusCode};
-use serde_json::{json, Value};
-use tokio::sync::mpsc::UnboundedSender;
 
-use crate::types::{Capability, DeviceId, UpdatePayload};
+use crate::types::{DeviceId, VacuumFanSpeed};
 use crate::web_service::auth::validate_autorization;
-use crate::Result;
+use crate::{Action, ActionPayload, Result};
 
 pub async fn action(
     request: Request<Body>,
-    update_device: UnboundedSender<UpdatePayload>,
+    perform_action: UnboundedSender<ActionPayload>,
 ) -> Result<Response<Body>> {
     validate_autorization(request, "devices_action", |request| async move {
         let request_id = String::from(std::str::from_utf8(
@@ -34,30 +34,33 @@ pub async fn action(
 
         let mut response_devices = vec![];
 
-        for device in action.payload.devices {
-            let DeviceId { room, device_type } = DeviceId::from_str(device.id).unwrap();
+        for request_device in action.payload.devices {
+            let DeviceId { room, device } = DeviceId::from_str(request_device.id).unwrap();
             let mut response_capabilities = vec![];
 
-            for state_capability in device.capabilities {
-                let (capability, value) = prepare_notification_capability(&state_capability);
-                let result = match update_device.send(UpdatePayload {
-                    device_type,
+            for state_capability in request_device.capabilities {
+                // TODO: handle None
+                let (action, value) =
+                    prepare_action_for_device(&state_capability, &device).unwrap();
+
+                let result = match perform_action.send(ActionPayload {
+                    device,
                     room,
-                    capability,
+                    action,
                     value,
                 }) {
                     Ok(()) => StateUpdateResult::ok(),
                     Err(err) => StateUpdateResult::error(
                         UpdateStateErrorCode::DeviceUnreachable,
                         err.to_string(),
-                    ),
+                    ), // TODO: differentiate errors
                 };
 
                 response_capabilities.push(prepare_response_capability(&state_capability, result));
             }
 
             response_devices.push(UpdatedDeviceState::new(
-                device.id.to_string(),
+                request_device.id.to_string(),
                 response_capabilities,
             ));
         }
@@ -72,26 +75,38 @@ pub async fn action(
     .await
 }
 
-fn prepare_notification_capability(capability: &StateCapability) -> (Capability, Value) {
-    match capability {
-        StateCapability::OnOff { value } => (Capability::IsEnabled, json!(value)),
-        StateCapability::Mode {
-            function: ModeFunction::FanSpeed,
-            mode,
-        } => (Capability::FanSpeed, json!(mode)),
-        StateCapability::Mode {
-            function: ModeFunction::WorkSpeed,
-            mode: _,
-        } => todo!(),
-        StateCapability::Toggle {
-            function: ToggleFunction::Pause,
-            value: _,
-        } => todo!(),
-        StateCapability::Range {
-            function: RangeFunction::Temperature,
-            value,
-            relative: _, // TODO: implement
-        } => (Capability::Temperature, json!(value)),
+fn prepare_action_for_device(
+    capability: &StateCapability,
+    device: &Device,
+) -> Option<(Action, Value)> {
+    match (capability, device) {
+        (StateCapability::OnOff { value }, Device::Recuperator)
+        | (StateCapability::OnOff { value }, Device::Thermostat) => {
+            Some((ElizabethState::IsEnabled.into(), json!(value)))
+        }
+        (
+            StateCapability::Mode {
+                function: ModeFunction::FanSpeed,
+                mode,
+            },
+            Device::Recuperator,
+        ) => Some((ElizabethState::FanSpeed.into(), json!(mode))),
+        (
+            StateCapability::Mode {
+                function: ModeFunction::WorkSpeed,
+                mode,
+            },
+            Device::VacuumCleaner,
+        ) => Some((
+            ElisaAction::SetFanSpeed.into(),
+            json!(VacuumFanSpeed::from(*mode)),
+        )),
+        // StateCapability::Range {
+        //     function: RangeFunction::Temperature,
+        //     value,
+        //     relative: _, // TODO: implement
+        // } => (Capability::Temperature, json!(value)),
+        _ => todo!(),
     }
 }
 
@@ -127,51 +142,123 @@ mod tests {
     use alice::Mode;
 
     #[test]
-    fn test_prepare_notification_capability() {
+    fn test_prepare_action_for_device() {
         assert_eq!(
-            prepare_notification_capability(&StateCapability::OnOff { value: true }),
-            (Capability::IsEnabled, Value::Bool(true))
+            prepare_action_for_device(
+                &StateCapability::OnOff { value: true },
+                &Device::Recuperator
+            ),
+            Some((ElizabethState::IsEnabled.into(), json!(true)))
         );
 
         assert_eq!(
-            prepare_notification_capability(&StateCapability::OnOff { value: false }),
-            (Capability::IsEnabled, Value::Bool(false))
+            prepare_action_for_device(
+                &StateCapability::OnOff { value: false },
+                &Device::Recuperator
+            ),
+            Some((ElizabethState::IsEnabled.into(), json!(false)))
         );
 
         assert_eq!(
-            prepare_notification_capability(&StateCapability::Mode {
-                function: ModeFunction::FanSpeed,
-                mode: Mode::Low
-            }),
-            (Capability::FanSpeed, Value::String("low".to_string()))
+            prepare_action_for_device(&StateCapability::OnOff { value: true }, &Device::Thermostat),
+            Some((ElizabethState::IsEnabled.into(), json!(true)))
         );
 
         assert_eq!(
-            prepare_notification_capability(&StateCapability::Mode {
-                function: ModeFunction::FanSpeed,
-                mode: Mode::Medium
-            }),
-            (Capability::FanSpeed, Value::String("medium".to_string()))
+            prepare_action_for_device(
+                &StateCapability::OnOff { value: false },
+                &Device::Thermostat
+            ),
+            Some((ElizabethState::IsEnabled.into(), json!(false)))
         );
 
         assert_eq!(
-            prepare_notification_capability(&StateCapability::Mode {
-                function: ModeFunction::FanSpeed,
-                mode: Mode::High
-            }),
-            (Capability::FanSpeed, Value::String("high".to_string()))
+            prepare_action_for_device(
+                &StateCapability::Mode {
+                    function: ModeFunction::FanSpeed,
+                    mode: Mode::Low
+                },
+                &Device::Recuperator
+            ),
+            Some((ElizabethState::FanSpeed.into(), json!(Mode::Low)))
         );
 
         assert_eq!(
-            prepare_notification_capability(&StateCapability::Range {
-                function: RangeFunction::Temperature,
-                value: 20.0,
-                relative: false
-            }),
-            (
-                Capability::Temperature,
-                Value::Number(serde_json::Number::from_f64(20.0).unwrap())
-            )
+            prepare_action_for_device(
+                &StateCapability::Mode {
+                    function: ModeFunction::FanSpeed,
+                    mode: Mode::Medium
+                },
+                &Device::Recuperator
+            ),
+            Some((ElizabethState::FanSpeed.into(), json!(Mode::Medium)))
+        );
+
+        assert_eq!(
+            prepare_action_for_device(
+                &StateCapability::Mode {
+                    function: ModeFunction::FanSpeed,
+                    mode: Mode::High
+                },
+                &Device::Recuperator
+            ),
+            Some((ElizabethState::FanSpeed.into(), json!(Mode::High)))
+        );
+
+        assert_eq!(
+            prepare_action_for_device(
+                &StateCapability::Mode {
+                    function: ModeFunction::WorkSpeed,
+                    mode: Mode::Quiet
+                },
+                &Device::VacuumCleaner
+            ),
+            Some((
+                ElisaAction::SetFanSpeed.into(),
+                json!(VacuumFanSpeed::Silent)
+            ))
+        );
+
+        assert_eq!(
+            prepare_action_for_device(
+                &StateCapability::Mode {
+                    function: ModeFunction::WorkSpeed,
+                    mode: Mode::Normal
+                },
+                &Device::VacuumCleaner
+            ),
+            Some((
+                ElisaAction::SetFanSpeed.into(),
+                json!(VacuumFanSpeed::Standard)
+            ))
+        );
+
+        assert_eq!(
+            prepare_action_for_device(
+                &StateCapability::Mode {
+                    function: ModeFunction::WorkSpeed,
+                    mode: Mode::Medium
+                },
+                &Device::VacuumCleaner
+            ),
+            Some((
+                ElisaAction::SetFanSpeed.into(),
+                json!(VacuumFanSpeed::Medium)
+            ))
+        );
+
+        assert_eq!(
+            prepare_action_for_device(
+                &StateCapability::Mode {
+                    function: ModeFunction::WorkSpeed,
+                    mode: Mode::Turbo
+                },
+                &Device::VacuumCleaner
+            ),
+            Some((
+                ElisaAction::SetFanSpeed.into(),
+                json!(VacuumFanSpeed::Turbo)
+            ))
         );
     }
 

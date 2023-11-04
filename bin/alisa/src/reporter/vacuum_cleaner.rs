@@ -1,45 +1,40 @@
 use crate::{DeviceId, Result};
 
-use alice::{ModeFunction::*, StateCapability, StateDevice, StateProperty, ToggleFunction::Pause};
-use serde_json::Value;
-use topics::{ElisaState, Room};
+use alice::{
+    Mode, ModeFunction::*, StateCapability, StateDevice, StateProperty, ToggleFunction::Pause,
+};
+use transport::elisa::State;
+use transport::Room;
 
-use serde::Deserialize;
+pub fn prepare_vacuum_updates(state: State) -> Result<Vec<StateDevice>> {
+    let mut devices = vec![];
 
-pub fn prepare_vacuum_updates(state: ElisaState, payload: Value) -> Result<Vec<StateDevice>> {
-    match state {
-        ElisaState::Status => {
-            let status: Status = serde_json::from_value(payload)?;
+    for room in Room::all_rooms() {
+        let device_id = DeviceId::vacuum_cleaner_at_room(room);
 
-            let mut devices = vec![];
+        let properties = vec![StateProperty::battery_level(state.battery_level.into())];
 
-            for room in Room::all_rooms() {
-                let device_id = DeviceId::vacuum_cleaner_at_room(room);
+        let capabilities = vec![
+            StateCapability::on_off(state.is_enabled),
+            StateCapability::mode(WorkSpeed, map_work_speed(state.work_speed)),
+            StateCapability::toggle(Pause, state.is_paused),
+        ];
 
-                let properties = vec![StateProperty::battery_level(status.battery_level.into())];
-
-                let capabilities = vec![
-                    StateCapability::on_off(status.is_enabled),
-                    StateCapability::mode(WorkSpeed, status.fan_speed.into()),
-                    StateCapability::toggle(Pause, status.is_paused),
-                ];
-
-                devices.push(StateDevice::new_with_properties_and_capabilities(
-                    device_id.to_string(),
-                    properties,
-                    capabilities,
-                ));
-            }
-
-            Ok(devices)
-        }
+        devices.push(StateDevice::new_with_properties_and_capabilities(
+            device_id.to_string(),
+            properties,
+            capabilities,
+        ));
     }
+
+    Ok(devices)
 }
 
-#[derive(Debug, Deserialize)]
-struct Status {
-    battery_level: u8,
-    is_enabled: bool,
-    is_paused: bool,
-    fan_speed: crate::types::VacuumFanSpeed,
+fn map_work_speed(speed: transport::elisa::WorkSpeed) -> Mode {
+    match speed {
+        transport::elisa::WorkSpeed::Silent => Mode::Quiet,
+        transport::elisa::WorkSpeed::Standard => Mode::Normal,
+        transport::elisa::WorkSpeed::Medium => Mode::Medium,
+        transport::elisa::WorkSpeed::Turbo => Mode::Turbo,
+    }
 }

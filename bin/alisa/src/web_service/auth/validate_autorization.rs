@@ -50,10 +50,5 @@ const BEARER: &str = "Bearer ";
 fn extract_token_from_headers(headers: &header::HeaderMap) -> Option<&str> {
     let authorization = headers.get("Authorization")?;
     let authorization = std::str::from_utf8(authorization.as_bytes()).ok()?;
-
-    if authorization.starts_with(BEARER) {
-        Some(&authorization[BEARER.len()..])
-    } else {
-        None
-    }
+    authorization.strip_prefix(BEARER)
 }

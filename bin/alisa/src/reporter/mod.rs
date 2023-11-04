@@ -5,52 +5,37 @@ mod vacuum_cleaner;
 use recuperator::prepare_recuperator_update;
 use thermostat::prepare_thermostat_update;
 
-use crate::{reporter::vacuum_cleaner::prepare_vacuum_updates, Result};
-use alice::StateResponse;
-use topics::{Device, ElisaState, ElizabethState, Room};
+use crate::Result;
+use alice::{StateDevice, StateResponse};
+use transport::elisa::State as ElisaState;
+use transport::elizabeth::State as ElizabethState;
+use transport::Device;
 
 use chrono::Utc;
 use hyper::{Body, Client, Method, Request, StatusCode};
 use hyper_tls::HttpsConnector;
 use log::{debug, error};
-use serde_json::Value;
+
+use self::vacuum_cleaner::prepare_vacuum_updates;
 
 pub enum State {
     Elizabeth(ElizabethState),
     Elisa(ElisaState),
 }
 
-pub struct Event {
-    pub device: Device,
-    pub room: Option<Room>,
-    pub state: State,
-    pub payload: Value,
-}
-
-pub async fn report_state(event: Event) -> Result<()> {
+pub async fn report_state(state: State) -> Result<()> {
     let mut devices = vec![];
 
-    let Event {
-        device,
-        room,
-        state,
-        payload,
-    } = event;
-
-    match (device, state) {
-        (Device::Recuperator, State::Elizabeth(state)) => {
-            devices.push(prepare_recuperator_update(room, state, payload)?);
-        }
-        (Device::Thermostat, State::Elizabeth(state)) => {
-            devices.push(prepare_thermostat_update(room, state, payload)?);
-        }
-        (Device::TemperatureSensor, _) => todo!(),
-        (Device::VacuumCleaner, State::Elisa(state)) => {
-            let mut result = prepare_vacuum_updates(state, payload)?;
-            devices.append(&mut result);
-        }
-        _ => todo!(), // TODO: throw an error
-    };
+    match state {
+        State::Elizabeth(state) => match prepare_elizabeth_device(state) {
+            Ok(device) => devices.push(device),
+            Err(err) => error!("unable to prepare updates {}", err),
+        },
+        State::Elisa(state) => match prepare_vacuum_updates(state) {
+            Ok(mut vacuum) => devices.append(&mut vacuum),
+            Err(err) => error!("unable to prepare updates {}", err),
+        },
+    }
 
     let now = Utc::now();
     let body = StateResponse::notification_body(now.timestamp(), "chipp", devices);
@@ -86,10 +71,21 @@ pub async fn report_state(event: Event) -> Result<()> {
             } else {
                 error!("unable to report state changes {}", response.status());
                 error!("{:#?}", response);
+                let body = hyper::body::to_bytes(response.into_body()).await?;
+
+                error!("{}", String::from_utf8(body.to_vec()).unwrap());
             }
         }
         Err(err) => error!("unable to report state changes {}", err),
     }
 
     Ok(())
+}
+
+fn prepare_elizabeth_device(state: ElizabethState) -> Result<StateDevice> {
+    match state.device {
+        Device::Recuperator => prepare_recuperator_update(state),
+        Device::Thermostat => prepare_thermostat_update(state),
+        Device::TemperatureSensor | Device::VacuumCleaner => todo!(),
+    }
 }

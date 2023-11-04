@@ -49,8 +49,7 @@ impl<'de> Visitor<'de> for ResponseVisitor {
                     id = Some(value)
                 }
                 "error" => {
-                    let value: DeviceError =
-                        map.next_value().map_err(de::Error::custom)?;
+                    let value: DeviceError = map.next_value().map_err(de::Error::custom)?;
                     error = Some(value)
                 }
                 "result" => {

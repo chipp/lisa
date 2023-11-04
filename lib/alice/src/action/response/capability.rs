@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::{ModeFunction, RangeFunction, ToggleFunction};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ActionResult {
     Ok,
     Err(Error),
@@ -19,7 +19,7 @@ impl ActionResult {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Error {
     code: ErrorCode,
     message: String,
@@ -31,7 +31,7 @@ impl Error {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ErrorCode {
     InvalidAction,
@@ -74,6 +74,15 @@ impl Capability {
 
     pub fn range(function: RangeFunction, result: ActionResult) -> Capability {
         Capability::Range { function, result }
+    }
+
+    pub fn result_mut(&mut self) -> &mut ActionResult {
+        match self {
+            Capability::OnOff { result }
+            | Capability::Mode { result, .. }
+            | Capability::Toggle { result, .. }
+            | Capability::Range { result, .. } => result,
+        }
     }
 }
 

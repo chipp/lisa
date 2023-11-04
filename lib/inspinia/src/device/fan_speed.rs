@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FanSpeed {
@@ -19,10 +20,10 @@ impl fmt::Display for UnknownFanSpeed {
 
 impl Error for UnknownFanSpeed {}
 
-impl TryFrom<&str> for FanSpeed {
-    type Error = UnknownFanSpeed;
+impl FromStr for FanSpeed {
+    type Err = UnknownFanSpeed;
 
-    fn try_from(value: &str) -> Result<Self, UnknownFanSpeed> {
+    fn from_str(value: &str) -> Result<Self, UnknownFanSpeed> {
         match value {
             "Low" | "low" => Ok(Self::Low),
             "Med" | "medium" => Ok(Self::Medium),
@@ -49,14 +50,14 @@ mod tests {
 
     #[test]
     fn test_fan_speed_parsing() {
-        assert_eq!(FanSpeed::try_from("Low"), Ok(FanSpeed::Low));
-        assert_eq!(FanSpeed::try_from("low"), Ok(FanSpeed::Low));
-        assert_eq!(FanSpeed::try_from("Med"), Ok(FanSpeed::Medium));
-        assert_eq!(FanSpeed::try_from("medium"), Ok(FanSpeed::Medium));
-        assert_eq!(FanSpeed::try_from("High"), Ok(FanSpeed::High));
-        assert_eq!(FanSpeed::try_from("high"), Ok(FanSpeed::High));
+        assert_eq!(FanSpeed::from_str("Low"), Ok(FanSpeed::Low));
+        assert_eq!(FanSpeed::from_str("low"), Ok(FanSpeed::Low));
+        assert_eq!(FanSpeed::from_str("Med"), Ok(FanSpeed::Medium));
+        assert_eq!(FanSpeed::from_str("medium"), Ok(FanSpeed::Medium));
+        assert_eq!(FanSpeed::from_str("High"), Ok(FanSpeed::High));
+        assert_eq!(FanSpeed::from_str("high"), Ok(FanSpeed::High));
         assert_eq!(
-            FanSpeed::try_from("unknown"),
+            FanSpeed::from_str("unknown"),
             Err(UnknownFanSpeed("unknown".to_string()))
         );
     }

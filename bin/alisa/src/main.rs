@@ -1,12 +1,9 @@
-use alisa::{
-    create_action_topic, report_state, state_topics_and_qos, web_handler, ActionPayload,
-    ErasedError, Event, Result, State,
-};
-use mqtt::Message;
-use topics::{ElisaState, ElizabethState, Service, Topic};
+use alisa::{report_state, web_handler, Action, ErasedError, Result, State};
+use transport::elisa::State as ElisaState;
+use transport::elizabeth::State as ElizabethState;
+use transport::{Service, Topic, TopicType};
 
 use std::process;
-use std::str::FromStr;
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -52,7 +49,7 @@ async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
 }
 
 async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ActionPayload>();
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Action>();
 
     let make_svc = make_service_fn(move |_| {
         let tx = tx.clone();
@@ -73,12 +70,21 @@ async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
             server.await
         }),
         task::spawn(async move {
-            while let Some(payload) = rx.recv().await {
-                let value = serde_json::to_vec(&payload.value)?;
-                let topic = create_action_topic(payload.device, payload.room, payload.action);
+            while let Some(action) = rx.recv().await {
+                // TODO: handle errors
+
+                let (topic, value) = match action {
+                    Action::Elizabeth(action) => (
+                        Topic::elizabeth_action(),
+                        serde_json::to_vec(&action).unwrap(),
+                    ),
+                    Action::Elisa(action) => {
+                        (Topic::elisa_action(), serde_json::to_vec(&action).unwrap())
+                    }
+                };
 
                 let message = mqtt::MessageBuilder::new()
-                    .topic(topic)
+                    .topic(topic.to_string())
                     .payload(value)
                     .finalize();
 
@@ -98,14 +104,19 @@ async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
 async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    let (topics, qos) = state_topics_and_qos();
-    mqtt.subscribe_many(&topics, &qos);
+    let topics = &[
+        Topic::elisa_state().to_string(),
+        Topic::elizabeth_state().to_string(),
+    ];
+    let qos = &[mqtt::QOS_1; 2];
+
+    mqtt.subscribe_many(topics, qos);
 
     info!("Subscribed to topics: {:?}", topics);
 
     while let Some(msg_opt) = stream.next().await {
         if let Some(msg) = msg_opt {
-            if let Some(event) = parse_event(&msg) {
+            if let Some(event) = parse_state(&msg) {
                 match report_state(event).await {
                     Ok(_) => (),
                     Err(err) => error!("Error updating state: {}", err),
@@ -125,33 +136,20 @@ async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
     Ok(())
 }
 
-fn parse_event(msg: &Message) -> Option<Event> {
-    let topic = msg.topic();
-    let (service, _) = topic.split_once('/')?;
-    let service = Service::from_str(service).ok()?;
+fn parse_state(msg: &mqtt::Message) -> Option<State> {
+    let topic: Topic = msg.topic().parse().ok()?;
 
-    match service {
-        Service::Elisa => {
-            let topic: Topic<ElisaState> = topic.parse().ok()?;
-            let payload = serde_json::from_slice(msg.payload()).ok()?;
-
-            Some(Event {
-                device: topic.device,
-                room: topic.room,
-                state: State::Elisa(topic.feature),
-                payload,
-            })
-        }
-        Service::Elizabeth => {
-            let topic: Topic<ElizabethState> = topic.parse().ok()?;
-            let payload = serde_json::from_slice(msg.payload()).ok()?;
-
-            Some(Event {
-                device: topic.device,
-                room: topic.room,
-                state: State::Elizabeth(topic.feature),
-                payload,
-            })
-        }
+    match topic.topic_type {
+        TopicType::State => match topic.service {
+            Service::Elizabeth => {
+                let state: ElizabethState = serde_json::from_slice(msg.payload()).ok()?;
+                Some(State::Elizabeth(state))
+            }
+            Service::Elisa => {
+                let state: ElisaState = serde_json::from_slice(msg.payload()).ok()?;
+                Some(State::Elisa(state))
+            }
+        },
+        TopicType::Action => None,
     }
 }

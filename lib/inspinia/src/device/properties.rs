@@ -12,6 +12,8 @@ pub struct Properties {
 }
 
 mod parse_controls {
+    use std::str::FromStr;
+
     use super::super::port_name::{PortName, ALL_PORT_NAMES};
     use serde::{Deserialize, Deserializer};
 
@@ -24,7 +26,7 @@ mod parse_controls {
 
         for name in string.split(',') {
             names.push(
-                PortName::try_from(name)
+                PortName::from_str(name)
                     .map_err(|_| serde::de::Error::unknown_variant(name, &ALL_PORT_NAMES))?,
             );
         }

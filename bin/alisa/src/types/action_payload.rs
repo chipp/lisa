@@ -1,10 +1,9 @@
-use topics::{Device, ElisaAction, ElizabethState, Room};
-
-use serde_json::Value;
+use transport::elisa::Action as ElisaAction;
+use transport::elizabeth::Action as ElizabethAction;
 
 #[derive(Debug, PartialEq)]
 pub enum Action {
-    Elizabeth(ElizabethState),
+    Elizabeth(ElizabethAction),
     Elisa(ElisaAction),
 }
 
@@ -14,15 +13,8 @@ impl From<ElisaAction> for Action {
     }
 }
 
-impl From<ElizabethState> for Action {
-    fn from(value: ElizabethState) -> Self {
+impl From<ElizabethAction> for Action {
+    fn from(value: ElizabethAction) -> Self {
         Self::Elizabeth(value)
     }
-}
-
-pub struct ActionPayload {
-    pub device: Device,
-    pub room: Room,
-    pub action: Action,
-    pub value: Value,
 }

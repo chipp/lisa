@@ -1,10 +1,9 @@
-use elisa::{actions_topics_and_qos, room_id_for_room, topic_for_state};
-use elisa::{Action, Result, Room, State, Status};
-use topics::Topic;
-use xiaomi::{parse_token, FanSpeed, Vacuum};
+use elisa::{room_id_for_room, Result};
+use transport::elisa::{Action, State, WorkSpeed};
+use transport::Topic;
+use xiaomi::{parse_token, FanSpeed, Status, Vacuum};
 
 use std::process;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -67,21 +66,17 @@ async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
 async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    let (topics, qos) = actions_topics_and_qos();
-    mqtt.subscribe_many(&topics, &qos);
+    mqtt.subscribe_many(&[Topic::elisa_action().to_string()], &[mqtt::QOS_1]);
 
-    info!("Subscribed to topics: {:?}", topics);
+    info!("Subscribed to topic: {}", Topic::elisa_action());
 
     while let Some(msg_opt) = stream.next().await {
         let vacuum = &mut vacuum.lock().await;
 
         if let Some(msg) = msg_opt {
-            match Topic::from_str(msg.topic()) {
-                Ok(topic) => match perform_action(topic, msg.payload(), vacuum).await {
-                    Ok(_) => (),
-                    Err(err) => error!("Error updating state: {}", err),
-                },
-                Err(err) => error!("unable to parse topic {} {}", msg.topic(), err),
+            match perform_action(msg.payload(), vacuum).await {
+                Ok(_) => (),
+                Err(err) => error!("Error updating state: {}", err),
             }
         } else {
             error!("Lost MQTT connection. Attempting reconnect.");
@@ -95,14 +90,11 @@ async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum
     Ok(())
 }
 
-async fn perform_action(topic: Topic<Action>, payload: &[u8], vacuum: &mut Vacuum) -> Result<()> {
-    use serde::de::{value, Error};
+async fn perform_action(payload: &[u8], vacuum: &mut Vacuum) -> Result<()> {
+    let action: Action = serde_json::from_slice(payload)?;
 
-    let value: serde_json::Value = serde_json::from_slice(payload)?;
-
-    match topic.feature {
-        Action::Start => {
-            let rooms: Vec<Room> = serde_json::from_value(value)?;
+    match action {
+        Action::Start(rooms) => {
             let room_ids = rooms.iter().map(room_id_for_room).collect();
 
             info!("wants to start cleaning in rooms: {:?}", rooms);
@@ -113,11 +105,8 @@ async fn perform_action(topic: Topic<Action>, payload: &[u8], vacuum: &mut Vacuu
             vacuum.stop().await?;
             vacuum.go_home().await
         }
-        Action::SetFanSpeed => {
-            let mode = value
-                .as_str()
-                .ok_or(value::Error::custom("expected FanSpeed as string"))?;
-            let mode = FanSpeed::from_str(mode)?;
+        Action::SetWorkSpeed(work_speed) => {
+            let mode = map_work_speed(work_speed);
 
             info!("wants to set mode {}", mode);
             vacuum.set_fan_speed(mode).await
@@ -143,9 +132,9 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) ->
         if let Ok(status) = vacuum.status().await {
             info!("publishing state: {:?}", status);
 
-            let status = Status::from(status);
-            let topic = topic_for_state(State::Status);
-            let payload = serde_json::to_vec(&status).unwrap();
+            let topic = Topic::elisa_state();
+            let state = map_status(status);
+            let payload = serde_json::to_vec(&state).unwrap();
 
             let message = mqtt::MessageBuilder::new()
                 .topic(topic.to_string())
@@ -154,5 +143,32 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) ->
 
             mqtt.publish(message).await?;
         }
+    }
+}
+
+fn map_status(status: Status) -> State {
+    State {
+        battery_level: status.battery,
+        is_enabled: status.state.is_enabled(),
+        is_paused: status.state.is_paused(),
+        work_speed: map_fan_speed(status.fan_speed),
+    }
+}
+
+fn map_fan_speed(fan_speed: FanSpeed) -> WorkSpeed {
+    match fan_speed {
+        FanSpeed::Silent => WorkSpeed::Silent,
+        FanSpeed::Standard => WorkSpeed::Standard,
+        FanSpeed::Medium => WorkSpeed::Medium,
+        FanSpeed::Turbo => WorkSpeed::Turbo,
+    }
+}
+
+fn map_work_speed(work_speed: WorkSpeed) -> FanSpeed {
+    match work_speed {
+        WorkSpeed::Silent => FanSpeed::Silent,
+        WorkSpeed::Standard => FanSpeed::Standard,
+        WorkSpeed::Medium => FanSpeed::Medium,
+        WorkSpeed::Turbo => FanSpeed::Turbo,
     }
 }

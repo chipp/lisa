@@ -31,11 +31,11 @@ use log::error;
 use hyper::{Body, Method, Request, Response, StatusCode};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{ActionPayload, Result};
+use crate::{Action, Result};
 
 pub async fn web_handler(
     request: Request<Body>,
-    perform_action: UnboundedSender<ActionPayload>,
+    perform_action: UnboundedSender<Action>,
 ) -> Result<Response<Body>> {
     match (request.uri().path(), request.method()) {
         ("/auth", &Method::GET) => auth::auth_page(request),

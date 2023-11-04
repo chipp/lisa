@@ -2,19 +2,20 @@ mod error;
 use error::Error;
 
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::time::Duration;
-
-use crate::state_payload::port_name_to_state;
-use crate::{Device as DeviceType, Result, StatePayload};
 
 use log::{debug, error, info};
 use tokio::time::timeout;
 
+use crate::Result;
 use inspinia::{
     download_template, Device, DeviceManager, FanSpeed, PortName, PortState, PortType,
     ReceivedMessage, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WsClient,
     WsError,
 };
+use transport::elizabeth::{Capability, State};
+use transport::Device as DeviceType;
 
 pub struct InspiniaClient {
     db_path: PathBuf,
@@ -88,7 +89,7 @@ impl InspiniaClient {
 }
 
 impl InspiniaClient {
-    pub async fn read(&mut self) -> Result<StatePayload> {
+    pub async fn read(&mut self) -> Result<State> {
         debug!("read next");
         debug!("initial state {:?}", self.initial_state.len());
 
@@ -146,22 +147,23 @@ impl InspiniaClient {
         }
     }
 
-    fn parse_initial_state(state: PortState, db_path: &Path) -> Option<StatePayload> {
+    fn parse_initial_state(state: PortState, db_path: &Path) -> Option<State> {
         let value = state.value.as_ref()?;
         Self::state_payload(&state.id, value, db_path).ok()
     }
 
-    fn state_payload(port_id: &str, value: &str, db_path: &Path) -> Result<StatePayload> {
+    fn state_payload(port_id: &str, value: &str, db_path: &Path) -> Result<State> {
         let devices = Self::get_devices(db_path)?;
 
         for (device_type, device) in devices {
             if let Some(port) = device.ports.get(port_id) {
-                return Ok(StatePayload {
-                    device: device_type,
-                    room: device.room,
-                    state: port_name_to_state(port.name),
-                    value: value.to_string(),
-                });
+                if let Some(capability) = prepare_capability(&port.name, value) {
+                    return Ok(State {
+                        device: device_type,
+                        room: map_room(device.room),
+                        capability,
+                    });
+                }
             }
         }
 
@@ -241,7 +243,7 @@ impl InspiniaClient {
         panic!("set_is_enabled_in_room")
     }
 
-    pub async fn set_thermostat_temperature(&mut self, value: f64, room: Room) -> Result<()> {
+    pub async fn set_thermostat_temperature(&mut self, value: f32, room: Room) -> Result<()> {
         let temp = value.to_string();
 
         info!("set temperature in room {:?} = {}", room, temp);
@@ -317,6 +319,42 @@ impl InspiniaClient {
         }
 
         panic!("set_fan_speed_on_recuperator")
+    }
+}
+
+fn prepare_capability(name: &PortName, value: &str) -> Option<Capability> {
+    match name {
+        PortName::OnOff => Some(Capability::IsEnabled(value == "1")),
+        PortName::FanSpeed => {
+            let fan_speed = FanSpeed::from_str(value).ok()?;
+            Some(Capability::FanSpeed(map_fan_speed(fan_speed)))
+        }
+        PortName::SetTemp => {
+            let value = f32::from_str(value).ok()?;
+            Some(Capability::Temperature(value))
+        }
+        PortName::RoomTemp => {
+            let value = f32::from_str(value).ok()?;
+            Some(Capability::CurrentTemperature(value))
+        }
+        PortName::Mode => None,
+    }
+}
+
+fn map_room(room: Room) -> transport::Room {
+    match room {
+        Room::Bedroom => transport::Room::Bedroom,
+        Room::Nursery => transport::Room::Nursery,
+        Room::HomeOffice => transport::Room::HomeOffice,
+        Room::LivingRoom => transport::Room::LivingRoom,
+    }
+}
+
+fn map_fan_speed(fan_speed: FanSpeed) -> transport::elizabeth::FanSpeed {
+    match fan_speed {
+        FanSpeed::Low => transport::elizabeth::FanSpeed::Low,
+        FanSpeed::Medium => transport::elizabeth::FanSpeed::Medium,
+        FanSpeed::High => transport::elizabeth::FanSpeed::High,
     }
 }
 

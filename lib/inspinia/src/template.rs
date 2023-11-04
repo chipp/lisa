@@ -69,7 +69,7 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
 
     let result_hash = context.compute();
 
-    if &expected_hash[..] != &result_hash[..] {
+    if expected_hash[..] != result_hash[..] {
         panic!("invalid hash");
     }
 

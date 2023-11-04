@@ -30,8 +30,6 @@ pub enum Mode {
     Turbo,
 }
 
-
-
 impl std::str::FromStr for Mode {
     type Err = value::Error;
 

@@ -4,12 +4,10 @@ pub fn parse_token<const LENGTH: usize>(hex: &str) -> Token<LENGTH> {
     assert_eq!(hex.len(), LENGTH * 2);
 
     let mut result = [0; LENGTH];
-    let mut idx = 0;
     let iterator = TokenIterator { token: hex, pos: 0 };
 
-    for value in iterator {
+    for (idx, value) in iterator.enumerate() {
         result[idx] = value;
-        idx += 1;
     }
 
     result

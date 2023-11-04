@@ -1,6 +1,6 @@
 use alice::{Device, DeviceCapability, DeviceProperty, DeviceType};
 use alice::{Mode, ModeFunction, Range, RangeFunction, TemperatureUnit, ToggleFunction};
-use topics::Room;
+use transport::Room;
 
 use hyper::{Body, Request, Response, StatusCode};
 use serde_json::json;

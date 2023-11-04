@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 alice = { path = "../../lib/alice" }
-topics = { path = "../../lib/topics" }
+transport = { path = "../../lib/transport" }
 
 pretty_env_logger = "0.4"
 log = "0.4"

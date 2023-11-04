@@ -60,7 +60,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "tokio",
- "topics",
+ "transport",
  "url",
 ]
 
@@ -334,7 +334,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
- "topics",
+ "transport",
  "xiaomi",
 ]
 
@@ -352,7 +352,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
- "topics",
+ "transport",
 ]
 
 [[package]]
@@ -1633,14 +1633,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "topics"
-version = "0.1.0"
-dependencies = [
- "serde",
- "str_derive",
-]
-
-[[package]]
 name = "tower-service"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1664,6 +1656,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24eb03ba0eab1fd845050058ce5e616558e8f8d8fca633e6b163fe25c797213a"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "transport"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "str_derive",
 ]
 
 [[package]]

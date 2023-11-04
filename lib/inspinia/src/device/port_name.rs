@@ -2,6 +2,7 @@ use rusqlite::types::{FromSql, FromSqlError, ValueRef};
 use serde::Serialize;
 use std::error::Error;
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -28,14 +29,14 @@ impl Error for UnknownPortName {}
 
 impl FromSql for PortName {
     fn column_result(value: ValueRef<'_>) -> Result<Self, FromSqlError> {
-        PortName::try_from(value.as_str()?).map_err(|err| FromSqlError::Other(Box::new(err)))
+        PortName::from_str(value.as_str()?).map_err(|err| FromSqlError::Other(Box::new(err)))
     }
 }
 
-impl TryFrom<&str> for PortName {
-    type Error = UnknownPortName;
+impl FromStr for PortName {
+    type Err = UnknownPortName;
 
-    fn try_from(value: &str) -> Result<Self, UnknownPortName> {
+    fn from_str(value: &str) -> Result<Self, UnknownPortName> {
         match value {
             "ON_OFF" => Ok(Self::OnOff),
             "SET_TEMP" => Ok(Self::SetTemp),

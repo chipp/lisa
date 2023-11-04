@@ -10,6 +10,6 @@ members = [
   "lib/alice", # Yandex.Alisa API types
   "lib/xiaomi", # Xiaomi Vacuum Cleaner communication protocol
   "lib/inspinia", # Inspinia WS API types
-  "lib/topics", # MQTT topics
+  "lib/transport", # MQTT topics and payloads
   "lib/str_derive"
 ]

@@ -21,7 +21,7 @@ pub fn encrypt(data: &mut Vec<u8>, token: Token<16>) -> Result<&[u8]> {
     Ok(ct)
 }
 
-pub fn decrypt(data: &mut Vec<u8>, token: Token<16>) -> Result<&[u8]> {
+pub fn decrypt(data: &mut [u8], token: Token<16>) -> Result<&[u8]> {
     let (key, iv) = key_iv_from_token(token);
 
     let pt = Aes128CbcDec::new(&key.into(), &iv.into()).decrypt_padded_mut::<Pkcs7>(data)?;

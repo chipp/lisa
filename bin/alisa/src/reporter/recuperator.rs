@@ -1,35 +1,38 @@
 use crate::{DeviceId, Result};
+use std::fmt;
 
 use alice::{Mode, ModeFunction, StateCapability, StateDevice};
-use serde_json::Value;
-use topics::{ElizabethState, Room};
+use transport::elizabeth::{Capability, State};
 
-use serde::{Deserialize, Serialize};
+#[derive(Debug)]
+pub enum Error {
+    NotSupported(Capability),
+}
 
-pub fn prepare_recuperator_update(
-    room: Option<Room>,
-    state: ElizabethState,
-    payload: Value,
-) -> Result<StateDevice> {
-    let state_capability;
-
-    match state {
-        ElizabethState::IsEnabled => {
-            let value: bool = serde_json::from_value(payload)?;
-            state_capability = StateCapability::on_off(value);
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::NotSupported(capability) => {
+                write!(f, "capability {:?} is not supported", capability)
+            }
         }
-        ElizabethState::FanSpeed => {
-            let value: FanSpeed = serde_json::from_value(payload)?;
-            state_capability = StateCapability::mode(ModeFunction::FanSpeed, value.to_mode());
-        }
-        ElizabethState::Temperature => todo!(),
-        ElizabethState::CurrentTemperature => todo!(),
-        ElizabethState::Mode => todo!(),
     }
+}
 
-    // TODO: throw an error
-    let room = room.unwrap();
-    let device_id = DeviceId::recuperator_at_room(room);
+impl std::error::Error for Error {}
+
+pub fn prepare_recuperator_update(state: State) -> Result<StateDevice> {
+    let state_capability = match state.capability {
+        Capability::IsEnabled(value) => StateCapability::on_off(value),
+        Capability::FanSpeed(fan_speed) => {
+            StateCapability::mode(ModeFunction::FanSpeed, map_fan_speed(fan_speed))
+        }
+        Capability::Temperature(_) | Capability::CurrentTemperature(_) => {
+            return Err(Error::NotSupported(state.capability).into())
+        }
+    };
+
+    let device_id = DeviceId::recuperator_at_room(state.room);
 
     Ok(StateDevice::new_with_capabilities(
         device_id.to_string(),
@@ -37,20 +40,10 @@ pub fn prepare_recuperator_update(
     ))
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-enum FanSpeed {
-    Low,
-    Medium,
-    High,
-}
-
-impl FanSpeed {
-    fn to_mode(self) -> Mode {
-        match self {
-            FanSpeed::Low => Mode::Low,
-            FanSpeed::Medium => Mode::Medium,
-            FanSpeed::High => Mode::High,
-        }
+fn map_fan_speed(speed: transport::elizabeth::FanSpeed) -> Mode {
+    match speed {
+        transport::elizabeth::FanSpeed::Low => Mode::Low,
+        transport::elizabeth::FanSpeed::Medium => Mode::Medium,
+        transport::elizabeth::FanSpeed::High => Mode::High,
     }
 }

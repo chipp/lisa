@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 xiaomi = { path = "../../lib/xiaomi" }
-topics = { path = "../../lib/topics" }
+transport = { path = "../../lib/transport" }
 
 futures-util = "0.3"
 

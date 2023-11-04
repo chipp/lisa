@@ -1,17 +1,14 @@
-use elizabeth::set_topics_and_qos;
-use elizabeth::{InspiniaClient, Result, State, StatePayload};
-use inspinia::FanSpeed;
-use topics::{Device, Topic};
+use elizabeth::{InspiniaClient, Result};
+use transport::elizabeth::{Action, ActionType};
+use transport::{Device, Topic};
 
 use std::process;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
 use log::{error, info};
 use paho_mqtt as mqtt;
-use serde_json::json;
 use tokio::time;
 use tokio::{sync::Mutex, task};
 
@@ -27,7 +24,10 @@ async fn main() -> Result<()> {
     info!("connected mqtt");
 
     let (set_handle, state_handle) = tokio::try_join!(
-        task::spawn(subscribe_set(mqtt_client.clone(), inspinia_client.clone())),
+        task::spawn(subscribe_action(
+            mqtt_client.clone(),
+            inspinia_client.clone()
+        )),
         task::spawn(subscribe_state(mqtt_client, inspinia_client))
     )?;
 
@@ -53,27 +53,22 @@ async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
     Ok(client)
 }
 
-async fn subscribe_set(
+async fn subscribe_action(
     mut mqtt: mqtt::AsyncClient,
     inspinia: Arc<Mutex<InspiniaClient>>,
 ) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    let (topics, qos) = set_topics_and_qos();
-    mqtt.subscribe_many(&topics, &qos);
-
-    info!("Subscribed to topics: {:?}", topics);
+    mqtt.subscribe_many(&[Topic::elizabeth_action().to_string()], &[mqtt::QOS_1]);
+    info!("Subscribed to topic: {}", Topic::elizabeth_action());
 
     while let Some(msg_opt) = stream.next().await {
         let inspinia = &mut inspinia.lock().await;
 
         if let Some(msg) = msg_opt {
-            match Topic::from_str(msg.topic()) {
-                Ok(topic) => match update_state(topic, msg.payload(), inspinia).await {
-                    Ok(_) => (),
-                    Err(err) => error!("Error updating state: {}", err),
-                },
-                Err(err) => error!("unable to parse topic {} {}", msg.topic(), err),
+            match update_state(msg.payload(), inspinia).await {
+                Ok(_) => (),
+                Err(err) => error!("Error updating state: {}", err),
             }
         } else {
             error!("Lost MQTT connection. Attempting reconnect.");
@@ -87,37 +82,30 @@ async fn subscribe_set(
     Ok(())
 }
 
-async fn update_state(
-    topic: Topic<State>,
-    payload: &[u8],
-    inspinia: &mut InspiniaClient,
-) -> Result<()> {
-    let value: serde_json::Value = serde_json::from_slice(payload).unwrap();
+async fn update_state(payload: &[u8], inspinia: &mut InspiniaClient) -> Result<()> {
+    let action: Action = serde_json::from_slice(payload)?;
 
-    match (topic.device, topic.feature) {
-        (Device::Recuperator, State::IsEnabled) => {
-            if let Some(value) = value.as_bool() {
-                inspinia.set_recuperator_enabled(value).await?;
+    match (action.device, action.action_type) {
+        (Device::Recuperator, ActionType::SetIsEnabled(value)) => {
+            inspinia.set_recuperator_enabled(value).await?;
+        }
+        (Device::Recuperator, ActionType::SetFanSpeed(speed)) => {
+            inspinia
+                .set_recuperator_fan_speed(map_fan_speed(speed))
+                .await?;
+        }
+        (Device::Thermostat, ActionType::SetIsEnabled(value)) => {
+            if let Some(room) = map_room(action.room) {
+                inspinia.set_thermostat_enabled(value, room).await?;
             }
         }
-        (Device::Recuperator, State::FanSpeed) => {
-            if let Some(value) = value.as_str() {
-                let value = FanSpeed::try_from(value)?;
-                inspinia.set_recuperator_fan_speed(value).await?;
+        (Device::Thermostat, ActionType::SetTemperature(value, relative)) => {
+            if relative {
+                // TODO: handle relative
             }
-        }
-        (Device::Thermostat, State::IsEnabled) => {
-            if let Some(value) = value.as_bool() {
-                if let Some(room) = topic.room.and_then(map_room) {
-                    inspinia.set_thermostat_enabled(value, room).await?;
-                }
-            }
-        }
-        (Device::Thermostat, State::Temperature) => {
-            if let Some(value) = value.as_f64() {
-                if let Some(room) = topic.room.and_then(map_room) {
-                    inspinia.set_thermostat_temperature(value, room).await?;
-                }
+
+            if let Some(room) = map_room(action.room) {
+                inspinia.set_thermostat_temperature(value, room).await?;
             }
         }
         _ => (),
@@ -134,17 +122,15 @@ async fn subscribe_state(
         let inspinia = &mut inspinia.lock().await;
 
         if let Ok(payload) = inspinia.read().await {
-            if let Some(value) = value_for_payload(&payload) {
-                let value = serde_json::to_vec(&value)?;
-                let topic: Topic<State> = payload.into();
+            let payload = serde_json::to_vec(&payload)?;
+            let topic = Topic::elizabeth_state();
 
-                let message = mqtt::MessageBuilder::new()
-                    .topic(topic.to_string())
-                    .payload(value)
-                    .finalize();
+            let message = mqtt::MessageBuilder::new()
+                .topic(topic.to_string())
+                .payload(payload)
+                .finalize();
 
-                mqtt.publish(message).await?;
-            }
+            mqtt.publish(message).await?;
         } else {
             error!("Lost Inspinia connection. Attempting reconnect.");
 
@@ -156,24 +142,20 @@ async fn subscribe_state(
     }
 }
 
-fn value_for_payload(payload: &StatePayload) -> Option<serde_json::Value> {
-    match payload.state {
-        State::IsEnabled => Some(json!(payload.value == "1")),
-        State::FanSpeed => Some(json!(payload.value.to_lowercase())),
-        State::CurrentTemperature | State::Temperature => {
-            let value = f32::from_str(&payload.value).ok()?;
-            Some(json!(value))
-        }
-        State::Mode => None,
+fn map_room(room: transport::Room) -> Option<inspinia::Room> {
+    match room {
+        transport::Room::LivingRoom => Some(inspinia::Room::LivingRoom),
+        transport::Room::Bedroom => Some(inspinia::Room::Bedroom),
+        transport::Room::HomeOffice => Some(inspinia::Room::HomeOffice),
+        transport::Room::Nursery => Some(inspinia::Room::Nursery),
+        _ => None,
     }
 }
 
-fn map_room(room: topics::Room) -> Option<inspinia::Room> {
-    match room {
-        topics::Room::LivingRoom => Some(inspinia::Room::LivingRoom),
-        topics::Room::Bedroom => Some(inspinia::Room::Bedroom),
-        topics::Room::HomeOffice => Some(inspinia::Room::HomeOffice),
-        topics::Room::Nursery => Some(inspinia::Room::Nursery),
-        _ => None,
+fn map_fan_speed(speed: transport::elizabeth::FanSpeed) -> inspinia::FanSpeed {
+    match speed {
+        transport::elizabeth::FanSpeed::Low => inspinia::FanSpeed::Low,
+        transport::elizabeth::FanSpeed::Medium => inspinia::FanSpeed::Medium,
+        transport::elizabeth::FanSpeed::High => inspinia::FanSpeed::High,
     }
 }

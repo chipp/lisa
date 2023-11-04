@@ -9,7 +9,7 @@ use crate::Result;
 use alice::{StateDevice, StateResponse};
 use transport::elisa::State as ElisaState;
 use transport::elizabeth::State as ElizabethState;
-use transport::Device;
+use transport::DeviceType;
 
 use chrono::Utc;
 use hyper::{Body, Client, Method, Request, StatusCode};
@@ -83,9 +83,9 @@ pub async fn report_state(state: State) -> Result<()> {
 }
 
 fn prepare_elizabeth_device(state: ElizabethState) -> Result<StateDevice> {
-    match state.device {
-        Device::Recuperator => prepare_recuperator_update(state),
-        Device::Thermostat => prepare_thermostat_update(state),
-        Device::TemperatureSensor | Device::VacuumCleaner => todo!(),
+    match state.device_type {
+        DeviceType::Recuperator => prepare_recuperator_update(state),
+        DeviceType::Thermostat => prepare_thermostat_update(state),
+        DeviceType::TemperatureSensor | DeviceType::VacuumCleaner => todo!(),
     }
 }

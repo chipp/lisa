@@ -1,6 +1,6 @@
 use elizabeth::{InspiniaClient, Result};
 use transport::elizabeth::{Action, ActionType};
-use transport::{Device, Topic};
+use transport::{DeviceType, Topic};
 
 use std::process;
 use std::sync::Arc;
@@ -85,21 +85,21 @@ async fn subscribe_action(
 async fn update_state(payload: &[u8], inspinia: &mut InspiniaClient) -> Result<()> {
     let action: Action = serde_json::from_slice(payload)?;
 
-    match (action.device, action.action_type) {
-        (Device::Recuperator, ActionType::SetIsEnabled(value)) => {
+    match (action.device_type, action.action_type) {
+        (DeviceType::Recuperator, ActionType::SetIsEnabled(value)) => {
             inspinia.set_recuperator_enabled(value).await?;
         }
-        (Device::Recuperator, ActionType::SetFanSpeed(speed)) => {
+        (DeviceType::Recuperator, ActionType::SetFanSpeed(speed)) => {
             inspinia
                 .set_recuperator_fan_speed(map_fan_speed(speed))
                 .await?;
         }
-        (Device::Thermostat, ActionType::SetIsEnabled(value)) => {
+        (DeviceType::Thermostat, ActionType::SetIsEnabled(value)) => {
             if let Some(room) = map_room(action.room) {
                 inspinia.set_thermostat_enabled(value, room).await?;
             }
         }
-        (Device::Thermostat, ActionType::SetTemperature(value, relative)) => {
+        (DeviceType::Thermostat, ActionType::SetTemperature(value, relative)) => {
             if relative {
                 // TODO: handle relative
             }

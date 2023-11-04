@@ -3,47 +3,47 @@ use std::str::FromStr;
 
 use serde::de::{self, value, Unexpected};
 
-use transport::{Device, Room};
+use transport::{DeviceType, Room};
 
 #[derive(Debug)]
 pub struct DeviceId {
     pub room: Room,
-    pub device: Device,
+    pub device_type: DeviceType,
 }
 
 impl DeviceId {
     pub fn recuperator_at_room(room: Room) -> DeviceId {
         DeviceId {
             room,
-            device: Device::Recuperator,
+            device_type: DeviceType::Recuperator,
         }
     }
 
     pub fn temperature_sensor_at_room(room: Room) -> DeviceId {
         DeviceId {
             room,
-            device: Device::TemperatureSensor,
+            device_type: DeviceType::TemperatureSensor,
         }
     }
 
     pub fn thermostat_at_room(room: Room) -> DeviceId {
         DeviceId {
             room,
-            device: Device::Thermostat,
+            device_type: DeviceType::Thermostat,
         }
     }
 
     pub fn vacuum_cleaner_at_room(room: Room) -> DeviceId {
         DeviceId {
             room,
-            device: Device::VacuumCleaner,
+            device_type: DeviceType::VacuumCleaner,
         }
     }
 }
 
 impl fmt::Display for DeviceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}", self.device, self.room)
+        write!(f, "{}/{}", self.device_type, self.room)
     }
 }
 
@@ -58,7 +58,7 @@ impl FromStr for DeviceId {
             .next()
             .ok_or_else(|| de::Error::invalid_value(Unexpected::Str(id), &"device_type/room"))?;
 
-        let device_type = Device::from_str(device_type).map_err(|err| {
+        let device_type = DeviceType::from_str(device_type).map_err(|err| {
             de::Error::invalid_value(Unexpected::Str(device_type), &err.to_string().as_str())
         })?;
 
@@ -70,9 +70,6 @@ impl FromStr for DeviceId {
             de::Error::invalid_value(Unexpected::Str(room), &err.to_string().as_str())
         })?;
 
-        Ok(DeviceId {
-            device: device_type,
-            room,
-        })
+        Ok(DeviceId { device_type, room })
     }
 }

@@ -1,6 +1,9 @@
 mod error;
 use error::Error;
 
+mod storage;
+use storage::Storage;
+
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
@@ -15,13 +18,14 @@ use inspinia::{
     WsError,
 };
 use transport::elizabeth::{Capability, State};
-use transport::Device as DeviceType;
+use transport::DeviceType;
 
 pub struct InspiniaClient {
     db_path: PathBuf,
     target_id: String,
     client: Option<WsClient>,
     initial_state: Vec<PortState>,
+    storage: Storage,
 }
 
 impl InspiniaClient {
@@ -33,11 +37,20 @@ impl InspiniaClient {
 
         info!("initialized");
 
+        let storage = Storage::new();
+
+        for state in &initial_state {
+            if let Some(state) = Self::parse_initial_state(state, &db_path) {
+                storage.apply_state(&state).await;
+            }
+        }
+
         Ok(InspiniaClient {
             db_path,
             target_id,
             client: Some(client),
             initial_state,
+            storage,
         })
     }
 
@@ -96,7 +109,7 @@ impl InspiniaClient {
         while let Some(state) = self.initial_state.pop() {
             debug!("found initial state {:?} {:?}", state.id, state.value);
 
-            if let Some(update) = Self::parse_initial_state(state, &self.db_path) {
+            if let Some(update) = Self::parse_initial_state(&state, &self.db_path) {
                 debug!("prepared update {:?}", update);
 
                 return Ok(update);
@@ -122,7 +135,9 @@ impl InspiniaClient {
                             if let Ok(update) =
                                 Self::state_payload(&update.id, &update.value, &self.db_path)
                             {
-                                return Ok(update);
+                                if self.storage.apply_state(&update).await {
+                                    return Ok(update);
+                                }
                             }
                         }
                     }
@@ -147,7 +162,7 @@ impl InspiniaClient {
         }
     }
 
-    fn parse_initial_state(state: PortState, db_path: &Path) -> Option<State> {
+    fn parse_initial_state(state: &PortState, db_path: &Path) -> Option<State> {
         let value = state.value.as_ref()?;
         Self::state_payload(&state.id, value, db_path).ok()
     }
@@ -159,7 +174,7 @@ impl InspiniaClient {
             if let Some(port) = device.ports.get(port_id) {
                 if let Some(capability) = prepare_capability(&port.name, value) {
                     return Ok(State {
-                        device: device_type,
+                        device_type,
                         room: map_room(device.room),
                         capability,
                     });

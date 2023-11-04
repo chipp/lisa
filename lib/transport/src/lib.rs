@@ -26,7 +26,7 @@ pub enum TopicType {
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum Device {
+pub enum DeviceType {
     Recuperator,
     TemperatureSensor,
     Thermostat,

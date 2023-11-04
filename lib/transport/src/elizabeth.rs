@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Device, Room};
+use crate::{DeviceType, Room};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct Action {
     pub room: Room,
-    pub device: Device,
+    pub device_type: DeviceType,
     pub action_type: ActionType,
 }
 
@@ -21,7 +21,7 @@ pub enum ActionType {
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct State {
     pub room: Room,
-    pub device: Device,
+    pub device_type: DeviceType,
     pub capability: Capability,
 }
 

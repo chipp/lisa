@@ -5,7 +5,7 @@ use alice::{
 };
 use transport::elisa::Action as ElisaAction;
 use transport::elizabeth::{Action as ElizabethAction, ActionType as ElizabethActionType};
-use transport::{Device, Room};
+use transport::{DeviceType, Room};
 
 use std::str::FromStr;
 
@@ -39,33 +39,29 @@ pub async fn action(
         let mut elisa_action = None;
         let mut elisa_response = vec![];
 
-        for request_device in action.payload.devices {
-            let DeviceId { room, device } = DeviceId::from_str(request_device.id).unwrap();
+        for device in action.payload.devices {
+            let DeviceId { room, device_type } = DeviceId::from_str(device.id).unwrap();
 
-            match device {
-                Device::Recuperator | Device::Thermostat => {
+            match device_type {
+                DeviceType::Recuperator | DeviceType::Thermostat => {
                     let response_capabilities = handle_elizabeth_capabilities(
-                        device,
+                        device_type,
                         room,
-                        request_device.capabilities,
+                        device.capabilities,
                         perform_action.clone(),
                     );
 
                     response_devices.push(UpdatedDeviceState::new(
-                        request_device.id.to_string(),
+                        device.id.to_string(),
                         response_capabilities,
                     ));
                 }
-                Device::VacuumCleaner => {
-                    handle_elisa_capabilities(
-                        room,
-                        &request_device.capabilities,
-                        &mut elisa_action,
-                    );
+                DeviceType::VacuumCleaner => {
+                    handle_elisa_capabilities(room, &device.capabilities, &mut elisa_action);
 
                     elisa_response.push(UpdatedDeviceState::new(
-                        request_device.id.to_string(),
-                        request_device
+                        device.id.to_string(),
+                        device
                             .capabilities
                             .iter()
                             .map(|capability| {
@@ -74,7 +70,7 @@ pub async fn action(
                             .collect(),
                     ));
                 }
-                Device::TemperatureSensor => todo!(),
+                DeviceType::TemperatureSensor => todo!(),
             };
         }
 
@@ -107,7 +103,7 @@ pub async fn action(
 }
 
 fn handle_elizabeth_capabilities(
-    device: Device,
+    device_type: DeviceType,
     room: Room,
     capabilities: Vec<StateCapability>,
     perform_action: UnboundedSender<Action>,
@@ -119,7 +115,7 @@ fn handle_elizabeth_capabilities(
             .map(|action_type| {
                 ElizabethAction {
                     room,
-                    device,
+                    device_type,
                     action_type,
                 }
                 .into()

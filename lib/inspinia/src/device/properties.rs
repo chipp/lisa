@@ -22,7 +22,7 @@ mod parse_controls {
         let string = String::deserialize(deserializer)?;
         let mut names = vec![];
 
-        for name in string.split(",") {
+        for name in string.split(',') {
             names.push(
                 PortName::try_from(name)
                     .map_err(|_| serde::de::Error::unknown_variant(name, &ALL_PORT_NAMES))?,

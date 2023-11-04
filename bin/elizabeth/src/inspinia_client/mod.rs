@@ -169,7 +169,7 @@ impl InspiniaClient {
     }
 
     fn get_devices(db_path: &Path) -> Result<[(DeviceType, Device); 5]> {
-        let device_manager = DeviceManager::new(&db_path)?;
+        let device_manager = DeviceManager::new(db_path)?;
 
         Ok([
             (
@@ -196,7 +196,7 @@ impl InspiniaClient {
     }
 
     fn get_thermostats(db_path: &Path) -> Result<[Device; 4]> {
-        let device_manager = DeviceManager::new(&db_path)?;
+        let device_manager = DeviceManager::new(db_path)?;
         Ok([
             device_manager.get_thermostat_in_room(Room::Bedroom)?,
             device_manager.get_thermostat_in_room(Room::Nursery)?,
@@ -206,8 +206,8 @@ impl InspiniaClient {
     }
 
     fn get_recuperator(db_path: &Path) -> Result<Device> {
-        let device_manager = DeviceManager::new(&db_path)?;
-        Ok(device_manager.get_recuperator_in_room(Room::LivingRoom)?)
+        let device_manager = DeviceManager::new(db_path)?;
+        device_manager.get_recuperator_in_room(Room::LivingRoom)
     }
 }
 
@@ -228,7 +228,7 @@ impl InspiniaClient {
             for (id, port) in thermostat.ports.iter() {
                 if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
                     client
-                        .send_message(UpdateStateMessage::new(false, &id, &port.name, &value))
+                        .send_message(UpdateStateMessage::new(false, id, &port.name, value))
                         .await?;
 
                     return Ok(());
@@ -257,7 +257,7 @@ impl InspiniaClient {
             for (id, port) in thermostat.ports.iter() {
                 if let (PortName::SetTemp, PortType::Output) = (&port.name, &port.r#type) {
                     client
-                        .send_message(UpdateStateMessage::new(false, &id, &port.name, &temp))
+                        .send_message(UpdateStateMessage::new(false, id, &port.name, &temp))
                         .await?;
 
                     return Ok(());
@@ -283,7 +283,7 @@ impl InspiniaClient {
         for (id, port) in recuperator.ports.iter() {
             if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
                 client
-                    .send_message(UpdateStateMessage::new(false, &id, &port.name, &value))
+                    .send_message(UpdateStateMessage::new(false, id, &port.name, value))
                     .await?;
 
                 return Ok(());
@@ -307,7 +307,7 @@ impl InspiniaClient {
         for (id, port) in recuperator.ports.iter() {
             if let (PortName::FanSpeed, PortType::Output) = (&port.name, &port.r#type) {
                 client
-                    .send_message(UpdateStateMessage::new(false, &id, &port.name, &value))
+                    .send_message(UpdateStateMessage::new(false, id, &port.name, &value))
                     .await?;
 
                 return Ok(());

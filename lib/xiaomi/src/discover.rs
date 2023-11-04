@@ -44,7 +44,7 @@ pub async fn discover(ip: Option<Ipv4Addr>) -> Result<Header> {
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
     socket.set_broadcast(true)?;
 
-    let ip = ip.unwrap_or(Ipv4Addr::BROADCAST.into());
+    let ip = ip.unwrap_or(Ipv4Addr::BROADCAST);
     let addr = SocketAddr::new(ip.into(), 54321);
 
     socket.send_to(&HELLO_BYTES, &addr).await?;

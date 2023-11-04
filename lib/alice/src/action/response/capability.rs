@@ -177,7 +177,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_value(&ActionResult::Err(error)).unwrap(),
+            to_value(ActionResult::Err(error)).unwrap(),
             json!({
                 "status": "ERROR",
                 "error_code": "INVALID_ACTION",

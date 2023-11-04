@@ -20,7 +20,7 @@ impl fmt::Display for UnknownPortType {
 impl Error for UnknownPortType {}
 
 impl FromSql for PortType {
-    fn column_result<'a>(value: ValueRef<'a>) -> Result<Self, FromSqlError> {
+    fn column_result(value: ValueRef<'_>) -> Result<Self, FromSqlError> {
         PortType::try_from(value.as_str()?).map_err(|err| FromSqlError::Other(Box::new(err)))
     }
 }

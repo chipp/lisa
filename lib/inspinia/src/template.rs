@@ -63,8 +63,8 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
             data = &data[16..];
         }
 
-        context.consume(&data);
-        template.write_all(&data)?;
+        context.consume(data);
+        template.write_all(data)?;
     }
 
     let result_hash = context.compute();

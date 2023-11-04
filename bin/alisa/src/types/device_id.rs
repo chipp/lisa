@@ -43,7 +43,7 @@ impl DeviceId {
 
 impl fmt::Display for DeviceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}", self.device.to_string(), self.room.to_string())
+        write!(f, "{}/{}", self.device, self.room)
     }
 }
 
@@ -52,7 +52,7 @@ impl FromStr for DeviceId {
 
     fn from_str(id: &str) -> Result<Self, Self::Err> {
         // TODO: refactor with split_once
-        let mut parts = id.splitn(2, "/");
+        let mut parts = id.splitn(2, '/');
 
         let device_type = parts
             .next()

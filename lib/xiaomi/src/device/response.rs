@@ -45,16 +45,16 @@ impl<'de> Visitor<'de> for ResponseVisitor {
         while let Ok(Some(key)) = map.next_key() {
             match key {
                 "id" => {
-                    let value: u16 = map.next_value().map_err(|err| de::Error::custom(err))?;
+                    let value: u16 = map.next_value().map_err(de::Error::custom)?;
                     id = Some(value)
                 }
                 "error" => {
                     let value: DeviceError =
-                        map.next_value().map_err(|err| de::Error::custom(err))?;
+                        map.next_value().map_err(de::Error::custom)?;
                     error = Some(value)
                 }
                 "result" => {
-                    let value: Value = map.next_value().map_err(|err| de::Error::custom(err))?;
+                    let value: Value = map.next_value().map_err(de::Error::custom)?;
                     result = Some(value)
                 }
                 _ => (),

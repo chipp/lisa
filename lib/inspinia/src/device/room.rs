@@ -45,7 +45,7 @@ impl fmt::Display for UnknownRoomId {
 impl std::error::Error for UnknownRoomId {}
 
 impl FromSql for Room {
-    fn column_result<'a>(value: ValueRef<'a>) -> Result<Self, FromSqlError> {
+    fn column_result(value: ValueRef<'_>) -> Result<Self, FromSqlError> {
         Room::try_from(value.as_str()?).map_err(|err| FromSqlError::Other(Box::new(err)))
     }
 }

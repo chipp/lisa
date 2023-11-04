@@ -28,9 +28,9 @@ impl From<Mode> for FanSpeed {
     }
 }
 
-impl Into<Mode> for FanSpeed {
-    fn into(self) -> Mode {
-        match self {
+impl From<FanSpeed> for Mode {
+    fn from(val: FanSpeed) -> Self {
+        match val {
             FanSpeed::Silent => Mode::Quiet,
             FanSpeed::Standard => Mode::Normal,
             FanSpeed::Medium => Mode::Medium,

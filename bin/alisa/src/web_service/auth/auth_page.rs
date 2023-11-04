@@ -32,7 +32,7 @@ pub struct AuthParams<'a> {
 
 static AUTH_HTML: &str = include_str!("./auth_page.html");
 
-fn params_for_auth_page<'a>(request: &'a Request<Body>) -> Option<AuthParams> {
+fn params_for_auth_page(request: &Request<Body>) -> Option<AuthParams> {
     let query = request.uri().query()?;
     serde_urlencoded::de::from_str(query).ok()
 }

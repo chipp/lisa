@@ -89,7 +89,7 @@ async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
         })
     )?;
 
-    let _ = server_handle?;
+    server_handle?;
     update_handler?;
 
     Ok(())
@@ -127,7 +127,7 @@ async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
 
 fn parse_event(msg: &Message) -> Option<Event> {
     let topic = msg.topic();
-    let (service, _) = topic.split_once("/")?;
+    let (service, _) = topic.split_once('/')?;
     let service = Service::from_str(service).ok()?;
 
     match service {

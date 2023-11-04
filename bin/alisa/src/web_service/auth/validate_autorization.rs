@@ -13,7 +13,7 @@ where
     F: FnOnce(Request<Body>) -> T,
     T: std::future::Future<Output = Result<Response<Body>>>,
 {
-    match extract_token_from_headers(&request.headers()) {
+    match extract_token_from_headers(request.headers()) {
         Some(token) if is_valid_token(token, TokenType::Access) => {
             trace!(target: request_name, "received a valid access token");
             success(request).await
@@ -47,9 +47,9 @@ where
 }
 
 const BEARER: &str = "Bearer ";
-fn extract_token_from_headers<'a>(headers: &'a header::HeaderMap) -> Option<&'a str> {
+fn extract_token_from_headers(headers: &header::HeaderMap) -> Option<&str> {
     let authorization = headers.get("Authorization")?;
-    let authorization = std::str::from_utf8(&authorization.as_bytes()).ok()?;
+    let authorization = std::str::from_utf8(authorization.as_bytes()).ok()?;
 
     if authorization.starts_with(BEARER) {
         Some(&authorization[BEARER.len()..])

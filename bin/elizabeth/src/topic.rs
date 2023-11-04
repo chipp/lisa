@@ -35,13 +35,13 @@ pub const fn topic_for_state(state: State, room: inspinia::Room, device: Device)
     }
 }
 
-impl Into<Topic<State>> for StatePayload {
-    fn into(self) -> Topic<State> {
+impl From<StatePayload> for Topic<State> {
+    fn from(val: StatePayload) -> Self {
         Topic {
             topic_type: TopicType::State,
-            room: Some(map_room(self.room)),
-            device: self.device,
-            feature: self.state,
+            room: Some(map_room(val.room)),
+            device: val.device,
+            feature: val.state,
         }
     }
 }

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
-use log::{error, info};
+use log::{debug, error, info};
 use paho_mqtt as mqtt;
 use tokio::time;
 use tokio::{sync::Mutex, task};
@@ -16,8 +16,12 @@ use tokio::{sync::Mutex, task};
 async fn main() -> Result<()> {
     pretty_env_logger::init();
 
+    let inspinia_client_id =
+        std::env::var("INSPINIA_CLIENT_ID").expect("set ENV variable INSPINIA_CLIENT_ID");
     let inspinia_token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
-    let inspinia_client = Arc::from(Mutex::from(InspiniaClient::new(inspinia_token).await?));
+    let inspinia_client = Arc::from(Mutex::from(
+        InspiniaClient::new(inspinia_client_id, inspinia_token).await?,
+    ));
 
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_client = connect_mqtt(mqtt_address).await?;
@@ -63,7 +67,11 @@ async fn subscribe_action(
     info!("Subscribed to topic: {}", Topic::elizabeth_action());
 
     while let Some(msg_opt) = stream.next().await {
+        debug!("got message {:?}", msg_opt);
+
         let inspinia = &mut inspinia.lock().await;
+
+        debug!("got inspinia");
 
         if let Some(msg) = msg_opt {
             match update_state(msg.payload(), inspinia).await {
@@ -85,6 +93,8 @@ async fn subscribe_action(
 async fn update_state(payload: &[u8], inspinia: &mut InspiniaClient) -> Result<()> {
     let action: Action = serde_json::from_slice(payload)?;
 
+    debug!("Action: {:?}", action);
+
     match (action.device_type, action.action_type) {
         (DeviceType::Recuperator, ActionType::SetIsEnabled(value)) => {
             inspinia.set_recuperator_enabled(value).await?;
@@ -100,12 +110,19 @@ async fn update_state(payload: &[u8], inspinia: &mut InspiniaClient) -> Result<(
             }
         }
         (DeviceType::Thermostat, ActionType::SetTemperature(value, relative)) => {
-            if relative {
-                // TODO: handle relative
-            }
-
             if let Some(room) = map_room(action.room) {
-                inspinia.set_thermostat_temperature(value, room).await?;
+                if relative {
+                    let current = inspinia.get_thermostat_temperature_in_room(room).await?;
+
+                    debug!("current: {}", current);
+                    debug!("value: {}", value);
+
+                    inspinia
+                        .set_thermostat_temperature(current + value, room)
+                        .await?;
+                } else {
+                    inspinia.set_thermostat_temperature(value, room).await?;
+                }
             }
         }
         _ => (),

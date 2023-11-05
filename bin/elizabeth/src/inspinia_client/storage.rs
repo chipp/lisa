@@ -82,8 +82,24 @@ impl Storage {
 
         updated
     }
+
+    pub async fn get_capabilities(&self, room: Room, device_type: DeviceType) -> Vec<Capability> {
+        let devices = self.devices.lock().await;
+        let device = devices
+            .iter()
+            .find(|device| device.room == room && device.device_type == device_type);
+
+        debug!("device: {:?}", device);
+
+        if let Some(device) = device {
+            device.capabilities.clone()
+        } else {
+            vec![]
+        }
+    }
 }
 
+#[derive(Debug)]
 struct Device {
     room: Room,
     device_type: DeviceType,

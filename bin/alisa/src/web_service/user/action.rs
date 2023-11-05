@@ -11,7 +11,7 @@ use std::str::FromStr;
 
 use bytes::Buf;
 use hyper::{Body, Request, Response, StatusCode};
-use log::error;
+use log::{debug, error};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::types::DeviceId;
@@ -121,6 +121,8 @@ fn handle_elizabeth_capabilities(
                 .into()
             })
             .unwrap();
+
+        debug!("perform action {:?}", action);
 
         let result = match perform_action.send(action) {
             Ok(()) => StateUpdateResult::ok(),

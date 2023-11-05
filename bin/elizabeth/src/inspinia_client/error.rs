@@ -1,14 +1,22 @@
 use std::fmt;
 
+use inspinia::Room;
+use transport::DeviceType;
+
 #[derive(Debug)]
 pub enum Error {
     UnsupportedDevice(String),
+    MissingCapability(&'static str, DeviceType, Room),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::UnsupportedDevice(id) => f.write_fmt(format_args!("unsupported device {}", id)),
+            Error::MissingCapability(capability, device_type, room) => f.write_fmt(format_args!(
+                "missing capability `{}` for device {} in room {}",
+                capability, device_type, room
+            )),
         }
     }
 }

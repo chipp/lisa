@@ -22,6 +22,7 @@ use transport::DeviceType;
 
 pub struct InspiniaClient {
     db_path: PathBuf,
+    client_id: String,
     target_id: String,
     client: Option<WsClient>,
     initial_state: Vec<PortState>,
@@ -29,11 +30,11 @@ pub struct InspiniaClient {
 }
 
 impl InspiniaClient {
-    pub async fn new(token: String) -> Result<InspiniaClient> {
+    pub async fn new(client_id: String, token: String) -> Result<InspiniaClient> {
         let target_id = token_as_uuid(format!("{:x}", md5::compute(token)));
         let db_path = download_template(&target_id).await?;
 
-        let (client, initial_state) = Self::connect(target_id.clone()).await?;
+        let (client, initial_state) = Self::connect(client_id.clone(), target_id.clone()).await?;
 
         info!("initialized");
 
@@ -47,6 +48,7 @@ impl InspiniaClient {
 
         Ok(InspiniaClient {
             db_path,
+            client_id,
             target_id,
             client: Some(client),
             initial_state,
@@ -64,7 +66,7 @@ impl InspiniaClient {
 
         let (client, port_states) = timeout(
             Duration::from_secs(5),
-            Self::connect(self.target_id.clone()),
+            Self::connect(self.client_id.clone(), self.target_id.clone()),
         )
         .await??;
         info!("reconnected");
@@ -75,14 +77,13 @@ impl InspiniaClient {
         Ok(())
     }
 
-    async fn connect(target_id: String) -> Result<(WsClient, Vec<PortState>)> {
-        let mut client =
-            WsClient::connect("3af0e0ef-c4dd-4d7e-bb42-f4d24383ed3f", target_id).await?;
+    async fn connect(client_id: String, target_id: String) -> Result<(WsClient, Vec<PortState>)> {
+        let mut client = WsClient::connect(client_id, target_id).await?;
 
         debug!("connected web socket");
 
         client
-            .send_message(RegisterMessage::new("2", "alisa", ""))
+            .send_message(RegisterMessage::new("2", "elizabeth", ""))
             .await?;
 
         debug!("sent register");
@@ -229,6 +230,21 @@ impl InspiniaClient {
 }
 
 impl InspiniaClient {
+    pub async fn get_thermostat_temperature_in_room(&self, room: Room) -> Result<f32> {
+        let capabilities = self
+            .storage
+            .get_capabilities(map_room(room), DeviceType::Thermostat)
+            .await;
+
+        for capability in capabilities {
+            if let Capability::Temperature(value) = capability {
+                return Ok(value);
+            }
+        }
+
+        Err(Error::MissingCapability("Temperature", DeviceType::Thermostat, room).into())
+    }
+
     pub async fn set_thermostat_enabled(&mut self, value: bool, room: Room) -> Result<()> {
         info!("toggle thermostat in room {:?} = {}", room, value);
 

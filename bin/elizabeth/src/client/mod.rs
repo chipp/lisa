@@ -174,7 +174,7 @@ impl Client {
                 if let Some(capability) = prepare_capability(&port.name, value) {
                     return Ok(State {
                         device_type,
-                        room: map_room(device.room),
+                        room: from_inspinia_room(device.room),
                         capability,
                     });
                 }
@@ -232,7 +232,7 @@ impl Client {
         let storage = self.storage.lock().await;
 
         let capabilities = storage
-            .get_capabilities(map_room(room), DeviceType::Thermostat)
+            .get_capabilities(from_inspinia_room(room), DeviceType::Thermostat)
             .await;
 
         for capability in capabilities {
@@ -353,7 +353,7 @@ fn prepare_capability(name: &PortName, value: &str) -> Option<Capability> {
         PortName::OnOff => Some(Capability::IsEnabled(value == "1")),
         PortName::FanSpeed => {
             let fan_speed = FanSpeed::from_str(value).ok()?;
-            Some(Capability::FanSpeed(map_fan_speed(fan_speed)))
+            Some(Capability::FanSpeed(from_inspinia_speed(fan_speed)))
         }
         PortName::SetTemp => {
             let value = f32::from_str(value).ok()?;
@@ -367,7 +367,7 @@ fn prepare_capability(name: &PortName, value: &str) -> Option<Capability> {
     }
 }
 
-fn map_room(room: Room) -> transport::Room {
+fn from_inspinia_room(room: Room) -> transport::Room {
     match room {
         Room::Bedroom => transport::Room::Bedroom,
         Room::Nursery => transport::Room::Nursery,
@@ -376,7 +376,7 @@ fn map_room(room: Room) -> transport::Room {
     }
 }
 
-fn map_fan_speed(fan_speed: FanSpeed) -> transport::elizabeth::FanSpeed {
+fn from_inspinia_speed(fan_speed: FanSpeed) -> transport::elizabeth::FanSpeed {
     match fan_speed {
         FanSpeed::Low => transport::elizabeth::FanSpeed::Low,
         FanSpeed::Medium => transport::elizabeth::FanSpeed::Medium,

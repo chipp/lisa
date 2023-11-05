@@ -1,7 +1,6 @@
-use elisa::{room_id_for_room, Result};
-use transport::elisa::{Action, State, WorkSpeed};
+use elisa::{perform_action, prepare_state, Result, Storage};
 use transport::Topic;
-use xiaomi::{parse_token, FanSpeed, Status, Vacuum};
+use xiaomi::{parse_token, Vacuum};
 
 use std::process;
 use std::sync::Arc;
@@ -90,85 +89,30 @@ async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum
     Ok(())
 }
 
-async fn perform_action(payload: &[u8], vacuum: &mut Vacuum) -> Result<()> {
-    let action: Action = serde_json::from_slice(payload)?;
-
-    match action {
-        Action::Start(rooms) => {
-            let room_ids = rooms.iter().map(room_id_for_room).collect();
-
-            info!("wants to start cleaning in rooms: {:?}", rooms);
-            vacuum.start(room_ids).await
-        }
-        Action::Stop => {
-            info!("wants to stop cleaning");
-            vacuum.stop().await?;
-            vacuum.go_home().await
-        }
-        Action::SetWorkSpeed(work_speed) => {
-            let mode = map_work_speed(work_speed);
-
-            info!("wants to set mode {}", mode);
-            vacuum.set_fan_speed(mode).await
-        }
-        Action::Pause => {
-            info!("wants to pause");
-            vacuum.pause().await
-        }
-        Action::Resume => {
-            info!("wants to resume");
-            vacuum.resume().await
-        }
-    }
-}
-
 async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
     let mut timer = interval(Duration::from_secs(10));
+    let mut storage = Storage::new();
 
     loop {
         timer.tick().await;
         let mut vacuum = vacuum.lock().await;
 
         if let Ok(status) = vacuum.status().await {
-            info!("publishing state: {:?}", status);
+            let state = prepare_state(status);
 
-            let topic = Topic::elisa_state();
-            let state = map_status(status);
-            let payload = serde_json::to_vec(&state).unwrap();
+            if storage.apply_state(&state).await {
+                info!("publishing state: {:?}", state);
 
-            let message = mqtt::MessageBuilder::new()
-                .topic(topic.to_string())
-                .payload(payload)
-                .finalize();
+                let topic = Topic::elisa_state();
+                let payload = serde_json::to_vec(&state).unwrap();
 
-            mqtt.publish(message).await?;
+                let message = mqtt::MessageBuilder::new()
+                    .topic(topic.to_string())
+                    .payload(payload)
+                    .finalize();
+
+                mqtt.publish(message).await?;
+            }
         }
-    }
-}
-
-fn map_status(status: Status) -> State {
-    State {
-        battery_level: status.battery,
-        is_enabled: status.state.is_enabled(),
-        is_paused: status.state.is_paused(),
-        work_speed: map_fan_speed(status.fan_speed),
-    }
-}
-
-fn map_fan_speed(fan_speed: FanSpeed) -> WorkSpeed {
-    match fan_speed {
-        FanSpeed::Silent => WorkSpeed::Silent,
-        FanSpeed::Standard => WorkSpeed::Standard,
-        FanSpeed::Medium => WorkSpeed::Medium,
-        FanSpeed::Turbo => WorkSpeed::Turbo,
-    }
-}
-
-fn map_work_speed(work_speed: WorkSpeed) -> FanSpeed {
-    match work_speed {
-        WorkSpeed::Silent => FanSpeed::Silent,
-        WorkSpeed::Standard => FanSpeed::Standard,
-        WorkSpeed::Medium => FanSpeed::Medium,
-        WorkSpeed::Turbo => FanSpeed::Turbo,
     }
 }

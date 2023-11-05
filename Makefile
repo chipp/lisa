@@ -2,8 +2,8 @@ run_alisa: RUST_LOG = alisa=debug
 run_alisa: JWT_SECRET = 123456
 run_alisa: LISA_USER = chipp
 run_alisa: LISA_PASSWORD = kek
-run_alisa: ALICE_SKILL_ID = $(shell op read "op://private/yandex.alisa/username" | tr -d '\n')
-run_alisa: ALICE_TOKEN = $(shell op read "op://private/yandex.alisa/credential" | tr -d '\n')
+run_alisa: ALICE_SKILL_ID = $(shell op read "op://private/yandex.alisa/username" -n)
+run_alisa: ALICE_TOKEN = $(shell op read "op://private/yandex.alisa/credential" -n)
 run_alisa: MQTT_ADDRESS = mqtt://localhost:1883
 run_alisa:
 	@RUST_LOG=${RUST_LOG} JWT_SECRET=${JWT_SECRET} \
@@ -14,9 +14,18 @@ run_alisa:
 
 run_elizabeth: RUST_LOG = elizabeth=debug
 run_elizabeth: MQTT_ADDRESS = mqtt://localhost:1883
-run_elizabeth: INSPINIA_CLIENT_ID = $(shell op read "op://private/inspinia/username" | tr -d '\n')
-run_elizabeth: INSPINIA_TOKEN = $(shell op read "op://private/inspinia/credential" | tr -d '\n')
+run_elizabeth: INSPINIA_CLIENT_ID = $(shell op read "op://private/inspinia/username" -n)
+run_elizabeth: INSPINIA_TOKEN = $(shell op read "op://private/inspinia/credential" -n)
 run_elizabeth:
 	@RUST_LOG=${RUST_LOG} MQTT_ADDRESS=${MQTT_ADDRESS} \
 	INSPINIA_CLIENT_ID=${INSPINIA_CLIENT_ID} INSPINIA_TOKEN=${INSPINIA_TOKEN} \
 	cargo run --bin elizabeth
+
+run_elisa: RUST_LOG = elisa=debug
+run_elisa: MQTT_ADDRESS = mqtt://localhost:1883
+run_elisa: VACUUM_IP = 192.168.1.150
+run_elisa: VACUUM_TOKEN = $(shell op read "op://private/vacuum/credential" -n)
+run_elisa:
+	@RUST_LOG=${RUST_LOG} MQTT_ADDRESS=${MQTT_ADDRESS} \
+	VACUUM_IP=${VACUUM_IP} VACUUM_TOKEN=${VACUUM_TOKEN} \
+	cargo run --bin elisa

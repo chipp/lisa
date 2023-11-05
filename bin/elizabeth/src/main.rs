@@ -1,16 +1,15 @@
-use elizabeth::{InspiniaClient, Result};
+use elizabeth::{Client, Result};
 use transport::elizabeth::{Action, ActionType};
 use transport::{DeviceType, Topic};
 
 use std::process;
-use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
 use log::{debug, error, info};
 use paho_mqtt as mqtt;
+use tokio::task;
 use tokio::time;
-use tokio::{sync::Mutex, task};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -19,9 +18,7 @@ async fn main() -> Result<()> {
     let inspinia_client_id =
         std::env::var("INSPINIA_CLIENT_ID").expect("set ENV variable INSPINIA_CLIENT_ID");
     let inspinia_token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
-    let inspinia_client = Arc::from(Mutex::from(
-        InspiniaClient::new(inspinia_client_id, inspinia_token).await?,
-    ));
+    let inspinia_client = Client::new(inspinia_client_id, inspinia_token).await?;
 
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_client = connect_mqtt(mqtt_address).await?;
@@ -57,10 +54,7 @@ async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
     Ok(client)
 }
 
-async fn subscribe_action(
-    mut mqtt: mqtt::AsyncClient,
-    inspinia: Arc<Mutex<InspiniaClient>>,
-) -> Result<()> {
+async fn subscribe_action(mut mqtt: mqtt::AsyncClient, mut inspinia: Client) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     mqtt.subscribe_many(&[Topic::elizabeth_action().to_string()], &[mqtt::QOS_1]);
@@ -69,12 +63,8 @@ async fn subscribe_action(
     while let Some(msg_opt) = stream.next().await {
         debug!("got message {:?}", msg_opt);
 
-        let inspinia = &mut inspinia.lock().await;
-
-        debug!("got inspinia");
-
         if let Some(msg) = msg_opt {
-            match update_state(msg.payload(), inspinia).await {
+            match update_state(msg.payload(), &mut inspinia).await {
                 Ok(_) => (),
                 Err(err) => error!("Error updating state: {}", err),
             }
@@ -90,7 +80,7 @@ async fn subscribe_action(
     Ok(())
 }
 
-async fn update_state(payload: &[u8], inspinia: &mut InspiniaClient) -> Result<()> {
+async fn update_state(payload: &[u8], inspinia: &mut Client) -> Result<()> {
     let action: Action = serde_json::from_slice(payload)?;
 
     debug!("Action: {:?}", action);
@@ -131,13 +121,8 @@ async fn update_state(payload: &[u8], inspinia: &mut InspiniaClient) -> Result<(
     Ok(())
 }
 
-async fn subscribe_state(
-    mqtt: mqtt::AsyncClient,
-    inspinia: Arc<Mutex<InspiniaClient>>,
-) -> Result<()> {
+async fn subscribe_state(mqtt: mqtt::AsyncClient, mut inspinia: Client) -> Result<()> {
     loop {
-        let inspinia = &mut inspinia.lock().await;
-
         if let Ok(payload) = inspinia.read().await {
             let payload = serde_json::to_vec(&payload)?;
             let topic = Topic::elizabeth_state();

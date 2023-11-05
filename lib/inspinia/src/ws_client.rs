@@ -1,13 +1,15 @@
-use std::{fmt, time::Instant};
+use std::fmt;
+use std::sync::Arc;
+use std::time::Instant;
+
+use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 
 use crate::{ReceivedMessage, Result};
-use futures_util::{
-    stream::{FusedStream, SplitSink, SplitStream},
-    SinkExt, StreamExt,
-};
+use futures_util::stream::{SplitSink, SplitStream};
+use futures_util::{SinkExt, StreamExt};
 use log::debug;
 use serde::Serialize;
-use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 #[derive(Debug)]
@@ -49,12 +51,16 @@ pub trait OutgoingMessage {
     fn code(&self) -> &'static str;
 }
 
+type Writer = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
+type Reader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
+
+#[derive(Clone)]
 pub struct WsClient {
     start: Instant,
     sequence: u32,
     target_id: String,
-    write: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
-    read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    write: Arc<Mutex<Writer>>,
+    read: Arc<Mutex<Reader>>,
 }
 
 impl WsClient {
@@ -63,6 +69,9 @@ impl WsClient {
         let (web_socket, _) = connect_async(uri).await?;
 
         let (write, read) = web_socket.split();
+
+        let write = Arc::from(Mutex::new(write));
+        let read = Arc::from(Mutex::new(read));
 
         Ok(WsClient {
             start: Instant::now(),
@@ -108,44 +117,28 @@ impl WsClient {
         let text = serde_json::to_string(&json)?;
         debug!("sent {}", text);
 
-        self.write.send(Message::Text(text)).await?;
+        let mut write = self.write.lock().await;
+        write.send(Message::Text(text)).await?;
 
         Ok(())
     }
 
     pub async fn read_message(&mut self) -> std::result::Result<ReceivedMessage, WsError> {
-        match self.read.next().await.ok_or(WsError::StreamClosed)? {
+        let mut read = self.read.lock().await;
+
+        match read.next().await.ok_or(WsError::StreamClosed)? {
             Ok(Message::Text(text)) => {
                 let message: ReceivedMessage = serde_json::from_str(&text)?;
                 Ok(message)
             }
             Ok(Message::Ping(payload)) => {
-                self.write.send(Message::Pong(payload)).await?;
+                let mut write = self.write.lock().await;
+                write.send(Message::Pong(payload)).await?;
 
                 Err(WsError::Pong)
             }
             Ok(message) => Err(WsError::UnexpectedMessage(message)),
             Err(error) => Err(error)?,
-        }
-    }
-
-    pub fn target_id(&self) -> &str {
-        &self.target_id
-    }
-
-    pub async fn close(self) {
-        let Self {
-            start: _,
-            sequence: _,
-            target_id: _,
-            write,
-            read,
-        } = self;
-
-        if let Ok(mut socket) = read.reunite(write) {
-            if !socket.is_terminated() {
-                _ = socket.close(None).await;
-            }
         }
     }
 }

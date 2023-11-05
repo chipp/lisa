@@ -6,9 +6,11 @@ use storage::Storage;
 
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use log::{debug, error, info};
+use tokio::sync::Mutex;
 use tokio::time::timeout;
 
 use crate::Result;
@@ -20,17 +22,18 @@ use inspinia::{
 use transport::elizabeth::{Capability, State};
 use transport::DeviceType;
 
-pub struct InspiniaClient {
+#[derive(Clone)]
+pub struct Client {
     db_path: PathBuf,
     client_id: String,
     target_id: String,
-    client: Option<WsClient>,
+    client: WsClient,
     initial_state: Vec<PortState>,
-    storage: Storage,
+    storage: Arc<Mutex<Storage>>,
 }
 
-impl InspiniaClient {
-    pub async fn new(client_id: String, token: String) -> Result<InspiniaClient> {
+impl Client {
+    pub async fn new(client_id: String, token: String) -> Result<Client> {
         let target_id = token_as_uuid(format!("{:x}", md5::compute(token)));
         let db_path = download_template(&target_id).await?;
 
@@ -46,24 +49,19 @@ impl InspiniaClient {
             }
         }
 
-        Ok(InspiniaClient {
+        let storage = Arc::new(Mutex::new(storage));
+
+        Ok(Client {
             db_path,
             client_id,
             target_id,
-            client: Some(client),
+            client,
             initial_state,
             storage,
         })
     }
 
     pub async fn reconnect(&mut self) -> Result<()> {
-        if let Some(old) = self.client.take() {
-            old.close().await;
-            info!("closed active client");
-        } else {
-            info!("no active client");
-        }
-
         let (client, port_states) = timeout(
             Duration::from_secs(5),
             Self::connect(self.client_id.clone(), self.target_id.clone()),
@@ -71,7 +69,7 @@ impl InspiniaClient {
         .await??;
         info!("reconnected");
 
-        self.client = Some(client);
+        self.client = client;
         self.initial_state = port_states;
 
         Ok(())
@@ -102,7 +100,7 @@ impl InspiniaClient {
     }
 }
 
-impl InspiniaClient {
+impl Client {
     pub async fn read(&mut self) -> Result<State> {
         debug!("read next");
         debug!("initial state {:?}", self.initial_state.len());
@@ -119,10 +117,8 @@ impl InspiniaClient {
 
         debug!("reading from web socket");
 
-        let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
-
         loop {
-            match client.read_message().await {
+            match self.client.read_message().await {
                 Ok(payload) => match payload.code.as_str() {
                     "100" => {
                         if let ReceivedMessage {
@@ -136,7 +132,9 @@ impl InspiniaClient {
                             if let Ok(update) =
                                 Self::state_payload(&update.id, &update.value, &self.db_path)
                             {
-                                if self.storage.apply_state(&update).await {
+                                let storage = self.storage.lock().await;
+
+                                if storage.apply_state(&update).await {
                                     return Ok(update);
                                 }
                             }
@@ -229,10 +227,11 @@ impl InspiniaClient {
     }
 }
 
-impl InspiniaClient {
+impl Client {
     pub async fn get_thermostat_temperature_in_room(&self, room: Room) -> Result<f32> {
-        let capabilities = self
-            .storage
+        let storage = self.storage.lock().await;
+
+        let capabilities = storage
             .get_capabilities(map_room(room), DeviceType::Thermostat)
             .await;
 
@@ -251,7 +250,6 @@ impl InspiniaClient {
         let value = if value { "1" } else { "0" };
 
         let thermostats = Self::get_thermostats(&self.db_path)?;
-        let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
 
         for thermostat in thermostats.iter() {
             if thermostat.room != room {
@@ -260,7 +258,7 @@ impl InspiniaClient {
 
             for (id, port) in thermostat.ports.iter() {
                 if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
-                    client
+                    self.client
                         .send_message(UpdateStateMessage::new(false, id, &port.name, value))
                         .await?;
 
@@ -280,7 +278,6 @@ impl InspiniaClient {
         info!("set temperature in room {:?} = {}", room, temp);
 
         let thermostats = Self::get_thermostats(&self.db_path)?;
-        let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
 
         for thermostat in thermostats.iter() {
             if thermostat.room != room {
@@ -289,7 +286,7 @@ impl InspiniaClient {
 
             for (id, port) in thermostat.ports.iter() {
                 if let (PortName::SetTemp, PortType::Output) = (&port.name, &port.r#type) {
-                    client
+                    self.client
                         .send_message(UpdateStateMessage::new(false, id, &port.name, &temp))
                         .await?;
 
@@ -304,18 +301,17 @@ impl InspiniaClient {
     }
 }
 
-impl InspiniaClient {
+impl Client {
     pub async fn set_recuperator_enabled(&mut self, value: bool) -> Result<()> {
         info!("toggle recuperator = {}", value);
 
         let value = if value { "1" } else { "0" };
 
         let recuperator = Self::get_recuperator(&self.db_path)?;
-        let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
 
         for (id, port) in recuperator.ports.iter() {
             if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
-                client
+                self.client
                     .send_message(UpdateStateMessage::new(false, id, &port.name, value))
                     .await?;
 
@@ -335,11 +331,10 @@ impl InspiniaClient {
 
         let device_manager = DeviceManager::new(&self.db_path)?;
         let recuperator = device_manager.get_recuperator_in_room(Room::LivingRoom)?;
-        let client = self.client.as_mut().ok_or(WsError::StreamClosed)?;
 
         for (id, port) in recuperator.ports.iter() {
             if let (PortName::FanSpeed, PortType::Output) = (&port.name, &port.r#type) {
-                client
+                self.client
                     .send_message(UpdateStateMessage::new(false, id, &port.name, &value))
                     .await?;
 

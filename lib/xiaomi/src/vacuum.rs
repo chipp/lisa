@@ -31,6 +31,10 @@ impl Vacuum {
         }
     }
 
+    pub fn last_cleaning_rooms(&self) -> &[u8] {
+        &self.last_cleaning_rooms
+    }
+
     pub async fn status(&mut self) -> Result<Status> {
         let response = self
             .executor

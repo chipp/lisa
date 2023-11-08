@@ -12,14 +12,14 @@ pub enum Action {
     Resume,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct State {
     pub battery_level: u8,
     pub is_enabled: bool,
     pub is_paused: bool,
     pub work_speed: WorkSpeed,
-    // TODO: add current rooms
+    pub rooms: Vec<Room>,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]

@@ -22,7 +22,7 @@ impl Storage {
         let mut devices = self.devices.lock().await;
         let device = devices
             .iter_mut()
-            .find(|device| device.room == state.room && device.device_type == device.device_type);
+            .find(|device| device.room == state.room && device.device_type == state.device_type);
 
         let mut updated = false;
 
@@ -33,7 +33,7 @@ impl Storage {
                 match (&capability, &state.capability) {
                     (IsEnabled(lhs), IsEnabled(rhs)) => {
                         if lhs != rhs {
-                            *capability = state.capability.clone();
+                            *capability = state.capability;
                             updated = true;
                             break;
                         }
@@ -41,7 +41,7 @@ impl Storage {
                     }
                     (FanSpeed(lhs), FanSpeed(rhs)) => {
                         if lhs != rhs {
-                            *capability = state.capability.clone();
+                            *capability = state.capability;
                             updated = true;
                             break;
                         }
@@ -49,7 +49,7 @@ impl Storage {
                     }
                     (CurrentTemperature(lhs), CurrentTemperature(rhs)) => {
                         if lhs != rhs {
-                            *capability = state.capability.clone();
+                            *capability = state.capability;
                             updated = true;
                             break;
                         }
@@ -57,7 +57,7 @@ impl Storage {
                     }
                     (Temperature(lhs), Temperature(rhs)) => {
                         if lhs != rhs {
-                            *capability = state.capability.clone();
+                            *capability = state.capability;
                             updated = true;
                             break;
                         }
@@ -68,7 +68,7 @@ impl Storage {
             }
 
             if !found {
-                device.capabilities.push(state.capability.clone());
+                device.capabilities.push(state.capability);
                 updated = true;
             }
         } else {

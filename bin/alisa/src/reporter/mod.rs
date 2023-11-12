@@ -24,18 +24,12 @@ pub enum State {
 }
 
 pub async fn report_state(state: State) -> Result<()> {
-    let mut devices = vec![];
-
-    match state {
-        State::Elizabeth(state) => match prepare_elizabeth_device(state) {
-            Ok(device) => devices.push(device),
-            Err(err) => error!("unable to prepare updates {}", err),
-        },
-        State::Elisa(state) => match prepare_vacuum_updates(state) {
-            Ok(mut vacuum) => devices.append(&mut vacuum),
-            Err(err) => error!("unable to prepare updates {}", err),
-        },
-    }
+    let devices = match state {
+        State::Elizabeth(state) => {
+            vec![prepare_elizabeth_device(state)?]
+        }
+        State::Elisa(state) => prepare_vacuum_updates(state)?,
+    };
 
     let now = Utc::now();
     let body = StateResponse::notification_body(now.timestamp(), "chipp", devices);

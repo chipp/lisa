@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use futures_util::stream::StreamExt;
 use log::{error, info};
+use mqtt::SslOptions;
 use paho_mqtt as mqtt;
 use tokio::sync::Mutex;
 use tokio::task;
@@ -32,7 +33,9 @@ async fn main() -> Result<()> {
     let vacuum = Arc::from(Mutex::from(vacuum));
 
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
-    let mqtt_client = connect_mqtt(mqtt_address).await?;
+    let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");
+    let mqtt_password = std::env::var("MQTT_PASS").expect("set ENV variable MQTT_PASS");
+    let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password).await?;
     info!("connected mqtt");
 
     let (set_handle, state_handle) = tokio::try_join!(
@@ -46,8 +49,17 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
-    let client = mqtt::AsyncClient::new(address).unwrap_or_else(|err| {
+async fn connect_mqtt(
+    address: String,
+    username: String,
+    password: String,
+) -> Result<mqtt::AsyncClient> {
+    let create_opts = mqtt::CreateOptionsBuilder::new_v3()
+        .server_uri(address)
+        .client_id("elisa")
+        .finalize();
+
+    let client = mqtt::AsyncClient::new(create_opts).unwrap_or_else(|err| {
         error!("Error creating the client: {}", err);
         process::exit(1);
     });
@@ -55,6 +67,9 @@ async fn connect_mqtt(address: String) -> Result<mqtt::AsyncClient> {
     let conn_opts = mqtt::ConnectOptionsBuilder::new_v3()
         .keep_alive_interval(Duration::from_secs(30))
         .clean_session(false)
+        .ssl_options(SslOptions::new())
+        .user_name(username)
+        .password(password)
         .finalize();
 
     client.connect(conn_opts).await?;
@@ -78,10 +93,11 @@ async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum
                 Err(err) => error!("Error updating state: {}", err),
             }
         } else {
+            time::sleep(Duration::from_secs(1)).await;
             error!("Lost MQTT connection. Attempting reconnect.");
             while let Err(err) = mqtt.reconnect().await {
                 error!("Error MQTT reconnecting: {}", err);
-                time::sleep(Duration::from_millis(1000)).await;
+                time::sleep(Duration::from_secs(1)).await;
             }
         }
     }

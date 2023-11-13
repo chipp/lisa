@@ -14,7 +14,7 @@ jobs:
 
     strategy:
       matrix:
-        binary: [lisa, isabel]
+        binary: [alisa, elisa, elizabeth]
 
     steps:
       - uses: actions/checkout@v2

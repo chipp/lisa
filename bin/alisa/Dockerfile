@@ -11,25 +11,36 @@ RUN USER=rust \
   cargo new --bin /home/rust/src/bin/elisa && \
   cargo new --bin /home/rust/src/bin/elizabeth
 
-COPY ./bin/elisa/Cargo.toml ./bin/elisa/Cargo.toml
+COPY ./bin/alisa/Cargo.toml ./bin/alisa/Cargo.toml
+COPY ./lib/alice/Cargo.toml ./lib/alice/Cargo.toml
 COPY ./lib/str_derive/Cargo.toml ./lib/str_derive/Cargo.toml
 COPY ./lib/str_derive/fake_macro.rs ./lib/str_derive/src/lib.rs
 COPY ./lib/transport/Cargo.toml ./lib/transport/Cargo.toml
-COPY ./lib/xiaomi/Cargo.toml ./lib/xiaomi/Cargo.toml
 
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
-RUN cargo build -p elisa -p str_derive -p transport -p xiaomi && \
-  cargo clean -p elisa -p str_derive -p transport -p xiaomi \
+RUN cargo build --release \
+  -p alisa \
+  -p alice \
+  -p str_derive \
+  -p transport && \
+  cargo clean --release \
+  -p alisa \
+  -p alice \
+  -p str_derive \
+  -p transport \
   --target x86_64-unknown-linux-musl && \
-  rm ./bin/elisa/src/*.rs ./lib/str_derive/src/*.rs \
-  ./lib/transport/src/*.rs ./lib/xiaomi/src/*.rs
+  rm \
+  ./bin/alisa/src/*.rs \
+  ./lib/alice/src/*.rs \
+  ./lib/str_derive/src/*.rs \
+  ./lib/transport/src/*.rs
 
-COPY ./bin/elisa/src ./bin/elisa/src
+COPY ./bin/alisa/src ./bin/alisa/src
+COPY ./lib/alice/src ./lib/alice/src
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
-COPY ./lib/xiaomi/src ./lib/xiaomi/src
 
 RUN cargo build --release -p alisa && \
   mv target/x86_64-unknown-linux-musl/release/alisa ./ && \

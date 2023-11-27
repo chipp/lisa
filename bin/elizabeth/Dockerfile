@@ -20,11 +20,21 @@ COPY ./lib/transport/Cargo.toml ./lib/transport/Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
-RUN cargo build -p elizabeth -p inspinia -p str_derive -p transport && \
-  cargo clean -p elizabeth -p inspinia -p str_derive -p transport \
+RUN cargo build --release \
+  -p elizabeth \
+  -p inspinia \
+  -p str_derive \
+  -p transport && \
+  cargo clean --release \
+  -p elizabeth \
+  -p inspinia \
+  -p str_derive \
+  -p transport \
   --target x86_64-unknown-linux-musl && \
-  rm ./bin/elizabeth/src/*.rs ./lib/inspinia/src/*.rs \
-  ./lib/str_derive/src/*.rs ./lib/transport/src/*.rs
+  rm ./bin/elizabeth/src/*.rs \
+  ./lib/inspinia/src/*.rs \
+  ./lib/str_derive/src/*.rs \
+  ./lib/transport/src/*.rs
 
 COPY ./bin/elizabeth/src ./bin/elizabeth/src
 COPY ./lib/inspinia/src ./lib/inspinia/src

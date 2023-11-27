@@ -31,5 +31,20 @@ COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 COPY ./lib/xiaomi/src ./lib/xiaomi/src
 
-RUN cargo test -p elisa -p str_derive -p transport -p xiaomi && \
-  rm -rf target/x86_64-unknown-linux-musl/debug/ target/debug/
+RUN cargo build --release -p alisa && \
+  mv target/x86_64-unknown-linux-musl/release/alisa ./ && \
+  rm -rf target/x86_64-unknown-linux-musl/release/ target/release/
+
+FROM alpine:3.18.4
+RUN apk --no-cache add ca-certificates && update-ca-certificates
+RUN apk --no-cache add tzdata && \
+  cp /usr/share/zoneinfo/Europe/Vilnius /etc/localtime && \
+  echo "Europe/Vilnius" > /etc/timezone && \
+  apk del tzdata
+
+WORKDIR /root/
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_DIR=/etc/ssl/certs
+ENV RUST_BACKTRACE=full
+
+COPY --from=0 /home/rust/src/alisa .

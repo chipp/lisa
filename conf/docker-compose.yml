@@ -8,6 +8,9 @@ services:
       - ./mq.conf:/mosquitto/config/mosquitto.conf
       - ./passwords:/mosquitto/config/passwords
       - ./certs:/mosquitto/ssl
+    environment:
+      - DEBUG=1
+    restart: unless-stopped
     restart: unless-stopped
   alisa:
     build: .

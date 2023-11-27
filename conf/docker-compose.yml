@@ -13,7 +13,6 @@ services:
     restart: unless-stopped
     restart: unless-stopped
   alisa:
-    build: .
     image: ghcr.io/chipp/alisa:latest
     expose:
       - 8080
@@ -28,7 +27,6 @@ services:
       - LETSENCRYPT_EMAIL=lisa@chipp.dev
     restart: unless-stopped
   elizabeth:
-    build: .
     image: ghcr.io/chipp/elizabeth:latest
     entrypoint: ["./elizabeth"]
     env_file:

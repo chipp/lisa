@@ -33,4 +33,8 @@ impl ResponseDevice {
     pub fn new(id: String, capabilities: Vec<Capability>) -> ResponseDevice {
         ResponseDevice { id, capabilities }
     }
+
+    pub fn capabilities_mut(&mut self) -> &mut Vec<Capability> {
+        &mut self.capabilities
+    }
 }

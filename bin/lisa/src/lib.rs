@@ -8,11 +8,9 @@ pub use types::device_id::DeviceId;
 pub use types::device_type::DeviceType;
 pub use types::room::Room;
 
-mod inspinia_controller;
 mod read_socket;
 mod web_service;
 
-pub use inspinia_controller::InspiniaController;
 pub use read_socket::{read_from_socket, Handler as SocketHandler};
 pub use web_service::web_handler;
 

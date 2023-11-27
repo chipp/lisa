@@ -1,6 +1,6 @@
 use crate::{DeviceId, Room};
 use alice::{Mode, ModeFunction, StateCapability, StateDevice, StateProperty};
-use alisa::FanSpeed;
+use inspinia::FanSpeed;
 use log::info;
 
 use super::{reportable_property::ReportableProperty, State};

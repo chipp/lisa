@@ -1,11 +1,15 @@
 [workspace]
+resolver = "2"
 
 members = [
-  "lib/alice",
-  "lib/alisa",
-  "lib/alzhbeta",
-  "lib/elisheba",
+  "bin/alisa", # gateway between MQTT and Yandex.Alisa
+  "bin/elisa", # gateway between MQTT and Xiaomi Vacuum Cleaner
+# "bin/isabel", # gateway between MQTT and temperature sensors
+  "bin/elizabeth", # gateway between MQTT and Inspinia
 
-  "bin/isabel",
-  "bin/lisa",
+  "lib/alice", # Yandex.Alisa API types
+  "lib/xiaomi", # Xiaomi Vacuum Cleaner communication protocol
+  "lib/inspinia", # Inspinia WS API types
+  "lib/transport", # MQTT topics and payloads
+  "lib/str_derive"
 ]

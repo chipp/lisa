@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn test_device() {
         assert_eq!(
-            to_value(&Device {
+            to_value(Device {
                 id: "test".to_string(),
                 name: "Test Device".to_string(),
                 description: "Test Description".to_string(),

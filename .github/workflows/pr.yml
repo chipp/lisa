@@ -5,19 +5,16 @@ on:
     branches:
       - main
 
-env:
-  OWNER: chipp
-
 jobs:
   test:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        binary: [lisa, isabel]
+        binary: [alisa, elisa, elizabeth]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Log into registry
         run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
@@ -28,8 +25,10 @@ jobs:
 
       - name: Test
         run: |
+          IMAGE_ID=ghcr.io/chipp/${{ matrix.binary }}
+
           docker buildx build . --file bin/${{ matrix.binary }}/test.Dockerfile \
              --load \
-             --tag ghcr.io/$OWNER/${{ matrix.binary }}:latest \
-             --cache-from=type=registry,ref=ghcr.io/$OWNER/${{ matrix.binary }}:test-cache \
-             --cache-to=type=registry,ref=ghcr.io/$OWNER/${{ matrix.binary }}:test-cache,mode=max
+             --tag $IMAGE_ID:latest \
+             --cache-from=type=registry,ref=$IMAGE_ID:test-cache \
+             --cache-to=type=registry,ref=$IMAGE_ID:test-cache,mode=max

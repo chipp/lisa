@@ -34,12 +34,11 @@ use log::error;
 use hyper::{Body, Method, Request, Response, StatusCode};
 use tokio::sync::Mutex;
 
-use crate::{InspiniaController, Result, StateManager};
+use crate::{Result, StateManager};
 
 pub async fn web_handler<F>(
     request: Request<Body>,
     send_vacuum_command: Arc<Mutex<impl Fn(VacuumCommand) -> F>>,
-    inspinia_controller: Arc<Mutex<InspiniaController>>,
     state_manager: Arc<Mutex<StateManager>>,
 ) -> Result<Response<Body>>
 where
@@ -53,7 +52,7 @@ where
         ("/v1.0/user/devices", &Method::GET) => user::devices(request).await,
         ("/v1.0/user/devices/query", &Method::POST) => user::query(request, state_manager).await,
         ("/v1.0/user/devices/action", &Method::POST) => {
-            user::action(request, send_vacuum_command, inspinia_controller).await
+            user::action(request, send_vacuum_command).await
         }
         ("/v1.0/user/unlink", &Method::POST) => user::unlink(request).await,
         _ => {

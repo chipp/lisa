@@ -219,8 +219,8 @@ impl serde::ser::Serialize for Capability {
                     "parameters",
                     &Parameters {
                         instance: function,
-                        unit: &unit,
-                        range: &range,
+                        unit,
+                        range,
                     },
                 )?;
             }
@@ -246,7 +246,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_value(&capability).unwrap(),
+            to_value(capability).unwrap(),
             json!({
                 "type": "devices.capabilities.on_off",
                 "reportable": true,
@@ -268,7 +268,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_value(&capability).unwrap(),
+            to_value(capability).unwrap(),
             json!({
                 "type": "devices.capabilities.mode",
                 "reportable": true,
@@ -293,7 +293,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_value(&capability).unwrap(),
+            to_value(capability).unwrap(),
             json!({
                 "type": "devices.capabilities.toggle",
                 "reportable": true,
@@ -320,7 +320,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_value(&capability).unwrap(),
+            to_value(capability).unwrap(),
             json!({
                 "type": "devices.capabilities.range",
                 "reportable": true,

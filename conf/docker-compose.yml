@@ -1,0 +1,42 @@
+version: "3"
+services:
+  mq:
+    image: eclipse-mosquitto:2.0.18-openssl
+    ports:
+      - 8883:8883
+    volumes:
+      - ./mq.conf:/mosquitto/config/mosquitto.conf
+      - ./passwords:/mosquitto/config/passwords
+      - ./certs:/mosquitto/ssl
+    environment:
+      - DEBUG=1
+    restart: unless-stopped
+    restart: unless-stopped
+  alisa:
+    build: .
+    image: ghcr.io/chipp/alisa:latest
+    expose:
+      - 8080
+    entrypoint: ["./alisa"]
+    env_file:
+      - .alisa.env
+    environment:
+      - RUST_LOG=info
+      - VIRTUAL_HOST=lisa.chipp.dev
+      - VIRTUAL_PORT=8080
+      - LETSENCRYPT_HOST=lisa.chipp.dev
+      - LETSENCRYPT_EMAIL=lisa@chipp.dev
+    restart: unless-stopped
+  elizabeth:
+    build: .
+    image: ghcr.io/chipp/elizabeth:latest
+    entrypoint: ["./elizabeth"]
+    env_file:
+      - .elizabeth.env
+    environment:
+      - RUST_LOG=info
+    restart: unless-stopped
+networks:
+  default:
+    external:
+      name: nginxproxy_default

@@ -20,11 +20,21 @@ COPY ./lib/xiaomi/Cargo.toml ./lib/xiaomi/Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
-RUN cargo build -p elisa -p str_derive -p transport -p xiaomi && \
-  cargo clean -p elisa -p str_derive -p transport -p xiaomi \
+RUN cargo build \
+  -p elisa \
+  -p str_derive \
+  -p transport \
+  -p xiaomi && \
+  cargo clean \
+  -p elisa \
+  -p str_derive \
+  -p transport \
+  -p xiaomi \
   --target x86_64-unknown-linux-musl && \
-  rm ./bin/elisa/src/*.rs ./lib/str_derive/src/*.rs \
-  ./lib/transport/src/*.rs ./lib/xiaomi/src/*.rs
+  rm ./bin/elisa/src/*.rs \
+  ./lib/str_derive/src/*.rs \
+  ./lib/transport/src/*.rs \
+  ./lib/xiaomi/src/*.rs
 
 COPY ./bin/elisa/src ./bin/elisa/src
 COPY ./lib/str_derive/src ./lib/str_derive/src

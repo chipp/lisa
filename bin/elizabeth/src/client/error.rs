@@ -1,7 +1,6 @@
 use std::fmt;
 
-use inspinia::Room;
-use transport::DeviceType;
+use transport::{DeviceType, Room};
 
 #[derive(Debug)]
 pub enum Error {

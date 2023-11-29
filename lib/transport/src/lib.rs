@@ -1,6 +1,9 @@
 pub mod elisa;
 pub mod elizabeth;
 
+mod device_id;
+pub use device_id::DeviceId;
+
 use std::fmt;
 use std::str::FromStr;
 
@@ -9,6 +12,12 @@ use serde::{
     Deserialize, Serialize,
 };
 use str_derive::Str;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum ResponseState {
+    Elisa(elisa::State),
+    Elizabeth(elizabeth::CurrentState),
+}
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -24,7 +33,7 @@ pub enum TopicType {
     State,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceType {
     Recuperator,
@@ -33,7 +42,7 @@ pub enum DeviceType {
     VacuumCleaner,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Room {
     Bathroom,

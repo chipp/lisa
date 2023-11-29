@@ -37,5 +37,5 @@ run_elisa: VACUUM_TOKEN = $(shell op read "op://private/vacuum/credential" -n)
 run_elisa:
 	@RUST_LOG=${RUST_LOG} VACUUM_IP=${VACUUM_IP} VACUUM_TOKEN=${VACUUM_TOKEN} \
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
-	SSL_CERT_FILE = ${SSL_CERT_FILE} SSL_CERT_DIR = ${SSL_CERT_DIR} \
+	SSL_CERT_FILE=${SSL_CERT_FILE} SSL_CERT_DIR=${SSL_CERT_DIR} \
 	cargo run --bin elisa

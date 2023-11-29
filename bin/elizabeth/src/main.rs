@@ -1,5 +1,6 @@
 use elizabeth::{update_state, Client, Result};
-use transport::Topic;
+use transport::elizabeth::CurrentState;
+use transport::{DeviceId, DeviceType, ResponseState, Topic};
 
 use std::process;
 use std::time::Duration;
@@ -45,7 +46,7 @@ async fn connect_mqtt(
     username: String,
     password: String,
 ) -> Result<mqtt::AsyncClient> {
-    let create_opts = mqtt::CreateOptionsBuilder::new_v3()
+    let create_opts = mqtt::CreateOptionsBuilder::new()
         .server_uri(address)
         .client_id("elizabeth")
         .finalize();
@@ -55,15 +56,18 @@ async fn connect_mqtt(
         process::exit(1);
     });
 
-    let conn_opts = mqtt::ConnectOptionsBuilder::new_v3()
+    let conn_opts = mqtt::ConnectOptionsBuilder::new_v5()
         .keep_alive_interval(Duration::from_secs(30))
-        .clean_session(false)
         .ssl_options(SslOptions::new())
         .user_name(username)
         .password(password)
         .finalize();
 
-    client.connect(conn_opts).await?;
+    let response = client.connect(conn_opts).await?;
+    let response = response.connect_response().unwrap();
+
+    debug!("client mqtt version {}", client.mqtt_version());
+    debug!("server mqtt version {}", response.mqtt_version);
 
     Ok(client)
 }
@@ -71,16 +75,79 @@ async fn connect_mqtt(
 async fn subscribe_action(mut mqtt: mqtt::AsyncClient, mut inspinia: Client) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    mqtt.subscribe_many(&[Topic::elizabeth_action().to_string()], &[mqtt::QOS_1]);
+    mqtt.subscribe_many(
+        &[Topic::elizabeth_action().to_string().as_str(), "request"],
+        &[mqtt::QOS_1, mqtt::QOS_1],
+    );
     info!("Subscribed to topic: {}", Topic::elizabeth_action());
+    info!("Subscribed to topic: request");
 
     while let Some(msg_opt) = stream.next().await {
         debug!("got message {:?}", msg_opt);
 
         if let Some(msg) = msg_opt {
-            match update_state(msg.payload(), &mut inspinia).await {
-                Ok(_) => (),
-                Err(err) => error!("Error updating state: {}", err),
+            match msg.topic() {
+                "elizabeth/action" => match update_state(msg.payload(), &mut inspinia).await {
+                    Ok(_) => (),
+                    Err(err) => error!("Error updating state: {}", err),
+                },
+                "request" => {
+                    let ids: Vec<DeviceId> = match serde_json::from_slice(msg.payload()) {
+                        Ok(ids) => ids,
+                        Err(err) => {
+                            error!("unable to parse request: {}", err);
+                            error!("{}", msg.payload_str());
+                            continue;
+                        }
+                    };
+
+                    let response_topic = match msg
+                        .properties()
+                        .get_string(mqtt::PropertyCode::ResponseTopic)
+                    {
+                        Some(topic) => topic,
+                        None => {
+                            error!("missing response topic");
+                            continue;
+                        }
+                    };
+
+                    let ids = ids.into_iter().filter(|id| match id.device_type {
+                        DeviceType::Recuperator | DeviceType::Thermostat => true,
+                        _ => false,
+                    });
+
+                    debug!("ids: {:?}", ids.clone().collect::<Vec<_>>());
+
+                    for id in ids {
+                        let capabilities =
+                            inspinia.get_current_state(id.room, id.device_type).await;
+
+                        let state = CurrentState {
+                            room: id.room,
+                            device_type: id.device_type,
+                            capabilities,
+                        };
+
+                        debug!("publish to {}: {:?}", response_topic, state);
+
+                        let response = ResponseState::Elizabeth(state);
+                        let payload = serde_json::to_vec(&response).unwrap();
+
+                        let message = mqtt::MessageBuilder::new()
+                            .topic(&response_topic)
+                            .payload(payload)
+                            .finalize();
+
+                        match mqtt.publish(message).await {
+                            Ok(()) => (),
+                            Err(err) => {
+                                error!("Error sending response to {}: {}", response_topic, err);
+                            }
+                        }
+                    }
+                }
+                _ => (),
             }
         } else {
             time::sleep(Duration::from_secs(1)).await;

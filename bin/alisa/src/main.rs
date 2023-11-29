@@ -9,7 +9,7 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server;
-use log::{error, info};
+use log::{debug, error, info};
 use mqtt::SslOptions;
 use paho_mqtt as mqtt;
 use tokio::{task, time};
@@ -40,7 +40,7 @@ async fn connect_mqtt(
     username: String,
     password: String,
 ) -> Result<mqtt::AsyncClient> {
-    let create_opts = mqtt::CreateOptionsBuilder::new_v3()
+    let create_opts = mqtt::CreateOptionsBuilder::new()
         .server_uri(address)
         .client_id("alisa")
         .finalize();
@@ -50,28 +50,35 @@ async fn connect_mqtt(
         process::exit(1);
     });
 
-    let conn_opts = mqtt::ConnectOptionsBuilder::new_v3()
+    let conn_opts = mqtt::ConnectOptionsBuilder::new_v5()
         .keep_alive_interval(Duration::from_secs(30))
-        .clean_session(false)
         .ssl_options(SslOptions::new())
         .user_name(username)
         .password(password)
         .finalize();
 
-    client.connect(conn_opts).await?;
+    let response = client.connect(conn_opts).await?;
+    let response = response.connect_response().unwrap();
+
+    debug!("client mqtt version {}", client.mqtt_version());
+    debug!("server mqtt version {}", response.mqtt_version);
 
     Ok(client)
 }
 
 async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Action>();
+    let mqtt1 = mqtt.clone();
 
     let make_svc = make_service_fn(move |_| {
         let tx = tx.clone();
+        let mqtt = mqtt1.clone();
+
         async move {
             Ok::<_, ErasedError>(service_fn(move |req| {
                 let tx = tx.clone();
-                async move { web_handler(req, tx).await }
+                let mqtt = mqtt.clone();
+                async move { web_handler(req, tx, mqtt).await }
             }))
         }
     });
@@ -155,8 +162,8 @@ async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
 fn parse_state(msg: &mqtt::Message) -> Option<State> {
     let topic: Topic = msg.topic().parse().ok()?;
 
-    match topic.topic_type {
-        TopicType::State => match topic.service {
+    if let TopicType::State = topic.topic_type {
+        match topic.service {
             Service::Elizabeth => {
                 let state: ElizabethState = serde_json::from_slice(msg.payload()).ok()?;
                 Some(State::Elizabeth(state))
@@ -165,7 +172,8 @@ fn parse_state(msg: &mqtt::Message) -> Option<State> {
                 let state: ElisaState = serde_json::from_slice(msg.payload()).ok()?;
                 Some(State::Elisa(state))
             }
-        },
-        TopicType::Action => None,
+        }
+    } else {
+        None
     }
 }

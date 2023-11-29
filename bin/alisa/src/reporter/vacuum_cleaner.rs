@@ -1,12 +1,10 @@
-use crate::{DeviceId, Result};
-
 use alice::{
     Mode, ModeFunction::*, StateCapability, StateDevice, StateProperty, ToggleFunction::Pause,
 };
 use transport::elisa::State;
-use transport::Room;
+use transport::{DeviceId, Room};
 
-pub fn prepare_vacuum_updates(state: State) -> Result<Vec<StateDevice>> {
+pub fn prepare_vacuum_updates(state: State) -> Vec<StateDevice> {
     let mut devices = vec![];
     let all_rooms = Room::all_rooms();
 
@@ -35,13 +33,13 @@ pub fn prepare_vacuum_updates(state: State) -> Result<Vec<StateDevice>> {
         }
 
         devices.push(StateDevice::new_with_properties_and_capabilities(
-            device_id.to_string(),
+            device_id,
             properties,
             capabilities,
         ));
     }
 
-    Ok(devices)
+    devices
 }
 
 fn map_work_speed(speed: transport::elisa::WorkSpeed) -> Mode {

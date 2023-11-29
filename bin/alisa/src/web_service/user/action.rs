@@ -5,16 +5,13 @@ use alice::{
 };
 use transport::elisa::Action as ElisaAction;
 use transport::elizabeth::{Action as ElizabethAction, ActionType as ElizabethActionType};
-use transport::{DeviceType, Room};
-
-use std::str::FromStr;
+use transport::{DeviceId, DeviceType, Room};
 
 use bytes::Buf;
 use hyper::{Body, Request, Response, StatusCode};
 use log::{debug, error};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::types::DeviceId;
 use crate::web_service::auth::validate_autorization;
 use crate::{Action, Result};
 
@@ -40,7 +37,7 @@ pub async fn action(
         let mut elisa_response = vec![];
 
         for device in action.payload.devices {
-            let DeviceId { room, device_type } = DeviceId::from_str(device.id).unwrap();
+            let DeviceId { room, device_type } = serde_json::from_str(device.id).unwrap();
 
             match device_type {
                 DeviceType::Recuperator | DeviceType::Thermostat => {

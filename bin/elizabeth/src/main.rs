@@ -1,15 +1,14 @@
-use elizabeth::{update_state, Client, Result};
-use transport::elizabeth::CurrentState;
-use transport::state::StateResponse;
-use transport::{DeviceId, DeviceType, Topic};
+use elizabeth::{handle_action_request, handle_state_request, Client, Result};
+use transport::state::StateUpdate;
+use transport::Topic;
 
 use std::process;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
-use log::{debug, error, info};
-use mqtt::SslOptions;
-use paho_mqtt as mqtt;
+use log::{debug, error, info, trace};
+use paho_mqtt::AsyncClient as MqClient;
+use paho_mqtt::{ConnectOptionsBuilder, CreateOptionsBuilder, MessageBuilder, SslOptions, QOS_1};
 use tokio::task;
 use tokio::time;
 
@@ -42,22 +41,18 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn connect_mqtt(
-    address: String,
-    username: String,
-    password: String,
-) -> Result<mqtt::AsyncClient> {
-    let create_opts = mqtt::CreateOptionsBuilder::new()
+async fn connect_mqtt(address: String, username: String, password: String) -> Result<MqClient> {
+    let create_opts = CreateOptionsBuilder::new()
         .server_uri(address)
         .client_id("elizabeth")
         .finalize();
 
-    let client = mqtt::AsyncClient::new(create_opts).unwrap_or_else(|err| {
+    let client = MqClient::new(create_opts).unwrap_or_else(|err| {
         error!("Error creating the client: {}", err);
         process::exit(1);
     });
 
-    let conn_opts = mqtt::ConnectOptionsBuilder::new_v5()
+    let conn_opts = ConnectOptionsBuilder::new_v5()
         .keep_alive_interval(Duration::from_secs(30))
         .ssl_options(SslOptions::new())
         .user_name(username)
@@ -73,7 +68,7 @@ async fn connect_mqtt(
     Ok(client)
 }
 
-async fn subscribe_action(mut mqtt: mqtt::AsyncClient, mut inspinia: Client) -> Result<()> {
+async fn subscribe_action(mut mqtt: MqClient, mut inspinia: Client) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     let topics = [
@@ -81,11 +76,11 @@ async fn subscribe_action(mut mqtt: mqtt::AsyncClient, mut inspinia: Client) -> 
         Topic::StateRequest.to_string(),
     ];
 
-    mqtt.subscribe_many(&topics, &[mqtt::QOS_1, mqtt::QOS_1]);
+    mqtt.subscribe_many(&topics, &[QOS_1, QOS_1]);
     info!("Subscribed to topis: {:?}", topics);
 
     while let Some(msg_opt) = stream.next().await {
-        debug!("got message {:?}", msg_opt);
+        trace!("got message {:?}", msg_opt);
 
         if let Some(msg) = msg_opt {
             let topic = if let Ok(value) = msg.topic().parse() {
@@ -95,66 +90,8 @@ async fn subscribe_action(mut mqtt: mqtt::AsyncClient, mut inspinia: Client) -> 
             };
 
             match topic {
-                Topic::ActionRequest => match update_state(msg.payload(), &mut inspinia).await {
-                    Ok(_) => (),
-                    Err(err) => error!("Error updating state: {}", err),
-                },
-                Topic::StateRequest => {
-                    let ids: Vec<DeviceId> = match serde_json::from_slice(msg.payload()) {
-                        Ok(ids) => ids,
-                        Err(err) => {
-                            error!("unable to parse request: {}", err);
-                            error!("{}", msg.payload_str());
-                            continue;
-                        }
-                    };
-
-                    let response_topic = match msg
-                        .properties()
-                        .get_string(mqtt::PropertyCode::ResponseTopic)
-                    {
-                        Some(topic) => topic,
-                        None => {
-                            error!("missing response topic");
-                            continue;
-                        }
-                    };
-
-                    let ids = ids.into_iter().filter(|id| match id.device_type {
-                        DeviceType::Recuperator | DeviceType::Thermostat => true,
-                        _ => false,
-                    });
-
-                    debug!("ids: {:?}", ids.clone().collect::<Vec<_>>());
-
-                    for id in ids {
-                        let capabilities =
-                            inspinia.get_current_state(id.room, id.device_type).await;
-
-                        let state = CurrentState {
-                            room: id.room,
-                            device_type: id.device_type,
-                            capabilities,
-                        };
-
-                        debug!("publish to {}: {:?}", response_topic, state);
-
-                        let response = StateResponse::Elizabeth(state);
-                        let payload = serde_json::to_vec(&response).unwrap();
-
-                        let message = mqtt::MessageBuilder::new()
-                            .topic(&response_topic)
-                            .payload(payload)
-                            .finalize();
-
-                        match mqtt.publish(message).await {
-                            Ok(()) => (),
-                            Err(err) => {
-                                error!("Error sending response to {}: {}", response_topic, err);
-                            }
-                        }
-                    }
-                }
+                Topic::ActionRequest => handle_action_request(msg, &mut mqtt, &mut inspinia).await,
+                Topic::StateRequest => handle_state_request(msg, &mut mqtt, &mut inspinia).await,
                 _ => (),
             }
         } else {
@@ -170,13 +107,15 @@ async fn subscribe_action(mut mqtt: mqtt::AsyncClient, mut inspinia: Client) -> 
     Ok(())
 }
 
-async fn subscribe_state(mqtt: mqtt::AsyncClient, mut inspinia: Client) -> Result<()> {
+async fn subscribe_state(mqtt: MqClient, mut inspinia: Client) -> Result<()> {
     loop {
         if let Ok(payload) = inspinia.read().await {
-            let payload = serde_json::to_vec(&payload)?;
+            let update = StateUpdate::Elizabeth(payload);
+
+            let payload = serde_json::to_vec(&update)?;
             let topic = Topic::State;
 
-            let message = mqtt::MessageBuilder::new()
+            let message = MessageBuilder::new()
                 .topic(topic.to_string())
                 .payload(payload)
                 .finalize();

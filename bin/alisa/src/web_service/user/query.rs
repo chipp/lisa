@@ -7,7 +7,7 @@ use transport::{DeviceId, DeviceType, Topic};
 use bytes::Buf;
 use futures_util::StreamExt;
 use hyper::{Body, Request, Response};
-use log::trace;
+use log::{debug, trace};
 use paho_mqtt::{AsyncClient, Message, MessageBuilder, Properties, PropertyCode, QOS_1};
 
 use crate::web_service::{auth::validate_autorization, StatusCode};
@@ -82,6 +82,7 @@ fn handle_message(
     use transport::state::StateResponse;
 
     let response: StateResponse = serde_json::from_slice(msg.payload()).unwrap();
+    debug!("got response {:?}", response);
 
     match response {
         StateResponse::Elisa(state) => {

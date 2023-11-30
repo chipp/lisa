@@ -35,39 +35,43 @@ impl Storage {
                         if lhs != rhs {
                             *capability = state.capability;
                             updated = true;
-                            break;
                         }
                         found = true;
+                        break;
                     }
                     (FanSpeed(lhs), FanSpeed(rhs)) => {
                         if lhs != rhs {
                             *capability = state.capability;
                             updated = true;
-                            break;
                         }
                         found = true;
+                        break;
                     }
                     (CurrentTemperature(lhs), CurrentTemperature(rhs)) => {
                         if lhs != rhs {
                             *capability = state.capability;
                             updated = true;
-                            break;
                         }
                         found = true;
+                        break;
                     }
                     (Temperature(lhs), Temperature(rhs)) => {
                         if lhs != rhs {
                             *capability = state.capability;
                             updated = true;
-                            break;
                         }
                         found = true;
+                        break;
                     }
                     _ => (),
                 }
             }
 
             if !found {
+                debug!(
+                    "{}/{} not found {:?}",
+                    state.room, state.device_type, state.capability
+                );
                 device.capabilities.push(state.capability);
                 updated = true;
             }

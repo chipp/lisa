@@ -13,7 +13,7 @@ use transport::{DeviceId, DeviceType, Room, Topic};
 
 use bytes::Buf;
 use hyper::{Body, Request, Response, StatusCode};
-use log::{debug, error};
+use log::{debug, error, trace};
 use paho_mqtt::{AsyncClient, Message, MessageBuilder, Properties, PropertyCode, QOS_1};
 use uuid::Uuid;
 
@@ -31,7 +31,7 @@ pub async fn action(
 
         let body = hyper::body::aggregate(request).await?;
         unsafe {
-            println!("[action]: {}", std::str::from_utf8_unchecked(body.chunk()));
+            trace!("[action]: {}", std::str::from_utf8_unchecked(body.chunk()));
         }
 
         let action: UpdateStateRequest = serde_json::from_slice(body.chunk())?;

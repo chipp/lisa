@@ -9,7 +9,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use tokio::sync::Mutex;
 use tokio::time::timeout;
 
@@ -101,20 +101,20 @@ impl Client {
 
 impl Client {
     pub async fn read(&mut self) -> Result<State> {
-        debug!("read next");
-        debug!("initial state {:?}", self.initial_state.len());
+        trace!("read next");
+        trace!("initial state {:?}", self.initial_state.len());
 
         while let Some(state) = self.initial_state.pop() {
-            debug!("found initial state {:?} {:?}", state.id, state.value);
+            trace!("found initial state {:?} {:?}", state.id, state.value);
 
             if let Some(update) = Self::parse_initial_state(&state, &self.db_path) {
-                debug!("prepared update {:?}", update);
+                trace!("prepared update {:?}", update);
 
                 return Ok(update);
             }
         }
 
-        debug!("reading from web socket");
+        trace!("reading from web socket");
 
         loop {
             match self.client.read_message().await {
@@ -140,7 +140,7 @@ impl Client {
                         }
                     }
                     "203" => {
-                        debug!(
+                        trace!(
                             "alive: {}",
                             payload
                                 .message

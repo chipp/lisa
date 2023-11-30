@@ -1,6 +1,7 @@
-use elisa::{perform_action, prepare_state, Result, Storage};
-use transport::state::StateResponse;
-use transport::{DeviceId, DeviceType, Topic};
+use elisa::{
+    handle_action_request, handle_state_request, perform_action, prepare_state, Result, Storage,
+};
+use transport::Topic;
 use xiaomi::{parse_token, Vacuum};
 
 use std::process;
@@ -101,63 +102,8 @@ async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum
             };
 
             match topic {
-                Topic::ActionRequest => {
-                    let vacuum = &mut vacuum.lock().await;
-                    match perform_action(msg.payload(), vacuum).await {
-                        Ok(_) => (),
-                        Err(err) => error!("Error updating state: {}", err),
-                    }
-                }
-                Topic::StateRequest => {
-                    let ids: Vec<DeviceId> = match serde_json::from_slice(msg.payload()) {
-                        Ok(ids) => ids,
-                        Err(err) => {
-                            error!("unable to parse request: {}", err);
-                            error!("{}", msg.payload_str());
-                            continue;
-                        }
-                    };
-
-                    let response_topic = match msg
-                        .properties()
-                        .get_string(mqtt::PropertyCode::ResponseTopic)
-                    {
-                        Some(topic) => topic,
-                        None => {
-                            error!("missing response topic");
-                            continue;
-                        }
-                    };
-
-                    let should_respond = ids
-                        .iter()
-                        .any(|id| id.device_type == DeviceType::VacuumCleaner);
-
-                    if should_respond {
-                        let mut vacuum = vacuum.lock().await;
-
-                        if let Ok(status) = vacuum.status().await {
-                            let state = prepare_state(status, vacuum.last_cleaning_rooms());
-                            debug!("publish to {}: {:?}", response_topic, state);
-
-                            let response = StateResponse::Elisa(state);
-
-                            let payload = serde_json::to_vec(&response).unwrap();
-
-                            let message = mqtt::MessageBuilder::new()
-                                .topic(&response_topic)
-                                .payload(payload)
-                                .finalize();
-
-                            match mqtt.publish(message).await {
-                                Ok(()) => (),
-                                Err(err) => {
-                                    error!("Error sending response to {}: {}", response_topic, err);
-                                }
-                            }
-                        }
-                    }
-                }
+                Topic::ActionRequest => handle_action_request(msg, &mut mqtt, vacuum.clone()).await,
+                Topic::StateRequest => handle_state_request(msg, &mut mqtt, vacuum.clone()).await,
                 _ => (),
             }
         } else {

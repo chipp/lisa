@@ -35,7 +35,10 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, inspinia: 
         if let transport::action::Action::Elizabeth(action, action_id) = action {
             let result = match update_state(action, inspinia).await {
                 Ok(_) => ActionResult::Success,
-                Err(_) => ActionResult::Failure,
+                Err(err) => {
+                    error!("Error updating state: {}", err);
+                    ActionResult::Failure
+                }
             };
 
             let response = ActionResponse { action_id, result };

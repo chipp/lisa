@@ -37,7 +37,7 @@ impl FromStr for Topic {
             "action/request" => Ok(Topic::ActionRequest),
             _ => {
                 let (topic, id) = s
-                    .rsplit_once("/")
+                    .rsplit_once('/')
                     .ok_or_else(|| value::Error::custom(ERROR_MSG))?;
 
                 match topic {

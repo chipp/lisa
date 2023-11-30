@@ -117,13 +117,12 @@ pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, inspinia: &
         }
     };
 
-    let ids = request
-        .device_ids
-        .into_iter()
-        .filter(|id| match id.device_type {
-            DeviceType::Recuperator | DeviceType::Thermostat => true,
-            _ => false,
-        });
+    let ids = request.device_ids.into_iter().filter(|id| {
+        matches!(
+            id.device_type,
+            DeviceType::Recuperator | DeviceType::Thermostat
+        )
+    });
 
     debug!("ids: {:?}", ids.clone().collect::<Vec<_>>());
 

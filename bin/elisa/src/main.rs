@@ -1,6 +1,4 @@
-use elisa::{
-    handle_action_request, handle_state_request, perform_action, prepare_state, Result, Storage,
-};
+use elisa::{handle_action_request, handle_state_request, prepare_state, Result, Storage};
 use transport::Topic;
 use xiaomi::{parse_token, Vacuum};
 

@@ -33,7 +33,7 @@ mod tests {
             "result": "success",
         });
 
-        assert_eq!(serde_json::to_value(&response).unwrap(), json);
+        assert_eq!(serde_json::to_value(response).unwrap(), json);
     }
 
     #[test]

@@ -34,7 +34,7 @@ mod tests {
             ],
         };
 
-        assert_eq!(serde_json::to_value(&request).unwrap(), json);
+        assert_eq!(serde_json::to_value(request).unwrap(), json);
     }
 
     #[test]

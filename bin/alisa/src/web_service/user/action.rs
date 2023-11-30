@@ -111,7 +111,7 @@ pub async fn action(
             }
         }
 
-        let response_devices = group(response_capabilities.into_values().into_iter())
+        let response_devices = group(response_capabilities.into_values())
             .into_iter()
             .map(|(id, capabilities)| UpdatedDeviceState::new(id, capabilities))
             .collect();

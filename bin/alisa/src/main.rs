@@ -1,7 +1,6 @@
-use alisa::{report_state, web_handler, Action, ErasedError, Result, State};
-use transport::elisa::State as ElisaState;
-use transport::elizabeth::State as ElizabethState;
-use transport::{Service, Topic, TopicType};
+use alisa::{report_update, web_handler, ErasedError, Result};
+use transport::state::StateUpdate;
+use transport::Topic;
 
 use std::process;
 use std::time::Duration;
@@ -67,18 +66,13 @@ async fn connect_mqtt(
 }
 
 async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Action>();
-    let mqtt1 = mqtt.clone();
-
     let make_svc = make_service_fn(move |_| {
-        let tx = tx.clone();
-        let mqtt = mqtt1.clone();
+        let mqtt = mqtt.clone();
 
         async move {
             Ok::<_, ErasedError>(service_fn(move |req| {
-                let tx = tx.clone();
                 let mqtt = mqtt.clone();
-                async move { web_handler(req, tx, mqtt).await }
+                async move { web_handler(req, mqtt).await }
             }))
         }
     });
@@ -86,39 +80,8 @@ async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
     let addr = ([0, 0, 0, 0], 8080).into();
     let server = Server::bind(&addr).serve(make_svc);
 
-    let (server_handle, update_handler) = tokio::try_join!(
-        task::spawn(async move {
-            info!("Listening http://{}", addr);
-            server.await
-        }),
-        task::spawn(async move {
-            while let Some(action) = rx.recv().await {
-                // TODO: handle errors
-
-                let (topic, value) = match action {
-                    Action::Elizabeth(action) => (
-                        Topic::elizabeth_action(),
-                        serde_json::to_vec(&action).unwrap(),
-                    ),
-                    Action::Elisa(action) => {
-                        (Topic::elisa_action(), serde_json::to_vec(&action).unwrap())
-                    }
-                };
-
-                let message = mqtt::MessageBuilder::new()
-                    .topic(topic.to_string())
-                    .payload(value)
-                    .finalize();
-
-                mqtt.publish(message).await?;
-            }
-
-            Ok::<_, ErasedError>(())
-        })
-    )?;
-
-    server_handle?;
-    update_handler?;
+    info!("Listening http://{}", addr);
+    server.await?;
 
     Ok(())
 }
@@ -126,20 +89,14 @@ async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
 async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    let topics = &[
-        Topic::elisa_state().to_string(),
-        Topic::elizabeth_state().to_string(),
-    ];
-    let qos = &[mqtt::QOS_1; 2];
-
-    mqtt.subscribe_many(topics, qos);
-
-    info!("Subscribed to topics: {:?}", topics);
+    let topic = Topic::State.to_string();
+    info!("Subscribe to topic: {}", topic);
+    mqtt.subscribe(topic, mqtt::QOS_1);
 
     while let Some(msg_opt) = stream.next().await {
         if let Some(msg) = msg_opt {
-            if let Some(event) = parse_state(&msg) {
-                match report_state(event).await {
+            if let Some(event) = parse_update(&msg) {
+                match report_update(event).await {
                     Ok(_) => (),
                     Err(err) => error!("Error updating state: {}", err),
                 }
@@ -159,20 +116,10 @@ async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
     Ok(())
 }
 
-fn parse_state(msg: &mqtt::Message) -> Option<State> {
-    let topic: Topic = msg.topic().parse().ok()?;
-
-    if let TopicType::State = topic.topic_type {
-        match topic.service {
-            Service::Elizabeth => {
-                let state: ElizabethState = serde_json::from_slice(msg.payload()).ok()?;
-                Some(State::Elizabeth(state))
-            }
-            Service::Elisa => {
-                let state: ElisaState = serde_json::from_slice(msg.payload()).ok()?;
-                Some(State::Elisa(state))
-            }
-        }
+fn parse_update(msg: &mqtt::Message) -> Option<StateUpdate> {
+    if let Topic::State = msg.topic().parse().ok()? {
+        let update: StateUpdate = serde_json::from_slice(msg.payload()).ok()?;
+        Some(update)
     } else {
         None
     }

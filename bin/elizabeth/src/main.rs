@@ -1,6 +1,7 @@
 use elizabeth::{update_state, Client, Result};
 use transport::elizabeth::CurrentState;
-use transport::{DeviceId, DeviceType, ResponseState, Topic};
+use transport::state::StateResponse;
+use transport::{DeviceId, DeviceType, Topic};
 
 use std::process;
 use std::time::Duration;
@@ -75,23 +76,30 @@ async fn connect_mqtt(
 async fn subscribe_action(mut mqtt: mqtt::AsyncClient, mut inspinia: Client) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    mqtt.subscribe_many(
-        &[Topic::elizabeth_action().to_string().as_str(), "request"],
-        &[mqtt::QOS_1, mqtt::QOS_1],
-    );
-    info!("Subscribed to topic: {}", Topic::elizabeth_action());
-    info!("Subscribed to topic: request");
+    let topics = [
+        Topic::ActionRequest.to_string(),
+        Topic::StateRequest.to_string(),
+    ];
+
+    mqtt.subscribe_many(&topics, &[mqtt::QOS_1, mqtt::QOS_1]);
+    info!("Subscribed to topis: {:?}", topics);
 
     while let Some(msg_opt) = stream.next().await {
         debug!("got message {:?}", msg_opt);
 
         if let Some(msg) = msg_opt {
-            match msg.topic() {
-                "elizabeth/action" => match update_state(msg.payload(), &mut inspinia).await {
+            let topic = if let Ok(value) = msg.topic().parse() {
+                value
+            } else {
+                continue;
+            };
+
+            match topic {
+                Topic::ActionRequest => match update_state(msg.payload(), &mut inspinia).await {
                     Ok(_) => (),
                     Err(err) => error!("Error updating state: {}", err),
                 },
-                "request" => {
+                Topic::StateRequest => {
                     let ids: Vec<DeviceId> = match serde_json::from_slice(msg.payload()) {
                         Ok(ids) => ids,
                         Err(err) => {
@@ -131,7 +139,7 @@ async fn subscribe_action(mut mqtt: mqtt::AsyncClient, mut inspinia: Client) -> 
 
                         debug!("publish to {}: {:?}", response_topic, state);
 
-                        let response = ResponseState::Elizabeth(state);
+                        let response = StateResponse::Elizabeth(state);
                         let payload = serde_json::to_vec(&response).unwrap();
 
                         let message = mqtt::MessageBuilder::new()
@@ -166,7 +174,7 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, mut inspinia: Client) -> Resul
     loop {
         if let Ok(payload) = inspinia.read().await {
             let payload = serde_json::to_vec(&payload)?;
-            let topic = Topic::elizabeth_state();
+            let topic = Topic::State;
 
             let message = mqtt::MessageBuilder::new()
                 .topic(topic.to_string())

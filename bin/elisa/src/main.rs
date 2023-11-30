@@ -1,5 +1,6 @@
 use elisa::{perform_action, prepare_state, Result, Storage};
-use transport::{DeviceId, DeviceType, ResponseState, Topic};
+use transport::state::StateResponse;
+use transport::{DeviceId, DeviceType, Topic};
 use xiaomi::{parse_token, Vacuum};
 
 use std::process;
@@ -83,25 +84,31 @@ async fn connect_mqtt(
 async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    mqtt.subscribe_many(
-        &[Topic::elisa_action().to_string().as_str(), "request"],
-        &[mqtt::QOS_1, mqtt::QOS_1],
-    );
+    let topics = [
+        Topic::ActionRequest.to_string(),
+        Topic::StateRequest.to_string(),
+    ];
 
-    info!("Subscribed to topic: {}", Topic::elisa_action());
-    info!("Subscribed to topic: request");
+    mqtt.subscribe_many(&topics, &[mqtt::QOS_1, mqtt::QOS_1]);
+    info!("Subscribed to topics: {:?}", topics);
 
     while let Some(msg_opt) = stream.next().await {
         if let Some(msg) = msg_opt {
-            match msg.topic() {
-                "elisa/action" => {
+            let topic = if let Ok(value) = msg.topic().parse() {
+                value
+            } else {
+                continue;
+            };
+
+            match topic {
+                Topic::ActionRequest => {
                     let vacuum = &mut vacuum.lock().await;
                     match perform_action(msg.payload(), vacuum).await {
                         Ok(_) => (),
                         Err(err) => error!("Error updating state: {}", err),
                     }
                 }
-                "request" => {
+                Topic::StateRequest => {
                     let ids: Vec<DeviceId> = match serde_json::from_slice(msg.payload()) {
                         Ok(ids) => ids,
                         Err(err) => {
@@ -133,7 +140,7 @@ async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum
                             let state = prepare_state(status, vacuum.last_cleaning_rooms());
                             debug!("publish to {}: {:?}", response_topic, state);
 
-                            let response = ResponseState::Elisa(state);
+                            let response = StateResponse::Elisa(state);
 
                             let payload = serde_json::to_vec(&response).unwrap();
 
@@ -180,7 +187,7 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) ->
             if storage.apply_state(&state).await {
                 info!("publishing state: {:?}", state);
 
-                let topic = Topic::elisa_state();
+                let topic = Topic::State;
                 let payload = serde_json::to_vec(&state).unwrap();
 
                 let message = mqtt::MessageBuilder::new()

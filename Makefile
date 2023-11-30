@@ -18,8 +18,8 @@ run_elizabeth: RUST_LOG = elizabeth=debug
 run_elizabeth: MQTT_ADDRESS = mqtt://localhost:1883
 run_elizabeth: MQTT_USER = elizabeth
 run_elizabeth: MQTT_PASS = 123mqtt
-run_elizabeth: INSPINIA_CLIENT_ID = $(shell op read "op://private/inspinia/username" -n)
-run_elizabeth: INSPINIA_TOKEN = $(shell op read "op://private/inspinia/credential" -n)
+run_elizabeth: INSPINIA_CLIENT_ID = $(shell op read "op://private/inspinia test/username" -n)
+run_elizabeth: INSPINIA_TOKEN = $(shell op read "op://private/inspinia test/credential" -n)
 run_elizabeth:
 	@RUST_LOG=${RUST_LOG} \
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \

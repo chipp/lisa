@@ -2,6 +2,7 @@ mod capability;
 pub use capability::{ActionResult, Capability, Error, ErrorCode};
 
 use serde::Serialize;
+use transport::DeviceId;
 
 #[derive(Debug, Serialize)]
 pub struct Response {
@@ -25,12 +26,12 @@ struct ResponsePayload {
 
 #[derive(Debug, Serialize)]
 pub struct ResponseDevice {
-    id: String,
+    id: DeviceId,
     capabilities: Vec<Capability>,
 }
 
 impl ResponseDevice {
-    pub fn new(id: String, capabilities: Vec<Capability>) -> ResponseDevice {
+    pub fn new(id: DeviceId, capabilities: Vec<Capability>) -> ResponseDevice {
         ResponseDevice { id, capabilities }
     }
 

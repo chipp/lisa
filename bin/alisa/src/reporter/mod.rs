@@ -2,13 +2,14 @@ mod recuperator;
 mod thermostat;
 mod vacuum_cleaner;
 
-use recuperator::prepare_recuperator_update;
-use thermostat::prepare_thermostat_update;
+pub use recuperator::{prepare_recuperator_current_state, prepare_recuperator_update};
+pub use thermostat::{prepare_thermostat_current_state, prepare_thermostat_update};
+pub use vacuum_cleaner::prepare_vacuum_updates;
 
 use crate::Result;
 use alice::{StateDevice, StateResponse};
-use transport::elisa::State as ElisaState;
 use transport::elizabeth::State as ElizabethState;
+use transport::state::StateUpdate;
 use transport::DeviceType;
 
 use chrono::Utc;
@@ -16,19 +17,12 @@ use hyper::{Body, Client, Method, Request, StatusCode};
 use hyper_tls::HttpsConnector;
 use log::{debug, error};
 
-use self::vacuum_cleaner::prepare_vacuum_updates;
-
-pub enum State {
-    Elizabeth(ElizabethState),
-    Elisa(ElisaState),
-}
-
-pub async fn report_state(state: State) -> Result<()> {
-    let devices = match state {
-        State::Elizabeth(state) => {
+pub async fn report_update(update: StateUpdate) -> Result<()> {
+    let devices = match update {
+        StateUpdate::Elizabeth(state) => {
             vec![prepare_elizabeth_device(state)?]
         }
-        State::Elisa(state) => prepare_vacuum_updates(state)?,
+        StateUpdate::Elisa(state) => prepare_vacuum_updates(state),
     };
 
     let now = Utc::now();

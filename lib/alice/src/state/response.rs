@@ -1,3 +1,5 @@
+use transport::DeviceId;
+
 use super::{Capability, Property};
 use serde::Serialize;
 
@@ -50,13 +52,19 @@ struct ResponsePayload {
 
 #[derive(Debug, Serialize)]
 pub struct ResponseDevice {
-    id: String,
+    id: DeviceId,
     properties: Vec<Property>,
     capabilities: Vec<Capability>,
 }
 
 impl ResponseDevice {
-    pub fn new_with_properties(id: String, properties: Vec<Property>) -> ResponseDevice {
+    pub fn id(&self) -> DeviceId {
+        self.id
+    }
+}
+
+impl ResponseDevice {
+    pub fn new_with_properties(id: DeviceId, properties: Vec<Property>) -> ResponseDevice {
         ResponseDevice {
             id,
             properties,
@@ -64,7 +72,7 @@ impl ResponseDevice {
         }
     }
 
-    pub fn new_with_capabilities(id: String, capabilities: Vec<Capability>) -> ResponseDevice {
+    pub fn new_with_capabilities(id: DeviceId, capabilities: Vec<Capability>) -> ResponseDevice {
         ResponseDevice {
             id,
             capabilities,
@@ -73,7 +81,7 @@ impl ResponseDevice {
     }
 
     pub fn new_with_properties_and_capabilities(
-        id: String,
+        id: DeviceId,
         properties: Vec<Property>,
         capabilities: Vec<Capability>,
     ) -> ResponseDevice {

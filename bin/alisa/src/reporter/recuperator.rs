@@ -1,8 +1,9 @@
-use crate::{DeviceId, Result};
+use crate::Result;
 use std::fmt;
 
 use alice::{Mode, ModeFunction, StateCapability, StateDevice};
-use transport::elizabeth::{Capability, State};
+use transport::elizabeth::{Capability, CurrentState, State};
+use transport::DeviceId;
 
 #[derive(Debug)]
 pub enum Error {
@@ -35,9 +36,28 @@ pub fn prepare_recuperator_update(state: State) -> Result<StateDevice> {
     let device_id = DeviceId::recuperator_at_room(state.room);
 
     Ok(StateDevice::new_with_capabilities(
-        device_id.to_string(),
+        device_id,
         vec![state_capability],
     ))
+}
+
+pub fn prepare_recuperator_current_state(state: CurrentState) -> StateDevice {
+    let device_id = DeviceId::recuperator_at_room(state.room);
+
+    let state_capabilities = state
+        .capabilities
+        .into_iter()
+        .filter_map(|c| match c {
+            Capability::IsEnabled(value) => Some(StateCapability::on_off(value)),
+            Capability::FanSpeed(fan_speed) => Some(StateCapability::mode(
+                ModeFunction::FanSpeed,
+                map_fan_speed(fan_speed),
+            )),
+            Capability::Temperature(_) | Capability::CurrentTemperature(_) => None,
+        })
+        .collect::<Vec<_>>();
+
+    StateDevice::new_with_capabilities(device_id, state_capabilities)
 }
 
 fn map_fan_speed(speed: transport::elizabeth::FanSpeed) -> Mode {

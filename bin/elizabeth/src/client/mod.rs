@@ -9,17 +9,16 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use tokio::sync::Mutex;
 use tokio::time::timeout;
 
 use crate::Result;
 use inspinia::{
-    download_template, Device, DeviceManager, FanSpeed, PortName, PortState, PortType,
-    ReceivedMessage, RegisterMessage, Room, UpdateMessageContent, UpdateStateMessage, WsClient,
-    WsError,
+    download_template, Device, DeviceManager, PortName, PortState, PortType, ReceivedMessage,
+    RegisterMessage, UpdateMessageContent, UpdateStateMessage, WsClient, WsError,
 };
-use transport::elizabeth::{Capability, State};
+use transport::elizabeth::{self, Capability, State};
 use transport::DeviceType;
 
 #[derive(Clone)]
@@ -102,20 +101,20 @@ impl Client {
 
 impl Client {
     pub async fn read(&mut self) -> Result<State> {
-        debug!("read next");
-        debug!("initial state {:?}", self.initial_state.len());
+        trace!("read next");
+        trace!("initial state {:?}", self.initial_state.len());
 
         while let Some(state) = self.initial_state.pop() {
-            debug!("found initial state {:?} {:?}", state.id, state.value);
+            trace!("found initial state {:?} {:?}", state.id, state.value);
 
             if let Some(update) = Self::parse_initial_state(&state, &self.db_path) {
-                debug!("prepared update {:?}", update);
+                trace!("prepared update {:?}", update);
 
                 return Ok(update);
             }
         }
 
-        debug!("reading from web socket");
+        trace!("reading from web socket");
 
         loop {
             match self.client.read_message().await {
@@ -141,7 +140,7 @@ impl Client {
                         }
                     }
                     "203" => {
-                        debug!(
+                        trace!(
                             "alive: {}",
                             payload
                                 .message
@@ -190,23 +189,23 @@ impl Client {
         Ok([
             (
                 DeviceType::Recuperator,
-                device_manager.get_recuperator_in_room(Room::LivingRoom)?,
+                device_manager.get_recuperator_in_room(inspinia::Room::LivingRoom)?,
             ),
             (
                 DeviceType::Thermostat,
-                device_manager.get_thermostat_in_room(Room::Bedroom)?,
+                device_manager.get_thermostat_in_room(inspinia::Room::Bedroom)?,
             ),
             (
                 DeviceType::Thermostat,
-                device_manager.get_thermostat_in_room(Room::Nursery)?,
+                device_manager.get_thermostat_in_room(inspinia::Room::Nursery)?,
             ),
             (
                 DeviceType::Thermostat,
-                device_manager.get_thermostat_in_room(Room::HomeOffice)?,
+                device_manager.get_thermostat_in_room(inspinia::Room::HomeOffice)?,
             ),
             (
                 DeviceType::Thermostat,
-                device_manager.get_thermostat_in_room(Room::LivingRoom)?,
+                device_manager.get_thermostat_in_room(inspinia::Room::LivingRoom)?,
             ),
         ])
     }
@@ -214,26 +213,36 @@ impl Client {
     fn get_thermostats(db_path: &Path) -> Result<[Device; 4]> {
         let device_manager = DeviceManager::new(db_path)?;
         Ok([
-            device_manager.get_thermostat_in_room(Room::Bedroom)?,
-            device_manager.get_thermostat_in_room(Room::Nursery)?,
-            device_manager.get_thermostat_in_room(Room::HomeOffice)?,
-            device_manager.get_thermostat_in_room(Room::LivingRoom)?,
+            device_manager.get_thermostat_in_room(inspinia::Room::Bedroom)?,
+            device_manager.get_thermostat_in_room(inspinia::Room::Nursery)?,
+            device_manager.get_thermostat_in_room(inspinia::Room::HomeOffice)?,
+            device_manager.get_thermostat_in_room(inspinia::Room::LivingRoom)?,
         ])
     }
 
     fn get_recuperator(db_path: &Path) -> Result<Device> {
         let device_manager = DeviceManager::new(db_path)?;
-        device_manager.get_recuperator_in_room(Room::LivingRoom)
+        device_manager.get_recuperator_in_room(inspinia::Room::LivingRoom)
     }
 }
 
 impl Client {
-    pub async fn get_thermostat_temperature_in_room(&self, room: Room) -> Result<f32> {
+    pub async fn get_current_state(
+        &self,
+        room: transport::Room,
+        device_type: DeviceType,
+    ) -> Vec<Capability> {
         let storage = self.storage.lock().await;
 
-        let capabilities = storage
-            .get_capabilities(from_inspinia_room(room), DeviceType::Thermostat)
-            .await;
+        storage.get_capabilities(room, device_type).await
+    }
+}
+
+impl Client {
+    pub async fn get_thermostat_temperature_in_room(&self, room: transport::Room) -> Result<f32> {
+        let storage = self.storage.lock().await;
+
+        let capabilities = storage.get_capabilities(room, DeviceType::Thermostat).await;
 
         for capability in capabilities {
             if let Capability::Temperature(value) = capability {
@@ -244,7 +253,11 @@ impl Client {
         Err(Error::MissingCapability("Temperature", DeviceType::Thermostat, room).into())
     }
 
-    pub async fn set_thermostat_enabled(&mut self, value: bool, room: Room) -> Result<()> {
+    pub async fn set_thermostat_enabled(
+        &mut self,
+        value: bool,
+        room: transport::Room,
+    ) -> Result<()> {
         info!("toggle thermostat in room {:?} = {}", room, value);
 
         let value = if value { "1" } else { "0" };
@@ -252,7 +265,7 @@ impl Client {
         let thermostats = Self::get_thermostats(&self.db_path)?;
 
         for thermostat in thermostats.iter() {
-            if thermostat.room != room {
+            if from_inspinia_room(thermostat.room) != room {
                 continue;
             }
 
@@ -272,7 +285,11 @@ impl Client {
         panic!("set_is_enabled_in_room")
     }
 
-    pub async fn set_thermostat_temperature(&mut self, value: f32, room: Room) -> Result<()> {
+    pub async fn set_thermostat_temperature(
+        &mut self,
+        value: f32,
+        room: transport::Room,
+    ) -> Result<()> {
         let temp = value.to_string();
 
         info!("set temperature in room {:?} = {}", room, temp);
@@ -280,7 +297,7 @@ impl Client {
         let thermostats = Self::get_thermostats(&self.db_path)?;
 
         for thermostat in thermostats.iter() {
-            if thermostat.room != room {
+            if from_inspinia_room(thermostat.room) != room {
                 continue;
             }
 
@@ -324,13 +341,13 @@ impl Client {
         panic!("set_is_enabled_on_recuperator")
     }
 
-    pub async fn set_recuperator_fan_speed(&mut self, value: FanSpeed) -> Result<()> {
+    pub async fn set_recuperator_fan_speed(&mut self, value: elizabeth::FanSpeed) -> Result<()> {
         info!("change fan speed on recuperator = {:?}", value);
 
-        let value = value.to_string();
+        let value = from_elizabeth_speed(value).to_string();
 
         let device_manager = DeviceManager::new(&self.db_path)?;
-        let recuperator = device_manager.get_recuperator_in_room(Room::LivingRoom)?;
+        let recuperator = device_manager.get_recuperator_in_room(inspinia::Room::LivingRoom)?;
 
         for (id, port) in recuperator.ports.iter() {
             if let (PortName::FanSpeed, PortType::Output) = (&port.name, &port.r#type) {
@@ -352,7 +369,7 @@ fn prepare_capability(name: &PortName, value: &str) -> Option<Capability> {
     match name {
         PortName::OnOff => Some(Capability::IsEnabled(value == "1")),
         PortName::FanSpeed => {
-            let fan_speed = FanSpeed::from_str(value).ok()?;
+            let fan_speed = inspinia::FanSpeed::from_str(value).ok()?;
             Some(Capability::FanSpeed(from_inspinia_speed(fan_speed)))
         }
         PortName::SetTemp => {
@@ -367,20 +384,28 @@ fn prepare_capability(name: &PortName, value: &str) -> Option<Capability> {
     }
 }
 
-fn from_inspinia_room(room: Room) -> transport::Room {
+fn from_inspinia_room(room: inspinia::Room) -> transport::Room {
     match room {
-        Room::Bedroom => transport::Room::Bedroom,
-        Room::Nursery => transport::Room::Nursery,
-        Room::HomeOffice => transport::Room::HomeOffice,
-        Room::LivingRoom => transport::Room::LivingRoom,
+        inspinia::Room::Bedroom => transport::Room::Bedroom,
+        inspinia::Room::Nursery => transport::Room::Nursery,
+        inspinia::Room::HomeOffice => transport::Room::HomeOffice,
+        inspinia::Room::LivingRoom => transport::Room::LivingRoom,
     }
 }
 
-fn from_inspinia_speed(fan_speed: FanSpeed) -> transport::elizabeth::FanSpeed {
+fn from_inspinia_speed(fan_speed: inspinia::FanSpeed) -> elizabeth::FanSpeed {
     match fan_speed {
-        FanSpeed::Low => transport::elizabeth::FanSpeed::Low,
-        FanSpeed::Medium => transport::elizabeth::FanSpeed::Medium,
-        FanSpeed::High => transport::elizabeth::FanSpeed::High,
+        inspinia::FanSpeed::Low => elizabeth::FanSpeed::Low,
+        inspinia::FanSpeed::Medium => elizabeth::FanSpeed::Medium,
+        inspinia::FanSpeed::High => elizabeth::FanSpeed::High,
+    }
+}
+
+fn from_elizabeth_speed(speed: elizabeth::FanSpeed) -> inspinia::FanSpeed {
+    match speed {
+        elizabeth::FanSpeed::Low => inspinia::FanSpeed::Low,
+        elizabeth::FanSpeed::Medium => inspinia::FanSpeed::Medium,
+        elizabeth::FanSpeed::High => inspinia::FanSpeed::High,
     }
 }
 

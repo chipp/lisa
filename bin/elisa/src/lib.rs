@@ -1,16 +1,122 @@
 mod storage;
 pub use storage::Storage;
 
-use log::info;
-use transport::elisa::{Action, State, WorkSpeed};
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
+use transport::{
+    action::{ActionRequest, ActionResponse, ActionResult},
+    elisa::{Action, State, WorkSpeed},
+    state::StateResponse,
+    DeviceId, DeviceType,
+};
 use xiaomi::{FanSpeed, Status, Vacuum};
+
+use log::{debug, error, info};
+use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 
 pub type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, ErasedError>;
 
-pub async fn perform_action(payload: &[u8], vacuum: &mut Vacuum) -> Result<()> {
-    let action: Action = serde_json::from_slice(payload)?;
+pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc<Mutex<Vacuum>>) {
+    let request: ActionRequest = match serde_json::from_slice(msg.payload()) {
+        Ok(ids) => ids,
+        Err(err) => {
+            error!("unable to parse request: {}", err);
+            error!("{}", msg.payload_str());
+            return;
+        }
+    };
 
+    let response_topic = match msg.properties().get_string(PropertyCode::ResponseTopic) {
+        Some(topic) => topic,
+        None => {
+            error!("missing response topic");
+            return;
+        }
+    };
+
+    for action in request.actions {
+        if let transport::action::Action::Elisa(action, action_id) = action {
+            let vacuum = &mut vacuum.lock().await;
+            let result = match perform_action(action, vacuum).await {
+                Ok(_) => ActionResult::Success,
+                Err(err) => {
+                    error!("Error updating state: {}", err);
+                    ActionResult::Failure
+                }
+            };
+
+            let response = ActionResponse { action_id, result };
+
+            debug!("publish to {}: {:?}", response_topic, response);
+
+            let payload = serde_json::to_vec(&response).unwrap();
+
+            let message = MessageBuilder::new()
+                .topic(&response_topic)
+                .payload(payload)
+                .finalize();
+
+            match mqtt.publish(message).await {
+                Ok(()) => (),
+                Err(err) => {
+                    error!("Error sending response to {}: {}", response_topic, err);
+                }
+            }
+        }
+    }
+}
+
+pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc<Mutex<Vacuum>>) {
+    let ids: Vec<DeviceId> = match serde_json::from_slice(msg.payload()) {
+        Ok(ids) => ids,
+        Err(err) => {
+            error!("unable to parse request: {}", err);
+            error!("{}", msg.payload_str());
+            return;
+        }
+    };
+
+    let response_topic = match msg.properties().get_string(PropertyCode::ResponseTopic) {
+        Some(topic) => topic,
+        None => {
+            error!("missing response topic");
+            return;
+        }
+    };
+
+    let should_respond = ids
+        .iter()
+        .any(|id| id.device_type == DeviceType::VacuumCleaner);
+
+    if should_respond {
+        let mut vacuum = vacuum.lock().await;
+
+        if let Ok(status) = vacuum.status().await {
+            let state = prepare_state(status, vacuum.last_cleaning_rooms());
+            debug!("publish to {}: {:?}", response_topic, state);
+
+            let response = StateResponse::Elisa(state);
+
+            let payload = serde_json::to_vec(&response).unwrap();
+
+            let message = MessageBuilder::new()
+                .topic(&response_topic)
+                .payload(payload)
+                .finalize();
+
+            match mqtt.publish(message).await {
+                Ok(()) => (),
+                Err(err) => {
+                    error!("Error sending response to {}: {}", response_topic, err);
+                }
+            }
+        }
+    }
+}
+
+async fn perform_action(action: Action, vacuum: &mut Vacuum) -> Result<()> {
     match action {
         Action::Start(rooms) => {
             let room_ids = rooms.iter().map(room_id_for_room).collect();

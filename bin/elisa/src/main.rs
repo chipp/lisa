@@ -1,4 +1,4 @@
-use elisa::{perform_action, prepare_state, Result, Storage};
+use elisa::{handle_action_request, handle_state_request, prepare_state, Result, Storage};
 use transport::Topic;
 use xiaomi::{parse_token, Vacuum};
 
@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
-use log::{error, info};
+use log::{debug, error, info};
 use mqtt::SslOptions;
 use paho_mqtt as mqtt;
 use tokio::sync::Mutex;
@@ -54,7 +54,7 @@ async fn connect_mqtt(
     username: String,
     password: String,
 ) -> Result<mqtt::AsyncClient> {
-    let create_opts = mqtt::CreateOptionsBuilder::new_v3()
+    let create_opts = mqtt::CreateOptionsBuilder::new()
         .server_uri(address)
         .client_id("elisa")
         .finalize();
@@ -64,15 +64,18 @@ async fn connect_mqtt(
         process::exit(1);
     });
 
-    let conn_opts = mqtt::ConnectOptionsBuilder::new_v3()
+    let conn_opts = mqtt::ConnectOptionsBuilder::new_v5()
         .keep_alive_interval(Duration::from_secs(30))
-        .clean_session(false)
         .ssl_options(SslOptions::new())
         .user_name(username)
         .password(password)
         .finalize();
 
-    client.connect(conn_opts).await?;
+    let response = client.connect(conn_opts).await?;
+    let response = response.connect_response().unwrap();
+
+    debug!("client mqtt version {}", client.mqtt_version());
+    debug!("server mqtt version {}", response.mqtt_version);
 
     Ok(client)
 }
@@ -80,17 +83,26 @@ async fn connect_mqtt(
 async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
-    mqtt.subscribe_many(&[Topic::elisa_action().to_string()], &[mqtt::QOS_1]);
+    let topics = [
+        Topic::ActionRequest.to_string(),
+        Topic::StateRequest.to_string(),
+    ];
 
-    info!("Subscribed to topic: {}", Topic::elisa_action());
+    mqtt.subscribe_many(&topics, &[mqtt::QOS_1, mqtt::QOS_1]);
+    info!("Subscribed to topics: {:?}", topics);
 
     while let Some(msg_opt) = stream.next().await {
-        let vacuum = &mut vacuum.lock().await;
-
         if let Some(msg) = msg_opt {
-            match perform_action(msg.payload(), vacuum).await {
-                Ok(_) => (),
-                Err(err) => error!("Error updating state: {}", err),
+            let topic = if let Ok(value) = msg.topic().parse() {
+                value
+            } else {
+                continue;
+            };
+
+            match topic {
+                Topic::ActionRequest => handle_action_request(msg, &mut mqtt, vacuum.clone()).await,
+                Topic::StateRequest => handle_state_request(msg, &mut mqtt, vacuum.clone()).await,
+                _ => (),
             }
         } else {
             time::sleep(Duration::from_secs(1)).await;
@@ -119,7 +131,7 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) ->
             if storage.apply_state(&state).await {
                 info!("publishing state: {:?}", state);
 
-                let topic = Topic::elisa_state();
+                let topic = Topic::State;
                 let payload = serde_json::to_vec(&state).unwrap();
 
                 let message = mqtt::MessageBuilder::new()
@@ -127,7 +139,12 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) ->
                     .payload(payload)
                     .finalize();
 
-                mqtt.publish(message).await?;
+                match mqtt.publish(message).await {
+                    Ok(()) => (),
+                    Err(err) => {
+                        error!("Error publishing state: {}", err);
+                    }
+                }
             }
         }
     }

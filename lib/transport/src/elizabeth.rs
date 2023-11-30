@@ -25,6 +25,13 @@ pub struct State {
     pub capability: Capability,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct CurrentState {
+    pub room: Room,
+    pub device_type: DeviceType,
+    pub capabilities: Vec<Capability>,
+}
+
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {

@@ -1,11 +1,10 @@
 use alice::{Device, DeviceCapability, DeviceProperty, DeviceType};
 use alice::{Mode, ModeFunction, Range, RangeFunction, TemperatureUnit, ToggleFunction};
-use transport::Room;
+use transport::{DeviceId, Room};
 
 use hyper::{Body, Request, Response, StatusCode};
 use serde_json::json;
 
-use crate::types::DeviceId;
 use crate::web_service::auth::validate_autorization;
 use crate::Result;
 
@@ -19,10 +18,10 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
             "payload": {
                 "user_id": "chipp",
                 "devices": [
-                    sensor_device(Room::Bedroom),
-                    sensor_device(Room::HomeOffice),
-                    sensor_device(Room::Kitchen),
-                    sensor_device(Room::Nursery),
+                    // _sensor_device(Room::Bedroom),
+                    // _sensor_device(Room::HomeOffice),
+                    // _sensor_device(Room::Kitchen),
+                    // _sensor_device(Room::Nursery),
                     vacuum_cleaner_device(Room::Bathroom),
                     vacuum_cleaner_device(Room::Bedroom),
                     vacuum_cleaner_device(Room::Corridor),
@@ -63,11 +62,11 @@ fn name_for_room(room: &Room) -> &'static str {
     }
 }
 
-fn sensor_device(room: Room) -> Device {
+fn _sensor_device(room: Room) -> Device {
     let room_name = name_for_room(&room).to_string();
 
     Device {
-        id: DeviceId::temperature_sensor_at_room(room).to_string(),
+        id: DeviceId::temperature_sensor_at_room(room),
         name: "Датчик температуры".to_string(),
         description: format!("в {}", room_name),
         room: room_name,
@@ -85,7 +84,7 @@ fn vacuum_cleaner_device(room: Room) -> Device {
     let room_name = name_for_room(&room).to_string();
 
     Device {
-        id: DeviceId::vacuum_cleaner_at_room(room).to_string(),
+        id: DeviceId::vacuum_cleaner_at_room(room),
         name: "Джордан".to_string(),
         description: format!("в {}", room_name),
         room: room_name,
@@ -110,7 +109,7 @@ fn thermostat_device(room: Room) -> Device {
     let room_name = name_for_room(&room).to_string();
 
     Device {
-        id: DeviceId::thermostat_at_room(room).to_string(),
+        id: DeviceId::thermostat_at_room(room),
         name: "Термостат".to_string(),
         description: format!("в {}", room_name),
         room: room_name,
@@ -136,7 +135,7 @@ fn recuperator_device() -> Device {
     let room_name = name_for_room(&Room::LivingRoom).to_string();
 
     Device {
-        id: DeviceId::recuperator_at_room(Room::LivingRoom).to_string(),
+        id: DeviceId::recuperator_at_room(Room::LivingRoom),
         name: "Рекуператор".to_string(),
         description: format!("в {}", room_name),
         room: room_name,

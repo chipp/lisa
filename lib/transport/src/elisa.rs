@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Room;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
     Start(Vec<Room>),
@@ -22,7 +22,7 @@ pub struct State {
     pub rooms: Vec<Room>,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum WorkSpeed {
     Silent,

@@ -5,10 +5,11 @@ pub use capability::Capability;
 pub use property::{HumidityUnit, Property, TemperatureUnit};
 
 use serde::{Deserialize, Serialize};
+use transport::DeviceId;
 
 #[derive(Debug, Serialize)]
 pub struct Device {
-    pub id: String,
+    pub id: DeviceId,
     pub name: String,
     pub description: String,
     pub room: String,
@@ -40,6 +41,7 @@ mod tests {
     use super::*;
 
     use serde_json::{from_value, json, to_value};
+    use transport::Room;
 
     #[test]
     fn test_device_types() {
@@ -82,7 +84,7 @@ mod tests {
     fn test_device() {
         assert_eq!(
             to_value(Device {
-                id: "test".to_string(),
+                id: DeviceId::vacuum_cleaner_at_room(Room::Kitchen),
                 name: "Test Device".to_string(),
                 description: "Test Description".to_string(),
                 room: "Test Room".to_string(),
@@ -92,7 +94,7 @@ mod tests {
             })
             .unwrap(),
             json!({
-                "id": "test",
+                "id": "vacuum_cleaner/kitchen",
                 "name": "Test Device",
                 "description": "Test Description",
                 "room": "Test Room",

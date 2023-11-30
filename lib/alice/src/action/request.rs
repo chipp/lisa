@@ -1,22 +1,21 @@
 use crate::StateCapability;
 
 use serde::Deserialize;
+use transport::DeviceId;
 
 #[derive(Debug, Deserialize)]
-pub struct Request<'a> {
-    #[serde(borrow = "'a")]
-    pub payload: Payload<'a>,
+pub struct Request {
+    pub payload: Payload,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-pub struct Payload<'a> {
-    #[serde(borrow = "'a")]
-    pub devices: Vec<RequestDevice<'a>>,
+pub struct Payload {
+    pub devices: Vec<RequestDevice>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-pub struct RequestDevice<'a> {
-    pub id: &'a str,
+pub struct RequestDevice {
+    pub id: DeviceId,
     pub capabilities: Vec<StateCapability>,
 }
 
@@ -30,7 +29,7 @@ mod tests {
         let json = json!({
             "payload": {
                 "devices": [{
-                    "id": "socket-001-xda",
+                    "id": "thermostat/kitchen",
                     "custom_data": {
                       "api_location": "rus"
                     },
@@ -49,7 +48,10 @@ mod tests {
         let devices = from_slice::<Request>(&json).unwrap().payload.devices;
 
         assert_eq!(devices.len(), 1);
-        assert_eq!(devices[0].id, "socket-001-xda");
+        assert_eq!(
+            devices[0].id,
+            DeviceId::thermostat_at_room(transport::Room::Kitchen)
+        );
         assert_eq!(devices[0].capabilities.len(), 1);
         assert_eq!(devices[0].capabilities[0], StateCapability::on_off(true));
     }

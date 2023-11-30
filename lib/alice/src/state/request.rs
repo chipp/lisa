@@ -1,12 +1,12 @@
 use serde::Deserialize;
+use transport::DeviceId;
 
 #[derive(Debug, Deserialize)]
-pub struct Request<'a> {
-    #[serde(borrow = "'a")]
-    pub devices: Vec<Device<'a>>,
+pub struct Request {
+    pub devices: Vec<Device>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Device<'a> {
-    pub id: &'a str,
+pub struct Device {
+    pub id: DeviceId,
 }

@@ -18,11 +18,10 @@ use hyper_tls::HttpsConnector;
 use log::{debug, error};
 
 pub async fn report_update(update: StateUpdate) -> Result<()> {
-    let devices = match update {
-        StateUpdate::Elizabeth(state) => {
-            vec![prepare_elizabeth_device(state)?]
-        }
-        StateUpdate::Elisa(state) => prepare_vacuum_updates(state),
+    let devices = if let Some(devices) = device_from_update(update) {
+        devices
+    } else {
+        return Ok(());
     };
 
     let now = Utc::now();
@@ -70,7 +69,14 @@ pub async fn report_update(update: StateUpdate) -> Result<()> {
     Ok(())
 }
 
-fn prepare_elizabeth_device(state: ElizabethState) -> Result<StateDevice> {
+fn device_from_update(update: StateUpdate) -> Option<Vec<StateDevice>> {
+    match update {
+        StateUpdate::Elizabeth(state) => Some(vec![prepare_elizabeth_device(state)?]),
+        StateUpdate::Elisa(state) => Some(prepare_vacuum_updates(state)),
+    }
+}
+
+fn prepare_elizabeth_device(state: ElizabethState) -> Option<StateDevice> {
     match state.device_type {
         DeviceType::Recuperator => prepare_recuperator_update(state),
         DeviceType::Thermostat => prepare_thermostat_update(state),

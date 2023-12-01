@@ -73,6 +73,8 @@ pub async fn action(
             };
         }
 
+        trace!("elisa action {:?}", elisa_action);
+
         if let Some(action) = elisa_action {
             action_ids.insert(elisa_action_id);
             actions.push(transport::action::Action::Elisa(action, elisa_action_id));
@@ -110,6 +112,9 @@ pub async fn action(
                 break;
             }
         }
+
+        mqtt_client.stop_stream();
+        mqtt_client.unsubscribe(&response_topic);
 
         let response_devices = group(response_capabilities.into_values())
             .into_iter()
@@ -178,6 +183,8 @@ fn handle_elisa_capabilities(
         .iter()
         .map(|capability| map_elisa_action(capability, room).unwrap())
         .collect();
+
+    trace!("elisa actions: {:?}", actions);
 
     for action in actions {
         match (current_action.as_mut(), action) {

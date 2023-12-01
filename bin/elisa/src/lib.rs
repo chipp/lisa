@@ -7,8 +7,8 @@ use tokio::sync::Mutex;
 use transport::{
     action::{ActionRequest, ActionResponse, ActionResult},
     elisa::{Action, State, WorkSpeed},
-    state::StateResponse,
-    DeviceId, DeviceType,
+    state::{StateRequest, StateResponse},
+    DeviceType,
 };
 use xiaomi::{FanSpeed, Status, Vacuum};
 
@@ -69,7 +69,7 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, vacuum: Ar
 }
 
 pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc<Mutex<Vacuum>>) {
-    let ids: Vec<DeviceId> = match serde_json::from_slice(msg.payload()) {
+    let request: StateRequest = match serde_json::from_slice(msg.payload()) {
         Ok(ids) => ids,
         Err(err) => {
             error!("unable to parse request: {}", err);
@@ -86,7 +86,8 @@ pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc
         }
     };
 
-    let should_respond = ids
+    let should_respond = request
+        .device_ids
         .iter()
         .any(|id| id.device_type == DeviceType::VacuumCleaner);
 

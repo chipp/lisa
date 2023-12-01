@@ -24,6 +24,20 @@ pub struct Vacuum {
 }
 
 impl Vacuum {
+    #[cfg(feature = "stub")]
+    pub fn new(_ip: Ipv4Addr, _token: Token<16>) -> Vacuum {
+        use self::command_executor::StubCommandExecutor;
+        use log::warn;
+
+        warn!("WARNING: using stub vacuum");
+
+        Vacuum {
+            executor: Box::new(StubCommandExecutor),
+            last_cleaning_rooms: vec![],
+        }
+    }
+
+    #[cfg(not(feature = "stub"))]
     pub fn new(ip: Ipv4Addr, token: Token<16>) -> Vacuum {
         Vacuum {
             executor: Box::new(CommandExecutor::new(Device::new(ip, token))),

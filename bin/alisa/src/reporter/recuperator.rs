@@ -1,41 +1,21 @@
-use crate::Result;
-use std::fmt;
-
 use alice::{Mode, ModeFunction, StateCapability, StateDevice};
 use transport::elizabeth::{Capability, CurrentState, State};
 use transport::DeviceId;
 
-#[derive(Debug)]
-pub enum Error {
-    NotSupported(Capability),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::NotSupported(capability) => {
-                write!(f, "capability {:?} is not supported", capability)
-            }
-        }
-    }
-}
-
-impl std::error::Error for Error {}
-
-pub fn prepare_recuperator_update(state: State) -> Result<StateDevice> {
+pub fn prepare_recuperator_update(state: State) -> Option<StateDevice> {
     let state_capability = match state.capability {
         Capability::IsEnabled(value) => StateCapability::on_off(value),
         Capability::FanSpeed(fan_speed) => {
             StateCapability::mode(ModeFunction::FanSpeed, map_fan_speed(fan_speed))
         }
         Capability::Temperature(_) | Capability::CurrentTemperature(_) => {
-            return Err(Error::NotSupported(state.capability).into())
+            return None;
         }
     };
 
     let device_id = DeviceId::recuperator_at_room(state.room);
 
-    Ok(StateDevice::new_with_capabilities(
+    Some(StateDevice::new_with_capabilities(
         device_id,
         vec![state_capability],
     ))

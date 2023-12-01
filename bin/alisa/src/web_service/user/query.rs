@@ -64,6 +64,9 @@ pub async fn query(request: Request<Body>, mut mqtt_client: AsyncClient) -> Resu
             }
         }
 
+        mqtt_client.stop_stream();
+        mqtt_client.unsubscribe(&response_topic);
+
         let response = StateResponse::new(request_id, devices);
 
         Ok(Response::builder()

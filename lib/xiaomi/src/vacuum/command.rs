@@ -5,7 +5,7 @@ use super::WaterGrade;
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use serde_repr::Serialize_repr;
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Command {
     GetProperties(&'static [&'static str]),
     SetFanSpeed(FanSpeed),

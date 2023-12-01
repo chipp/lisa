@@ -1,4 +1,4 @@
-run_alisa: RUST_LOG = alisa=debug
+run_alisa: RUST_LOG = alisa=debug,info
 run_alisa: JWT_SECRET = 123456
 run_alisa: LISA_USER = chipp
 run_alisa: LISA_PASSWORD = kek
@@ -14,7 +14,7 @@ run_alisa:
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin alisa
 
-run_elizabeth: RUST_LOG = elizabeth=debug
+run_elizabeth: RUST_LOG = elizabeth=debug,info
 run_elizabeth: MQTT_ADDRESS = mqtt://localhost:1883
 run_elizabeth: MQTT_USER = elizabeth
 run_elizabeth: MQTT_PASS = 123mqtt
@@ -26,7 +26,7 @@ run_elizabeth:
 	INSPINIA_CLIENT_ID=${INSPINIA_CLIENT_ID} INSPINIA_TOKEN=${INSPINIA_TOKEN} \
 	cargo run --bin elizabeth
 
-run_elisa: RUST_LOG = elisa=debug
+run_elisa: RUST_LOG = elisa=debug,info
 run_elisa: MQTT_ADDRESS = mqtt://localhost:1883
 run_elisa: MQTT_USER = elisa
 run_elisa: MQTT_PASS = 123mqtt

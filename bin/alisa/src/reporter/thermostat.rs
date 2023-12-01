@@ -2,25 +2,23 @@ use alice::{RangeFunction, StateCapability, StateDevice, StateProperty};
 use transport::elizabeth::{Capability, CurrentState, State};
 use transport::DeviceId;
 
-use crate::Result;
-
-pub fn prepare_thermostat_update(state: State) -> Result<StateDevice> {
+pub fn prepare_thermostat_update(state: State) -> Option<StateDevice> {
     let device_id = DeviceId::thermostat_at_room(state.room);
 
     match state.capability {
-        Capability::IsEnabled(value) => Ok(StateDevice::new_with_capabilities(
+        Capability::IsEnabled(value) => Some(StateDevice::new_with_capabilities(
             device_id,
             vec![StateCapability::on_off(value)],
         )),
-        Capability::Temperature(value) => Ok(StateDevice::new_with_capabilities(
+        Capability::Temperature(value) => Some(StateDevice::new_with_capabilities(
             device_id,
             vec![StateCapability::range(RangeFunction::Temperature, value)],
         )),
-        Capability::CurrentTemperature(value) => Ok(StateDevice::new_with_properties(
+        Capability::CurrentTemperature(value) => Some(StateDevice::new_with_properties(
             device_id,
             vec![StateProperty::temperature(value)],
         )),
-        Capability::FanSpeed(_) => unreachable!(),
+        Capability::FanSpeed(_) => None,
     }
 }
 

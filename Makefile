@@ -38,7 +38,7 @@ run_elisa:
 	SSL_CERT_FILE=${SSL_CERT_FILE} SSL_CERT_DIR=${SSL_CERT_DIR} \
 	cargo run --bin elisa
 
-run_isabel: RUST_LOG = isabel=debug,bluetooth=debug
+run_isabel: RUST_LOG = isabel=debug,info
 run_isabel: MQTT_ADDRESS = mqtt://localhost:1883
 run_isabel: MQTT_USER = isabel
 run_isabel: MQTT_PASS = 123mqtt

@@ -1,4 +1,4 @@
-use alisa::{report_update, web_handler, ErasedError, Result};
+use alisa::{web_handler, ErasedError, Reporter, Result};
 use transport::state::StateUpdate;
 use transport::Topic;
 
@@ -23,9 +23,13 @@ async fn main() -> Result<()> {
     let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password).await?;
     info!("connected mqtt");
 
+    let skill_id = std::env::var("ALICE_SKILL_ID").expect("skill id is required");
+    let token = std::env::var("ALICE_TOKEN").expect("token is required");
+    let reporter = Reporter::new(skill_id, token);
+
     let (web_handle, state_handle) = tokio::try_join!(
         task::spawn(listen_web(mqtt_client.clone())),
-        task::spawn(subscribe_state(mqtt_client))
+        task::spawn(subscribe_state(mqtt_client, reporter))
     )?;
 
     web_handle?;
@@ -86,7 +90,7 @@ async fn listen_web(mqtt: mqtt::AsyncClient) -> Result<()> {
     Ok(())
 }
 
-async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
+async fn subscribe_state(mut mqtt: mqtt::AsyncClient, reporter: Reporter) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     let topic = Topic::State.to_string();
@@ -96,7 +100,7 @@ async fn subscribe_state(mut mqtt: mqtt::AsyncClient) -> Result<()> {
     while let Some(msg_opt) = stream.next().await {
         if let Some(msg) = msg_opt {
             if let Some(event) = parse_update(&msg) {
-                match report_update(event).await {
+                match reporter.report_update(event).await {
                     Ok(_) => (),
                     Err(err) => error!("Error updating state: {}", err),
                 }

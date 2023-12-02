@@ -18,10 +18,10 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
             "payload": {
                 "user_id": "chipp",
                 "devices": [
-                    // _sensor_device(Room::Bedroom),
-                    // _sensor_device(Room::HomeOffice),
-                    // _sensor_device(Room::Kitchen),
-                    // _sensor_device(Room::Nursery),
+                    sensor_device(Room::Bedroom),
+                    sensor_device(Room::HomeOffice),
+                    sensor_device(Room::Kitchen),
+                    sensor_device(Room::Nursery),
                     vacuum_cleaner_device(Room::Bathroom),
                     vacuum_cleaner_device(Room::Bedroom),
                     vacuum_cleaner_device(Room::Corridor),
@@ -62,7 +62,7 @@ fn name_for_room(room: &Room) -> &'static str {
     }
 }
 
-fn _sensor_device(room: Room) -> Device {
+fn sensor_device(room: Room) -> Device {
     let room_name = name_for_room(&room).to_string();
 
     Device {

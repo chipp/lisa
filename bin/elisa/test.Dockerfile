@@ -3,13 +3,15 @@ FROM ghcr.io/chipp/build.rust.x86_64_musl:1.74.0_3 AS builder
 WORKDIR /home/rust/src
 RUN USER=rust \
   cargo new --lib /home/rust/src/lib/alice && \
+  cargo new --lib /home/rust/src/lib/bluetooth && \
   cargo new --lib /home/rust/src/lib/inspinia && \
   cargo new --lib /home/rust/src/lib/str_derive && \
   cargo new --lib /home/rust/src/lib/transport && \
   cargo new --lib /home/rust/src/lib/xiaomi && \
   cargo new --bin /home/rust/src/bin/alisa && \
   cargo new --bin /home/rust/src/bin/elisa && \
-  cargo new --bin /home/rust/src/bin/elizabeth
+  cargo new --bin /home/rust/src/bin/elizabeth && \
+  cargo new --bin /home/rust/src/bin/isabel
 
 COPY ./bin/elisa/Cargo.toml ./bin/elisa/Cargo.toml
 COPY ./lib/str_derive/Cargo.toml ./lib/str_derive/Cargo.toml

@@ -1,4 +1,13 @@
-FROM ghcr.io/chipp/build.rust.x86_64_musl:1.74.0_3 AS builder
+FROM ghcr.io/chipp/build.rust.armv7_musl:1.74.0_4 as libs_builder
+
+COPY ./bin/isabel/install_static_libs.sh ./install_static_libs.sh
+RUN chmod +x ./install_static_libs.sh && \
+  ./install_static_libs.sh && \
+  rm ./install_static_libs.sh
+
+FROM ghcr.io/chipp/build.rust.armv7_musl:1.74.0_4 AS builder
+
+COPY --from=0 $PREFIX $PREFIX
 
 WORKDIR /home/rust/src
 RUN USER=rust \
@@ -13,8 +22,8 @@ RUN USER=rust \
   cargo new --bin /home/rust/src/bin/elizabeth && \
   cargo new --bin /home/rust/src/bin/isabel
 
-COPY ./bin/elizabeth/Cargo.toml ./bin/elizabeth/Cargo.toml
-COPY ./lib/inspinia/Cargo.toml ./lib/inspinia/Cargo.toml
+COPY ./bin/isabel/Cargo.toml ./bin/isabel/Cargo.toml
+COPY ./lib/bluetooth/Cargo.toml ./lib/bluetooth/Cargo.toml
 COPY ./lib/str_derive/Cargo.toml ./lib/str_derive/Cargo.toml
 COPY ./lib/str_derive/fake_macro.rs ./lib/str_derive/src/lib.rs
 COPY ./lib/transport/Cargo.toml ./lib/transport/Cargo.toml
@@ -23,40 +32,32 @@ COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
 RUN cargo build --release \
-  -p elizabeth \
-  -p inspinia \
+  -p isabel \
+  -p bluetooth \
   -p str_derive \
   -p transport && \
   cargo clean --release \
-  -p elizabeth \
-  -p inspinia \
+  -p isabel \
+  -p bluetooth \
   -p str_derive \
   -p transport \
-  --target x86_64-unknown-linux-musl && \
-  rm ./bin/elizabeth/src/*.rs \
-  ./lib/inspinia/src/*.rs \
+  --target armv7-unknown-linux-musleabihf && \
+  rm ./bin/isabel/src/*.rs \
+  ./lib/bluetooth/src/*.rs \
   ./lib/str_derive/src/*.rs \
   ./lib/transport/src/*.rs
 
-COPY ./bin/elizabeth/src ./bin/elizabeth/src
-COPY ./lib/inspinia/src ./lib/inspinia/src
+COPY ./bin/isabel/src ./bin/isabel/src
+COPY ./lib/bluetooth/src ./lib/bluetooth/src
+COPY ./lib/bluetooth/build.rs ./lib/bluetooth/build.rs
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 
-RUN cargo build --release -p elizabeth && \
-  mv target/x86_64-unknown-linux-musl/release/elizabeth ./ && \
-  rm -rf target/x86_64-unknown-linux-musl/release/ target/release/
+RUN cargo build --release -p isabel --target armv7-unknown-linux-musleabihf -vv && \
+  mv target/armv7-unknown-linux-musleabihf/release/isabel ./ && \
+  rm -rf target/armv7-unknown-linux-musleabihf/release/ target/release/
 
 FROM alpine:3.18.4
-RUN apk --no-cache add ca-certificates && update-ca-certificates
-RUN apk --no-cache add tzdata && \
-  cp /usr/share/zoneinfo/Europe/Vilnius /etc/localtime && \
-  echo "Europe/Vilnius" > /etc/timezone && \
-  apk del tzdata
-
 WORKDIR /root/
-ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-ENV SSL_CERT_DIR=/etc/ssl/certs
-ENV RUST_BACKTRACE=full
 
-COPY --from=0 /home/rust/src/elizabeth .
+COPY --from=builder /home/rust/src/isabel .

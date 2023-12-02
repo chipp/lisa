@@ -1,8 +1,5 @@
 FROM ghcr.io/chipp/build.rust.armv7_musl:1.74.0_4 as libs_builder
 
-ENV HOST=armv7-unknown-linux-musleabihf
-ENV PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
-
 COPY ./bin/isabel/install_static_libs.sh ./install_static_libs.sh
 RUN chmod +x ./install_static_libs.sh && \
   ./install_static_libs.sh && \

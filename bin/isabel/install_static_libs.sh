@@ -25,7 +25,7 @@ echo "${FFI_SHA}  libffi-${FFI_VER}.tar.gz" | sha256sum -c -
 tar xfz libffi-${FFI_VER}.tar.gz
 cd libffi-${FFI_VER}
 
-./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static
+./configure --host=$TARGET --prefix=$PREFIX --disable-shared --enable-static
 make -j$(nproc) && make install
 cd .. && rm -rf libffi-${FFI_VER}.tar.gz libffi-${FFI_VER}
 
@@ -44,7 +44,7 @@ echo "${EXPAT_SHA}  expat-${EXPAT_VER}.tar.gz" | sha256sum -c -
 tar xfz expat-${EXPAT_VER}.tar.gz
 cd expat-${EXPAT_VER}
 
-./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static
+./configure --host=$TARGET --prefix=$PREFIX --disable-shared --enable-static
 make -j$(nproc) && make install
 cd .. && rm -rf expat-${EXPAT_VER}.tar.gz expat-${EXPAT_VER}
 
@@ -54,7 +54,7 @@ echo "${DBUS_SHA}  dbus-${DBUS_VER}.tar.gz" | sha256sum -c -
 tar xfz dbus-${DBUS_VER}.tar.gz
 cd dbus-${DBUS_VER}
 
-./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static \
+./configure --host=$TARGET --prefix=$PREFIX --disable-shared --enable-static \
   --disable-tests --disable-doxygen-docs --disable-xml-docs
 make -j$(nproc) && make install
 cd .. && rm -rf dbus-${DBUS_VER}.tar.gz dbus-${DBUS_VER}
@@ -65,7 +65,7 @@ echo "${GLIB_SHA}  glib-${GLIB_VER}.tar.xz" | sha256sum -c -
 tar xfJ glib-${GLIB_VER}.tar.xz
 cd glib-${GLIB_VER}
 
-./autogen.sh --host=$HOST --prefix=$PREFIX --disable-shared --enable-static \
+./autogen.sh --host=$TARGET --prefix=$PREFIX --disable-shared --enable-static \
   --with-pcre=internal --disable-libmount \
   glib_cv_stack_grows=no glib_cv_uscore=yes \
   ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
@@ -78,7 +78,7 @@ echo "${BLUEZ_SHA} bluez-${BLUEZ_VER}.tar.xz" | sha256sum -c -
 tar xfJ bluez-${BLUEZ_VER}.tar.xz
 cd bluez-${BLUEZ_VER}
 
-./configure --host=$HOST --prefix=$PREFIX --disable-shared --enable-static \
+./configure --host=$TARGET --prefix=$PREFIX --disable-shared --enable-static \
   --disable-test --disable-monitor --disable-tools --disable-client --disable-systemd \
   --disable-udev --disable-cups --disable-obex --enable-library
 make -j$(nproc) && make install

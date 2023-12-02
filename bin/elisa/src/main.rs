@@ -1,4 +1,5 @@
 use elisa::{handle_action_request, handle_state_request, prepare_state, Result, Storage};
+use transport::state::StateUpdate;
 use transport::Topic;
 use xiaomi::{parse_token, Vacuum};
 
@@ -132,7 +133,9 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) ->
                 info!("publishing state: {:?}", state);
 
                 let topic = Topic::State;
-                let payload = serde_json::to_vec(&state).unwrap();
+
+                let update = StateUpdate::Elisa(state);
+                let payload = serde_json::to_vec(&update).unwrap();
 
                 let message = mqtt::MessageBuilder::new()
                     .topic(topic.to_string())

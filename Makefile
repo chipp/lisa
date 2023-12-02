@@ -31,11 +31,18 @@ run_elisa: MQTT_ADDRESS = mqtt://localhost:1883
 run_elisa: MQTT_USER = elisa
 run_elisa: MQTT_PASS = 123mqtt
 run_elisa: VACUUM_IP = 192.168.1.150
-run_elisa: SSL_CERT_FILE = /opt/homebrew/etc/ca-certificates/cert.pem
-run_elisa: SSL_CERT_DIR = /opt/homebrew/etc/openssl@3
 run_elisa: VACUUM_TOKEN = $(shell op read "op://private/vacuum/credential" -n)
 run_elisa:
 	@RUST_LOG=${RUST_LOG} VACUUM_IP=${VACUUM_IP} VACUUM_TOKEN=${VACUUM_TOKEN} \
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	SSL_CERT_FILE=${SSL_CERT_FILE} SSL_CERT_DIR=${SSL_CERT_DIR} \
 	cargo run --bin elisa
+
+run_isabel: RUST_LOG = isabel=debug,bluetooth=debug
+run_isabel: MQTT_ADDRESS = mqtt://localhost:1883
+run_isabel: MQTT_USER = isabel
+run_isabel: MQTT_PASS = 123mqtt
+run_isabel:
+	@RUST_LOG=${RUST_LOG} SSL_CERT_FILE=${SSL_CERT_FILE} SSL_CERT_DIR=${SSL_CERT_DIR} \
+	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
+	cargo run --bin isabel

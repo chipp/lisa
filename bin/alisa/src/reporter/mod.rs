@@ -15,60 +15,75 @@ use transport::state::StateUpdate;
 use transport::DeviceType;
 
 use chrono::Utc;
-use hyper::{Body, Client, Method, Request, StatusCode};
+use hyper::{client::HttpConnector, Body, Client, Method, Request, StatusCode};
 use hyper_tls::HttpsConnector;
 use log::{debug, error};
 
-pub async fn report_update(update: StateUpdate) -> Result<()> {
-    let devices = if let Some(devices) = device_from_update(update) {
-        devices
-    } else {
-        return Ok(());
-    };
+pub struct Reporter {
+    inner: Client<HttpsConnector<HttpConnector>>,
+    skill_id: String,
+    token: String,
+}
 
-    let now = Utc::now();
-    let body = StateResponse::notification_body(now.timestamp(), "chipp", devices);
+impl Reporter {
+    pub fn new(skill_id: String, token: String) -> Self {
+        let https = HttpsConnector::new();
+        let inner = Client::builder().build(https);
 
-    debug!(
-        "state update: {}",
-        serde_json::to_string_pretty(&body).unwrap()
-    );
-
-    let skill_id = std::env::var("ALICE_SKILL_ID").expect("skill id is required");
-    let token = std::env::var("ALICE_TOKEN").expect("token is required");
-
-    let https = HttpsConnector::new();
-    let client = Client::builder().build(https);
-
-    let body = serde_json::to_vec(&body).unwrap();
-
-    let request = Request::builder()
-        .method(Method::POST)
-        .uri(format!(
-            "https://dialogs.yandex.net/api/v1/skills/{}/callback/state",
-            skill_id
-        ))
-        .header("Content-Type", "application/json")
-        .header("Authorization", format!("OAuth {}", token))
-        .body(Body::from(body))
-        .unwrap();
-
-    match client.request(request).await {
-        Ok(response) => {
-            if let StatusCode::ACCEPTED = response.status() {
-                debug!("successfully notified alice about changes");
-            } else {
-                error!("unable to report state changes {}", response.status());
-                error!("{:#?}", response);
-                let body = hyper::body::to_bytes(response.into_body()).await?;
-
-                error!("{}", String::from_utf8(body.to_vec()).unwrap());
-            }
+        Self {
+            inner,
+            skill_id,
+            token,
         }
-        Err(err) => error!("unable to report state changes {}", err),
     }
 
-    Ok(())
+    pub async fn report_update(&self, update: StateUpdate) -> Result<()> {
+        let devices = if let Some(devices) = device_from_update(update) {
+            devices
+        } else {
+            return Ok(());
+        };
+
+        let now = Utc::now();
+        let body = StateResponse::notification_body(now.timestamp(), "chipp", devices);
+
+        debug!(
+            "state update: {}",
+            serde_json::to_string_pretty(&body).unwrap()
+        );
+
+        let body = serde_json::to_vec(&body).unwrap();
+
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(format!(
+                "https://dialogs.yandex.net/api/v1/skills/{}/callback/state",
+                self.skill_id
+            ))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("OAuth {}", self.token))
+            .body(Body::from(body))
+            .unwrap();
+
+        debug!("request: {:?}", request);
+
+        match self.inner.request(request).await {
+            Ok(response) => {
+                if let StatusCode::ACCEPTED = response.status() {
+                    debug!("successfully notified alice about changes");
+                } else {
+                    error!("unable to report state changes {}", response.status());
+                    debug!("{:#?}", response);
+                    let body = hyper::body::to_bytes(response.into_body()).await?;
+
+                    debug!("{}", String::from_utf8(body.to_vec()).unwrap());
+                }
+            }
+            Err(err) => error!("unable to report state changes {}", err),
+        }
+
+        Ok(())
+    }
 }
 
 fn device_from_update(update: StateUpdate) -> Option<Vec<StateDevice>> {

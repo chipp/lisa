@@ -12,7 +12,7 @@ services:
       - DEBUG=1
     restart: unless-stopped
   alisa:
-    image: ghcr.io/chipp/alisa:test
+    image: ghcr.io/chipp/alisa:latest
     expose:
       - 8080
     entrypoint: ["./alisa"]
@@ -26,7 +26,7 @@ services:
       - LETSENCRYPT_EMAIL=lisa@chipp.dev
     restart: unless-stopped
   elizabeth:
-    image: ghcr.io/chipp/elizabeth:test
+    image: ghcr.io/chipp/elizabeth:latest
     entrypoint: ["./elizabeth"]
     env_file:
       - .elizabeth.env

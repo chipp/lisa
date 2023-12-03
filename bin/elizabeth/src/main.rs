@@ -1,14 +1,13 @@
 use elizabeth::{handle_action_request, handle_state_request, Client, Result};
 use transport::state::StateUpdate;
-use transport::Topic;
+use transport::{connect_mqtt, Topic};
 
-use std::process;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 use paho_mqtt::AsyncClient as MqClient;
-use paho_mqtt::{ConnectOptionsBuilder, CreateOptionsBuilder, MessageBuilder, SslOptions, QOS_1};
+use paho_mqtt::{MessageBuilder, QOS_1};
 use tokio::task;
 use tokio::time;
 
@@ -24,7 +23,7 @@ async fn main() -> Result<()> {
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");
     let mqtt_password = std::env::var("MQTT_PASS").expect("set ENV variable MQTT_PASS");
-    let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password).await?;
+    let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "elizabeth").await?;
     info!("connected mqtt");
 
     let (set_handle, state_handle) = tokio::try_join!(
@@ -39,33 +38,6 @@ async fn main() -> Result<()> {
     state_handle?;
 
     Ok(())
-}
-
-async fn connect_mqtt(address: String, username: String, password: String) -> Result<MqClient> {
-    let create_opts = CreateOptionsBuilder::new()
-        .server_uri(address)
-        .client_id("elizabeth")
-        .finalize();
-
-    let client = MqClient::new(create_opts).unwrap_or_else(|err| {
-        error!("Error creating the client: {}", err);
-        process::exit(1);
-    });
-
-    let conn_opts = ConnectOptionsBuilder::new_v5()
-        .keep_alive_interval(Duration::from_secs(30))
-        .ssl_options(SslOptions::new())
-        .user_name(username)
-        .password(password)
-        .finalize();
-
-    let response = client.connect(conn_opts).await?;
-    let response = response.connect_response().unwrap();
-
-    debug!("client mqtt version {}", client.mqtt_version());
-    debug!("server mqtt version {}", response.mqtt_version);
-
-    Ok(client)
 }
 
 async fn subscribe_action(mut mqtt: MqClient, mut inspinia: Client) -> Result<()> {
@@ -113,7 +85,7 @@ async fn subscribe_state(mqtt: MqClient, mut inspinia: Client) -> Result<()> {
             let update = StateUpdate::Elizabeth(payload);
 
             let payload = serde_json::to_vec(&update)?;
-            let topic = Topic::State;
+            let topic = Topic::StateUpdate;
 
             let message = MessageBuilder::new()
                 .topic(topic.to_string())

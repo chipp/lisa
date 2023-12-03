@@ -1,16 +1,15 @@
 use elisa::{handle_action_request, handle_state_request, prepare_state, Result, Storage};
 use transport::state::StateUpdate;
-use transport::Topic;
+use transport::{connect_mqtt, Topic};
 use xiaomi::{parse_token, Vacuum};
 
-use std::process;
 use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
-use log::{debug, error, info};
-use mqtt::SslOptions;
-use paho_mqtt as mqtt;
+use log::{error, info};
+use paho_mqtt::AsyncClient as MqClient;
+use paho_mqtt::{MessageBuilder, QOS_1};
 use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::{self, interval};
@@ -36,7 +35,7 @@ async fn main() -> Result<()> {
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");
     let mqtt_password = std::env::var("MQTT_PASS").expect("set ENV variable MQTT_PASS");
-    let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password).await?;
+    let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "elisa").await?;
     info!("connected mqtt");
 
     let (set_handle, state_handle) = tokio::try_join!(
@@ -50,38 +49,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn connect_mqtt(
-    address: String,
-    username: String,
-    password: String,
-) -> Result<mqtt::AsyncClient> {
-    let create_opts = mqtt::CreateOptionsBuilder::new()
-        .server_uri(address)
-        .client_id("elisa")
-        .finalize();
-
-    let client = mqtt::AsyncClient::new(create_opts).unwrap_or_else(|err| {
-        error!("Error creating the client: {}", err);
-        process::exit(1);
-    });
-
-    let conn_opts = mqtt::ConnectOptionsBuilder::new_v5()
-        .keep_alive_interval(Duration::from_secs(30))
-        .ssl_options(SslOptions::new())
-        .user_name(username)
-        .password(password)
-        .finalize();
-
-    let response = client.connect(conn_opts).await?;
-    let response = response.connect_response().unwrap();
-
-    debug!("client mqtt version {}", client.mqtt_version());
-    debug!("server mqtt version {}", response.mqtt_version);
-
-    Ok(client)
-}
-
-async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
+async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     let topics = [
@@ -89,7 +57,7 @@ async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum
         Topic::StateRequest.to_string(),
     ];
 
-    mqtt.subscribe_many(&topics, &[mqtt::QOS_1, mqtt::QOS_1]);
+    mqtt.subscribe_many(&topics, &[QOS_1, QOS_1]);
     info!("Subscribed to topics: {:?}", topics);
 
     while let Some(msg_opt) = stream.next().await {
@@ -118,7 +86,7 @@ async fn subscribe_actions(mut mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum
     Ok(())
 }
 
-async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
+async fn subscribe_state(mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
     let mut timer = interval(Duration::from_secs(10));
     let mut storage = Storage::new();
 
@@ -132,12 +100,12 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient, vacuum: Arc<Mutex<Vacuum>>) ->
             if storage.apply_state(&state).await {
                 info!("publishing state: {:?}", state);
 
-                let topic = Topic::State;
+                let topic = Topic::StateUpdate;
 
                 let update = StateUpdate::Elisa(state);
                 let payload = serde_json::to_vec(&update).unwrap();
 
-                let message = mqtt::MessageBuilder::new()
+                let message = MessageBuilder::new()
                     .topic(topic.to_string())
                     .payload(payload)
                     .finalize();

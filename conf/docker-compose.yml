@@ -11,23 +11,22 @@ services:
     environment:
       - DEBUG=1
     restart: unless-stopped
-    restart: unless-stopped
   alisa:
-    image: ghcr.io/chipp/alisa:latest
+    image: ghcr.io/chipp/alisa:test
     expose:
       - 8080
     entrypoint: ["./alisa"]
     env_file:
       - .alisa.env
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=alisa::web_service::user::query=trace,info
       - VIRTUAL_HOST=lisa.chipp.dev
       - VIRTUAL_PORT=8080
       - LETSENCRYPT_HOST=lisa.chipp.dev
       - LETSENCRYPT_EMAIL=lisa@chipp.dev
     restart: unless-stopped
   elizabeth:
-    image: ghcr.io/chipp/elizabeth:latest
+    image: ghcr.io/chipp/elizabeth:test
     entrypoint: ["./elizabeth"]
     env_file:
       - .elizabeth.env

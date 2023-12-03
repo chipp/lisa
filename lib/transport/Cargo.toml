@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
 str_derive = { path = "../str_derive" }
+
+paho-mqtt = "0.12.3"
+
+serde = { version = "1.0", features = ["derive"] }
 uuid = { version = "1.6.1", features = ["v4", "fast-rng", "serde"] }
+log = "0.4"
 
 [dev-dependencies]
 serde_json = "1.0.108"

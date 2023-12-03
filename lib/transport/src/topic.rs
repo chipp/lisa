@@ -5,7 +5,7 @@ use serde::de::{value, Error};
 
 #[derive(Debug, PartialEq)]
 pub enum Topic {
-    State,
+    StateUpdate,
     StateRequest,
     StateResponse(String),
     ActionRequest,
@@ -15,7 +15,7 @@ pub enum Topic {
 impl fmt::Display for Topic {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Topic::State => write!(f, "state"),
+            Topic::StateUpdate => write!(f, "state/update"),
             Topic::StateRequest => write!(f, "state/request"),
             Topic::StateResponse(device_id) => write!(f, "state/response/{}", device_id),
             Topic::ActionRequest => write!(f, "action/request"),
@@ -32,7 +32,7 @@ impl FromStr for Topic {
             state/response/<id> and action/response/<id>";
 
         match s {
-            "state" => Ok(Topic::State),
+            "state/update" => Ok(Topic::StateUpdate),
             "state/request" => Ok(Topic::StateRequest),
             "action/request" => Ok(Topic::ActionRequest),
             _ => {
@@ -56,8 +56,8 @@ mod tests {
 
     #[test]
     fn test_serialization() {
-        let topic = Topic::State;
-        assert_eq!(topic.to_string(), "state");
+        let topic = Topic::StateUpdate;
+        assert_eq!(topic.to_string(), "state/update");
 
         let topic = Topic::StateRequest;
         assert_eq!(topic.to_string(), "state/request");
@@ -80,8 +80,8 @@ mod tests {
 
     #[test]
     fn test_deserialization() {
-        let topic = Topic::from_str("state").unwrap();
-        assert_eq!(topic, Topic::State);
+        let topic = Topic::from_str("state/update").unwrap();
+        assert_eq!(topic, Topic::StateUpdate);
 
         let topic = Topic::from_str("state/request").unwrap();
         assert_eq!(topic, Topic::StateRequest);

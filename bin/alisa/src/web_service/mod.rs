@@ -32,18 +32,15 @@ use hyper::{Body, Method, Request, Response, StatusCode};
 
 use crate::Result;
 
-pub async fn web_handler(
-    request: Request<Body>,
-    mqtt_client: paho_mqtt::AsyncClient,
-) -> Result<Response<Body>> {
+pub async fn web_handler(request: Request<Body>) -> Result<Response<Body>> {
     match (request.uri().path(), request.method()) {
         ("/auth", &Method::GET) => auth::auth_page(request),
         ("/auth", &Method::POST) => auth::authorize(request).await,
         ("/token", &Method::POST) => auth::issue_token(request).await,
         ("/v1.0", &Method::HEAD) => user::pong(),
         ("/v1.0/user/devices", &Method::GET) => user::devices(request).await,
-        ("/v1.0/user/devices/query", &Method::POST) => user::query(request, mqtt_client).await,
-        ("/v1.0/user/devices/action", &Method::POST) => user::action(request, mqtt_client).await,
+        ("/v1.0/user/devices/query", &Method::POST) => user::query(request).await,
+        ("/v1.0/user/devices/action", &Method::POST) => user::action(request).await,
         ("/v1.0/user/unlink", &Method::POST) => user::unlink(request).await,
         _ => {
             error!("Unsupported request: {:?}", request);

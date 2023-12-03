@@ -9,22 +9,28 @@ use alice::{
 use futures_util::StreamExt;
 use transport::elisa::Action as ElisaAction;
 use transport::elizabeth::{Action as ElizabethAction, ActionType as ElizabethActionType};
-use transport::{DeviceId, DeviceType, Room, Topic};
+use transport::{connect_mqtt, DeviceId, DeviceType, Room, Topic};
 
 use bytes::Buf;
 use hyper::{Body, Request, Response, StatusCode};
 use log::{debug, error, trace};
-use paho_mqtt::{AsyncClient, Message, MessageBuilder, Properties, PropertyCode, QOS_1};
+use paho_mqtt::{Message, MessageBuilder, Properties, PropertyCode, QOS_1};
 use uuid::Uuid;
 
 use crate::web_service::auth::validate_autorization;
 use crate::Result;
 
-pub async fn action(
-    request: Request<Body>,
-    mut mqtt_client: AsyncClient,
-) -> Result<Response<Body>> {
+pub async fn action(request: Request<Body>) -> Result<Response<Body>> {
     validate_autorization(request, "devices_action", |request| async move {
+        let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
+        let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");
+        let mqtt_password = std::env::var("MQTT_PASS").expect("set ENV variable MQTT_PASS");
+
+        let mut mqtt_client =
+            connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "alisa_query")
+                .await
+                .expect("failed to connect mqtt");
+
         let request_id = String::from(std::str::from_utf8(
             request.headers().get("X-Request-Id").unwrap().as_bytes(),
         )?);

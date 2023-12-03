@@ -1822,6 +1822,8 @@ dependencies = [
 name = "transport"
 version = "0.1.0"
 dependencies = [
+ "log",
+ "paho-mqtt",
  "serde",
  "serde_json",
  "str_derive",

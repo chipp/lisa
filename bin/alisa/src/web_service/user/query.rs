@@ -53,7 +53,7 @@ pub async fn query(request: Request<Body>, mut mqtt_client: AsyncClient) -> Resu
         let mut devices = vec![];
 
         while let Ok(Some(msg_opt)) =
-            tokio::time::timeout(Duration::from_secs(10), stream.next()).await
+            tokio::time::timeout(Duration::from_secs(3), stream.next()).await
         {
             if let Some(msg) = msg_opt {
                 handle_message(msg, &mut device_ids, &mut devices);

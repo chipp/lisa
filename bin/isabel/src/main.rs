@@ -1,7 +1,5 @@
 use bluetooth::{Event, MacAddr, Scanner, ScannerTrait};
-
 use isabel::Result;
-
 use transport::{
     isabel::{Property, State},
     state::StateUpdate,
@@ -14,6 +12,7 @@ use std::time::Duration;
 use log::{debug, error, info};
 use mqtt::SslOptions;
 use paho_mqtt as mqtt;
+use tokio::time;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -108,6 +107,15 @@ async fn subscribe_state(mqtt: mqtt::AsyncClient) -> Result<()> {
                 Ok(()) => (),
                 Err(err) => {
                     error!("Error publishing state: {}", err);
+
+                    if !mqtt.is_connected() {
+                        time::sleep(Duration::from_secs(1)).await;
+                        error!("Lost MQTT connection. Attempting reconnect.");
+                        while let Err(err) = mqtt.reconnect().await {
+                            error!("Error MQTT reconnecting: {}", err);
+                            time::sleep(Duration::from_secs(1)).await;
+                        }
+                    }
                 }
             }
         }

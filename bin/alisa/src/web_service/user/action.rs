@@ -102,7 +102,7 @@ pub async fn action(
         mqtt_client.publish(request_msg).await?;
 
         while let Ok(Some(msg_opt)) =
-            tokio::time::timeout(Duration::from_secs(10), stream.next()).await
+            tokio::time::timeout(Duration::from_secs(3), stream.next()).await
         {
             if let Some(msg) = msg_opt {
                 handle_message(msg, &mut action_ids, &mut response_capabilities);

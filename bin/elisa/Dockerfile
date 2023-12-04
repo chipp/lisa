@@ -1,4 +1,4 @@
-FROM ghcr.io/chipp/build.rust.armv7_musl:1.74.0_3 AS builder
+FROM ghcr.io/chipp/build.rust.arm64_musl:1.74.0_5 AS builder
 
 WORKDIR /home/rust/src
 RUN USER=rust \
@@ -32,7 +32,7 @@ RUN cargo build --release \
   -p str_derive \
   -p transport \
   -p xiaomi \
-  --target armv7-unknown-linux-musleabihf && \
+  --target aarch64-unknown-linux-musl && \
   rm ./bin/elisa/src/*.rs \
   ./lib/str_derive/src/*.rs \
   ./lib/transport/src/*.rs \
@@ -43,9 +43,9 @@ COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 COPY ./lib/xiaomi/src ./lib/xiaomi/src
 
-RUN cargo build --release -p elisa --target armv7-unknown-linux-musleabihf && \
-  mv target/armv7-unknown-linux-musleabihf/release/elisa ./ && \
-  rm -rf target/armv7-unknown-linux-musleabihf/release/ target/release/
+RUN cargo build --release -p elisa --target aarch64-unknown-linux-musl && \
+  mv target/aarch64-unknown-linux-musl/release/elisa ./ && \
+  rm -rf target/aarch64-unknown-linux-musl/release/ target/release/
 
 FROM alpine:3.18.4
 WORKDIR /root/

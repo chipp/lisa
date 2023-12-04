@@ -97,7 +97,7 @@ async fn subscribe_state(mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<(
         if let Ok(status) = vacuum.status().await {
             let state = prepare_state(status, vacuum.last_cleaning_rooms());
 
-            if storage.apply_state(&state).await {
+            if storage.apply_state(&state) {
                 info!("publishing state: {:?}", state);
 
                 let topic = Topic::StateUpdate;

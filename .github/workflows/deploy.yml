@@ -87,4 +87,4 @@ jobs:
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
 
           ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
-           "cd ~/web/mq_lisa && ssh pi 'sudo service elisa stop && sudo service isabel stop' && scp elisa isabel pi:/usr/local/bin && ssh pi 'sudo service elisa start && sudo service isabel start'"
+           "cd ~/web/mq_lisa && ssh pi3 'sudo service elisa stop && sudo service isabel stop' && scp elisa isabel pi3:/usr/local/bin && ssh pi3 'sudo service elisa start && sudo service isabel start'"

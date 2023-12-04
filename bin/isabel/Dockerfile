@@ -1,11 +1,11 @@
-FROM ghcr.io/chipp/build.rust.armv7_musl:1.74.0_4 as libs_builder
+FROM ghcr.io/chipp/build.rust.arm64_musl:1.74.0_5 as libs_builder
 
 COPY ./bin/isabel/install_static_libs.sh ./install_static_libs.sh
 RUN chmod +x ./install_static_libs.sh && \
   ./install_static_libs.sh && \
   rm ./install_static_libs.sh
 
-FROM ghcr.io/chipp/build.rust.armv7_musl:1.74.0_4 AS builder
+FROM ghcr.io/chipp/build.rust.arm64_musl:1.74.0_5 AS builder
 
 COPY --from=0 $PREFIX $PREFIX
 
@@ -41,7 +41,7 @@ RUN cargo build --release \
   -p bluetooth \
   -p str_derive \
   -p transport \
-  --target armv7-unknown-linux-musleabihf && \
+  --target aarch64-unknown-linux-musl && \
   rm ./bin/isabel/src/*.rs \
   ./lib/bluetooth/src/*.rs \
   ./lib/str_derive/src/*.rs \
@@ -53,9 +53,9 @@ COPY ./lib/bluetooth/build.rs ./lib/bluetooth/build.rs
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 
-RUN cargo build --release -p isabel --target armv7-unknown-linux-musleabihf -vv && \
-  mv target/armv7-unknown-linux-musleabihf/release/isabel ./ && \
-  rm -rf target/armv7-unknown-linux-musleabihf/release/ target/release/
+RUN cargo build --release -p isabel --target aarch64-unknown-linux-musl && \
+  mv target/aarch64-unknown-linux-musl/release/isabel ./ && \
+  rm -rf target/aarch64-unknown-linux-musl/release/ target/release/
 
 FROM alpine:3.18.4
 WORKDIR /root/

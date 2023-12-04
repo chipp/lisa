@@ -11,7 +11,7 @@ impl Storage {
         Self { state: None }
     }
 
-    pub async fn apply_state(&mut self, state: &State) -> bool {
+    pub fn apply_state(&mut self, state: &State) -> bool {
         if self.state.as_ref() != Some(state) {
             debug!("old state: {:?}", self.state);
             debug!("state changed: {:?}", state);

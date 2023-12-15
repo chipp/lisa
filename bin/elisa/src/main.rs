@@ -11,8 +11,7 @@ use log::{error, info};
 use paho_mqtt::AsyncClient as MqClient;
 use paho_mqtt::{MessageBuilder, QOS_1};
 use tokio::sync::Mutex;
-use tokio::task;
-use tokio::time::{self, interval};
+use tokio::{task, time};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -76,7 +75,7 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Re
         } else {
             time::sleep(Duration::from_secs(1)).await;
             error!("Lost MQTT connection. Attempting reconnect.");
-            while let Err(err) = mqtt.reconnect().await {
+            while let Err(err) = time::timeout(Duration::from_secs(10), mqtt.reconnect()).await {
                 error!("Error MQTT reconnecting: {}", err);
                 time::sleep(Duration::from_secs(1)).await;
             }
@@ -87,7 +86,7 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Re
 }
 
 async fn subscribe_state(mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
-    let mut timer = interval(Duration::from_secs(10));
+    let mut timer = time::interval(Duration::from_secs(10));
     let mut storage = Storage::new();
 
     loop {

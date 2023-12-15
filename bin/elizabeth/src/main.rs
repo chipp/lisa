@@ -8,8 +8,7 @@ use futures_util::stream::StreamExt;
 use log::{error, info, trace};
 use paho_mqtt::AsyncClient as MqClient;
 use paho_mqtt::{MessageBuilder, QOS_1};
-use tokio::task;
-use tokio::time;
+use tokio::{task, time};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -69,7 +68,7 @@ async fn subscribe_action(mut mqtt: MqClient, mut inspinia: Client) -> Result<()
         } else {
             time::sleep(Duration::from_secs(1)).await;
             error!("Lost MQTT connection. Attempting reconnect.");
-            while let Err(err) = mqtt.reconnect().await {
+            while let Err(err) = time::timeout(Duration::from_secs(10), mqtt.reconnect()).await {
                 error!("Error MQTT reconnecting: {}", err);
                 time::sleep(Duration::from_secs(1)).await;
             }

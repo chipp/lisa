@@ -85,7 +85,9 @@ async fn subscribe_state(mqtt: MqClient) -> Result<()> {
                     if !mqtt.is_connected() {
                         time::sleep(Duration::from_secs(1)).await;
                         error!("Lost MQTT connection. Attempting reconnect.");
-                        while let Err(err) = mqtt.reconnect().await {
+                        while let Err(err) =
+                            time::timeout(Duration::from_secs(10), mqtt.reconnect()).await
+                        {
                             error!("Error MQTT reconnecting: {}", err);
                             time::sleep(Duration::from_secs(1)).await;
                         }

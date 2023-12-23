@@ -51,7 +51,7 @@ jobs:
           echo "${{ secrets.ssh_key }}" > ~/.ssh/id_rsa
           chmod -R 700 ~/.ssh/
 
-          echo "lisa.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAX96s1j47kGhmSCUnSj/zIkwIE/8Io2uljZgusrVElY" >> ~/.ssh/known_hosts
+          echo "ezio.burdukov.by ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAX96s1j47kGhmSCUnSj/zIkwIE/8Io2uljZgusrVElY" >> ~/.ssh/known_hosts
           echo "pi3.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID4miYPJr5cirlqtd73clGvCXI/kiqe23UkfXTtgDyuM" >> ~/.ssh/known_hosts
 
           echo "Host pi3.chipp.dev" > ~/.ssh/config
@@ -76,17 +76,17 @@ jobs:
           eval `ssh-agent -s`
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
 
-          ssh chipp@lisa.chipp.dev "echo test"
+          ssh chipp@ezio.burdukov.by "echo test"
 
           scp conf/docker-compose.yml conf/mq.conf \
-            chipp@lisa.chipp.dev:web/mq_lisa
+            chipp@ezio.burdukov.by:web/mq_lisa
 
       - name: Deploy alisa and elizabeth
         run: |
           eval `ssh-agent -s`
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
 
-          ssh chipp@lisa.chipp.dev \
+          ssh chipp@ezio.burdukov.by \
             "cd ~/web/mq_lisa && docker-compose down --remove-orphans --rmi all && docker-compose up -d"
 
       - name: Deploy elisa and isabel

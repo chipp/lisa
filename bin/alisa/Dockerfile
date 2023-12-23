@@ -44,6 +44,9 @@ COPY ./lib/alice/src ./lib/alice/src
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 
+ARG VERSION=0.1.0
+RUN sed -i "s/version = \"0.1.0\"/version = \"${VERSION}\"/g" bin/alisa/Cargo.toml
+
 RUN cargo build --release -p alisa && \
   mv target/x86_64-unknown-linux-musl/release/alisa ./ && \
   rm -rf target/x86_64-unknown-linux-musl/release/ target/release/

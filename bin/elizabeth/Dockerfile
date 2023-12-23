@@ -43,6 +43,9 @@ COPY ./lib/inspinia/src ./lib/inspinia/src
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 
+ARG VERSION=0.1.0
+RUN sed -i "s/version = \"0.1.0\"/version = \"${VERSION}\"/g" bin/elizabeth/Cargo.toml
+
 RUN cargo build --release -p elizabeth && \
   mv target/x86_64-unknown-linux-musl/release/elizabeth ./ && \
   rm -rf target/x86_64-unknown-linux-musl/release/ target/release/

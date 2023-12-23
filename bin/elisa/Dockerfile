@@ -43,6 +43,9 @@ COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 COPY ./lib/xiaomi/src ./lib/xiaomi/src
 
+ARG VERSION=0.1.0
+RUN sed -i "s/version = \"0.1.0\"/version = \"${VERSION}\"/g" bin/elisa/Cargo.toml
+
 RUN cargo build --release -p elisa --target aarch64-unknown-linux-musl && \
   mv target/aarch64-unknown-linux-musl/release/elisa ./ && \
   rm -rf target/aarch64-unknown-linux-musl/release/ target/release/

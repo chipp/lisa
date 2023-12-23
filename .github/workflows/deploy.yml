@@ -54,6 +54,9 @@ jobs:
           echo "lisa.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAX96s1j47kGhmSCUnSj/zIkwIE/8Io2uljZgusrVElY" >> ~/.ssh/known_hosts
           echo "pi3.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID4miYPJr5cirlqtd73clGvCXI/kiqe23UkfXTtgDyuM" >> ~/.ssh/known_hosts
 
+          echo "Host pi3.chipp.dev" > ~/.ssh/config
+          echo "  ProxyCommand $PWD/cloudflared-linux-amd64 access ssh --hostname %h" >> ~/.ssh/config
+
       - name: Install cloudflared
         run: |
           curl -sSLO https://github.com/cloudflare/cloudflared/releases/download/2023.10.0/cloudflared-linux-amd64

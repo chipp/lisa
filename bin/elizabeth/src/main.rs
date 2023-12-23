@@ -10,9 +10,13 @@ use paho_mqtt::AsyncClient as MqClient;
 use paho_mqtt::{MessageBuilder, QOS_1};
 use tokio::{task, time};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
+
+    info!("elizabeth version {VERSION}");
 
     let inspinia_client_id =
         std::env::var("INSPINIA_CLIENT_ID").expect("set ENV variable INSPINIA_CLIENT_ID");

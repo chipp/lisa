@@ -26,11 +26,8 @@ jobs:
 
       - name: Update version
         run: |
-          VERSION="0.1.${{ github.run_id }}}
-          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/alisa/Cargo.toml
-          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/elisa/Cargo.toml
-          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/elizabeth/Cargo.toml
-          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/isabel/Cargo.toml
+          VERSION="0.1.${{ github.run_id }}"
+          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/${{ matrix.binary }}/Cargo.toml
 
       - name: Build and push image
         run: |

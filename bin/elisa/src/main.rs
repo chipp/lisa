@@ -13,9 +13,13 @@ use paho_mqtt::{MessageBuilder, QOS_1};
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init();
+
+    info!("elisa version {VERSION}");
 
     let vacuum_token = std::env::var("VACUUM_TOKEN").expect("set ENV variable VACUUM_TOKEN");
     let vacuum_token = parse_token::<16>(&vacuum_token);

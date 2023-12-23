@@ -24,6 +24,14 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
 
+      - name: Update version
+        run: |
+          VERSION="0.1.${{ github.run_id }}}
+          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/alisa/Cargo.toml
+          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/elisa/Cargo.toml
+          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/elizabeth/Cargo.toml
+          sed -i 's/version = "0.1.0"/version = "$VERSION"/g' bin/isabel/Cargo.toml
+
       - name: Build and push image
         run: |
           IMAGE_ID=ghcr.io/chipp/${{ matrix.binary }}

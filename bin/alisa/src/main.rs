@@ -11,9 +11,13 @@ use log::{error, info};
 use paho_mqtt::AsyncClient as MqClient;
 use tokio::{task, time};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
+
+    info!("alisa version {VERSION}");
 
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");

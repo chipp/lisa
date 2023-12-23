@@ -51,7 +51,14 @@ jobs:
           echo "${{ secrets.ssh_key }}" > ~/.ssh/id_rsa
           chmod -R 700 ~/.ssh/
 
-          ssh-keyscan -H ${{ secrets.ssh_host }} > ~/.ssh/known_hosts
+          echo "lisa.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAX96s1j47kGhmSCUnSj/zIkwIE/8Io2uljZgusrVElY" >> ~/.ssh/known_hosts
+          echo "pi3.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID4miYPJr5cirlqtd73clGvCXI/kiqe23UkfXTtgDyuM" >> ~/.ssh/known_hosts
+
+      - name: Install cloudflared
+        run: |
+          curl -sSLO https://github.com/cloudflare/cloudflared/releases/download/2023.10.0/cloudflared-linux-amd64
+          echo "33e6876bd55c2db13a931cf812feb9cb17c071ab45d3b50c588642b022693cdc  cloudflared-linux-amd64" | sha256sum -c -
+          chmod +x cloudflared-linux-amd64
 
       - name: Extract elisa
         run: |
@@ -66,19 +73,17 @@ jobs:
           eval `ssh-agent -s`
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
 
-          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
-            -i ~/.ssh/id_rsa \
-            "echo test"
+          ssh chipp@lisa.chipp.dev "echo test"
 
-          scp build/elisa build/isabel conf/docker-compose.yml conf/mq.conf \
-            ${{ secrets.ssh_user }}@${{ secrets.ssh_host }}:web/mq_lisa
+          scp conf/docker-compose.yml conf/mq.conf \
+            chipp@lisa.chipp.dev:web/mq_lisa
 
       - name: Deploy alisa and elizabeth
         run: |
           eval `ssh-agent -s`
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
 
-          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
+          ssh chipp@lisa.chipp.dev \
             "cd ~/web/mq_lisa && docker-compose down --remove-orphans --rmi all && docker-compose up -d"
 
       - name: Deploy elisa and isabel
@@ -86,5 +91,9 @@ jobs:
           eval `ssh-agent -s`
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
 
-          ssh ${{ secrets.ssh_user }}@${{ secrets.ssh_host }} \
-           "cd ~/web/mq_lisa && ssh pi3 'sudo service elisa stop && sudo service isabel stop' && scp elisa isabel pi3:/usr/local/bin && ssh pi3 'sudo service elisa start && sudo service isabel start'"
+          export TUNNEL_SERVICE_TOKEN_ID=${{ secrets.TUNNEL_SERVICE_TOKEN_ID }}
+          export TUNNEL_SERVICE_TOKEN_SECRET=${{ secrets.TUNNEL_SERVICE_TOKEN_SECRET }}
+
+          ssh chipp@pi3.chipp.dev "sudo service elisa stop && sudo service isabel stop"
+          scp build/elisa build/isabel chipp@pi3.chipp.dev:/usr/local/bin
+          ssh chipp@pi3.chipp.dev "sudo service elisa start && sudo service isabel start"

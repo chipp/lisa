@@ -49,7 +49,6 @@ jobs:
           mkdir ~/.ssh/
 
           echo "${{ secrets.ssh_key }}" > ~/.ssh/id_rsa
-          chmod -R 700 ~/.ssh/
 
           echo "ezio.burdukov.by ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAX96s1j47kGhmSCUnSj/zIkwIE/8Io2uljZgusrVElY" >> ~/.ssh/known_hosts
           echo "pi3.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID4miYPJr5cirlqtd73clGvCXI/kiqe23UkfXTtgDyuM" >> ~/.ssh/known_hosts
@@ -57,11 +56,24 @@ jobs:
           echo "Host pi3.chipp.dev" > ~/.ssh/config
           echo "  ProxyCommand $PWD/cloudflared-linux-amd64 access ssh --hostname %h" >> ~/.ssh/config
 
+          chmod -R 700 ~/.ssh/
+
       - name: Install cloudflared
         run: |
           curl -sSLO https://github.com/cloudflare/cloudflared/releases/download/2023.10.0/cloudflared-linux-amd64
           echo "33e6876bd55c2db13a931cf812feb9cb17c071ab45d3b50c588642b022693cdc  cloudflared-linux-amd64" | sha256sum -c -
           chmod +x cloudflared-linux-amd64
+
+      - name: Deploy alisa and elizabeth
+        run: |
+          eval `ssh-agent -s`
+          echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
+
+          scp conf/docker-compose.yml conf/mq.conf \
+            chipp@ezio.burdukov.by:web/mq_lisa
+
+          ssh chipp@ezio.burdukov.by \
+            "cd ~/web/mq_lisa && docker-compose down --remove-orphans --rmi all && docker-compose up -d"
 
       - name: Extract elisa
         run: |
@@ -71,24 +83,6 @@ jobs:
         run: |
           docker run --rm -v "$PWD/build:/build" ghcr.io/chipp/isabel:latest cp /root/isabel /build/isabel
 
-      - name: Copy artifacts
-        run: |
-          eval `ssh-agent -s`
-          echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
-
-          ssh chipp@ezio.burdukov.by "echo test"
-
-          scp conf/docker-compose.yml conf/mq.conf \
-            chipp@ezio.burdukov.by:web/mq_lisa
-
-      - name: Deploy alisa and elizabeth
-        run: |
-          eval `ssh-agent -s`
-          echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
-
-          ssh chipp@ezio.burdukov.by \
-            "cd ~/web/mq_lisa && docker-compose down --remove-orphans --rmi all && docker-compose up -d"
-
       - name: Deploy elisa and isabel
         run: |
           eval `ssh-agent -s`
@@ -96,6 +90,8 @@ jobs:
 
           export TUNNEL_SERVICE_TOKEN_ID=${{ secrets.TUNNEL_SERVICE_TOKEN_ID }}
           export TUNNEL_SERVICE_TOKEN_SECRET=${{ secrets.TUNNEL_SERVICE_TOKEN_SECRET }}
+
+          ssh -v chipp@pi3.chipp.dev "echo test"
 
           ssh chipp@pi3.chipp.dev "sudo service elisa stop && sudo service isabel stop"
           scp build/elisa build/isabel chipp@pi3.chipp.dev:/usr/local/bin

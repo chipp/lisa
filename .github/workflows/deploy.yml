@@ -36,6 +36,7 @@ jobs:
           docker buildx build . --file bin/${{ matrix.binary }}/Dockerfile \
              --push \
              --tag $IMAGE_ID:latest \
+             --build-arg VERSION="0.1.${{ github.run_id }}" 
              --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
              --cache-from=type=registry,ref=$IMAGE_ID:cache \
              --cache-to=type=registry,ref=$IMAGE_ID:cache,mode=max

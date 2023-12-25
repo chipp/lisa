@@ -79,9 +79,22 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Re
         } else {
             time::sleep(Duration::from_secs(1)).await;
             error!("Lost MQTT connection. Attempting reconnect.");
-            while let Err(err) = time::timeout(Duration::from_secs(10), mqtt.reconnect()).await {
-                error!("Error MQTT reconnecting: {}", err);
-                time::sleep(Duration::from_secs(1)).await;
+
+            loop {
+                match time::timeout(Duration::from_secs(10), mqtt.reconnect()).await {
+                    Ok(Ok(response)) => {
+                        info!("Reconnected to MQTT! {}", response.reason_code());
+                        break;
+                    }
+                    Ok(Err(err)) => {
+                        error!("Error MQTT reconnecting: {}", err);
+                        time::sleep(Duration::from_secs(5)).await;
+                    }
+                    Err(err) => {
+                        error!("Error MQTT reconnecting: {}", err);
+                        time::sleep(Duration::from_secs(5)).await;
+                    }
+                }
             }
         }
     }

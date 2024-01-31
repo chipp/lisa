@@ -37,7 +37,7 @@ pub async fn web_handler(request: Request<Body>) -> Result<Response<Body>> {
         ("/auth", &Method::GET) => auth::auth_page(request),
         ("/auth", &Method::POST) => auth::authorize(request).await,
         ("/token", &Method::POST) => auth::issue_token(request).await,
-        ("/v1.0", &Method::HEAD) => user::pong(),
+        ("/v1.0", &Method::HEAD) | ("/v1.0", &Method::GET) => user::pong(),
         ("/v1.0/user/devices", &Method::GET) => user::devices(request).await,
         ("/v1.0/user/devices/query", &Method::POST) => user::query(request).await,
         ("/v1.0/user/devices/action", &Method::POST) => user::action(request).await,

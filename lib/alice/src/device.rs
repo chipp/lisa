@@ -2,7 +2,7 @@ mod capability;
 mod property;
 
 pub use capability::Capability;
-pub use property::{HumidityUnit, Property, TemperatureUnit};
+pub use property::{Property, TemperatureUnit};
 
 use serde::{Deserialize, Serialize};
 use transport::DeviceId;

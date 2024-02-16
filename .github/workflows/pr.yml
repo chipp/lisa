@@ -32,3 +32,9 @@ jobs:
              --tag $IMAGE_ID:latest \
              --cache-from=type=registry,ref=$IMAGE_ID:test-cache \
              --cache-to=type=registry,ref=$IMAGE_ID:test-cache,mode=max
+
+          docker buildx build . --file bin/${{ matrix.binary }}/Dockerfile \
+             --load \
+             --tag $IMAGE_ID:latest \
+             --cache-from=type=registry,ref=$IMAGE_ID:cache \
+             --cache-to=type=registry,ref=$IMAGE_ID:cache,mode=max

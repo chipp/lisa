@@ -23,5 +23,5 @@ pub mod outgoing {
     pub use keep_alive::KeepAliveMessage;
     pub use register::RegisterMessage;
     pub use sql_request::SqlRequestMessage;
-    pub use update_state::{UpdateStateMessage, UpdateStateMessageContent};
+    pub use update_state::UpdateStateMessage;
 }

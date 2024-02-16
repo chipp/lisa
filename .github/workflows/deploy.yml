@@ -51,7 +51,7 @@ jobs:
 
           echo "${{ secrets.ssh_key }}" > ~/.ssh/id_rsa
 
-          echo "ezio.burdukov.by ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAX96s1j47kGhmSCUnSj/zIkwIE/8Io2uljZgusrVElY" >> ~/.ssh/known_hosts
+          echo "ezio.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHynflleQHqQg0GHDph+GkNQARa56hAlJJf4ogGKbwsh" >> ~/.ssh/known_hosts
           echo "pi3.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID4miYPJr5cirlqtd73clGvCXI/kiqe23UkfXTtgDyuM" >> ~/.ssh/known_hosts
 
           echo "Host pi3.chipp.dev" > ~/.ssh/config
@@ -73,8 +73,8 @@ jobs:
           scp conf/docker-compose.yml conf/mq.conf \
             chipp@ezio.burdukov.by:web/mq_lisa
 
-          ssh chipp@ezio.burdukov.by \
-            "cd ~/web/mq_lisa && docker-compose down --remove-orphans --rmi all && docker-compose up -d"
+          ssh chipp@ezio.chipp.dev \
+            "cd ~/web/mq_lisa && docker compose down --remove-orphans --rmi all && docker compose up -d"
 
       - name: Extract elisa
         run: |

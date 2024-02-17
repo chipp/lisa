@@ -3,7 +3,7 @@ services:
   mq:
     image: eclipse-mosquitto:2.0.18-openssl
     ports:
-      - 8883:8883
+      - 8880:8880
     volumes:
       - ./mq.conf:/mosquitto/config/mosquitto.conf
       - ./passwords:/mosquitto/config/passwords

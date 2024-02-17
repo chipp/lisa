@@ -3,6 +3,7 @@ use alice::{Mode, ModeFunction, Range, RangeFunction, TemperatureUnit, ToggleFun
 use transport::{DeviceId, Room};
 
 use hyper::{Body, Request, Response, StatusCode};
+use log::info;
 use serde_json::json;
 
 use crate::web_service::auth::validate_autorization;
@@ -12,6 +13,8 @@ pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
     validate_autorization(request, "devices", |request| async move {
         let request_id =
             std::str::from_utf8(request.headers().get("X-Request-Id").unwrap().as_bytes()).unwrap();
+
+        info!("{request_id}/devices");
 
         let json = json!({
             "request_id": request_id,

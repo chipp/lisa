@@ -7,7 +7,7 @@ use transport::{connect_mqtt, DeviceId, DeviceType, Topic};
 use bytes::Buf;
 use futures_util::StreamExt;
 use hyper::{Body, Request, Response};
-use log::{debug, trace};
+use log::{debug, info, trace};
 use paho_mqtt::{Message, MessageBuilder, Properties, PropertyCode, QOS_1};
 
 use crate::web_service::{auth::validate_autorization, StatusCode};
@@ -39,6 +39,16 @@ pub async fn query(request: Request<Body>) -> Result<Response<Body>> {
             .iter()
             .map(|device| device.id)
             .collect::<Vec<_>>();
+
+        info!(
+            "{request_id}/query ({})",
+            device_ids
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+
         let request = transport::state::StateRequest { device_ids };
 
         let request_topic = Topic::StateRequest.to_string();

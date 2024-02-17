@@ -44,12 +44,18 @@ impl DeviceId {
     }
 }
 
+impl fmt::Display for DeviceId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.device_type, self.room)
+    }
+}
+
 impl Serialize for DeviceId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        format!("{}/{}", self.device_type, self.room).serialize(serializer)
+        format!("{}", self).serialize(serializer)
     }
 }
 

@@ -13,7 +13,7 @@ use transport::{connect_mqtt, DeviceId, DeviceType, Room, Topic};
 
 use bytes::Buf;
 use hyper::{Body, Request, Response, StatusCode};
-use log::{debug, error, trace};
+use log::{debug, error, info, trace};
 use paho_mqtt::{Message, MessageBuilder, Properties, PropertyCode, QOS_1};
 use uuid::Uuid;
 
@@ -41,6 +41,17 @@ pub async fn action(request: Request<Body>) -> Result<Response<Body>> {
         }
 
         let action: UpdateStateRequest = serde_json::from_slice(body.chunk())?;
+
+        info!(
+            "{request_id}/action ({})",
+            action
+                .payload
+                .devices
+                .iter()
+                .map(|d| d.id.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
 
         let mut response_capabilities = HashMap::new();
 

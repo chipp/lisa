@@ -60,7 +60,7 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Re
         Topic::StateRequest.to_string(),
     ];
 
-    mqtt.subscribe_many(&topics, &[QOS_1, QOS_1]);
+    mqtt.subscribe_many(&topics, &[QOS_1, QOS_1]).await?;
     info!("Subscribed to topics: {:?}", topics);
 
     while let Some(msg_opt) = stream.next().await {
@@ -84,6 +84,15 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Re
                 match time::timeout(Duration::from_secs(10), mqtt.reconnect()).await {
                     Ok(Ok(response)) => {
                         info!("Reconnected to MQTT! {}", response.reason_code());
+
+                        let topics = [
+                            Topic::ActionRequest.to_string(),
+                            Topic::StateRequest.to_string(),
+                        ];
+
+                        mqtt.subscribe_many(&topics, &[QOS_1, QOS_1]).await?;
+                        info!("Subscribed to topics: {:?}", topics);
+
                         break;
                     }
                     Ok(Err(err)) => {

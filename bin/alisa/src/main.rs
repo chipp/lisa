@@ -58,8 +58,8 @@ async fn subscribe_state(mut mqtt: MqClient, reporter: Reporter) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     let topic = Topic::StateUpdate.to_string();
+    mqtt.subscribe(&topic, paho_mqtt::QOS_1).await?;
     info!("Subscribe to topic: {}", topic);
-    mqtt.subscribe(topic, paho_mqtt::QOS_1);
 
     while let Some(msg_opt) = stream.next().await {
         if let Some(msg) = msg_opt {
@@ -79,6 +79,11 @@ async fn subscribe_state(mut mqtt: MqClient, reporter: Reporter) -> Result<()> {
                 match time::timeout(Duration::from_secs(10), mqtt.reconnect()).await {
                     Ok(Ok(response)) => {
                         info!("Reconnected to MQTT! {}", response.reason_code());
+
+                        let topic = Topic::StateUpdate.to_string();
+                        mqtt.subscribe(&topic, paho_mqtt::QOS_1).await?;
+                        info!("Subscribe to topic: {}", topic);
+
                         break;
                     }
                     Ok(Err(err)) => {

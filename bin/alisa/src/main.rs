@@ -9,6 +9,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::Server;
 use log::{error, info};
 use paho_mqtt::AsyncClient as MqClient;
+use tokio::signal::unix::{signal, SignalKind};
 use tokio::{task, time};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -29,13 +30,28 @@ async fn main() -> Result<()> {
     let token = std::env::var("ALICE_TOKEN").expect("token is required");
     let reporter = Reporter::new(skill_id, token);
 
-    let (web_handle, state_handle) = tokio::try_join!(
-        task::spawn(listen_web()),
-        task::spawn(subscribe_state(mqtt_client, reporter))
-    )?;
+    let web_handle = task::spawn(listen_web());
+    let state_handle = task::spawn(subscribe_state(mqtt_client, reporter));
 
-    web_handle?;
-    state_handle?;
+    tokio::select! {
+        _ = try_join(web_handle, state_handle) => {},
+        _ = tokio::spawn(async move {
+            let mut sig = signal(SignalKind::terminate()).unwrap();
+            sig.recv().await
+        }) => { info!("got SIGTERM, exiting...") },
+    };
+
+    Ok(())
+}
+
+async fn try_join(
+    left: task::JoinHandle<Result<()>>,
+    right: task::JoinHandle<Result<()>>,
+) -> Result<()> {
+    let (left, right) = tokio::try_join!(left, right)?;
+
+    left?;
+    right?;
 
     Ok(())
 }

@@ -8,6 +8,7 @@ use futures_util::stream::StreamExt;
 use log::{error, info, trace};
 use paho_mqtt::AsyncClient as MqClient;
 use paho_mqtt::{MessageBuilder, QOS_1};
+use tokio::signal::unix::{signal, SignalKind};
 use tokio::{task, time};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -29,16 +30,31 @@ async fn main() -> Result<()> {
     let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "elizabeth").await?;
     info!("connected mqtt");
 
-    let (set_handle, state_handle) = tokio::try_join!(
-        task::spawn(subscribe_action(
-            mqtt_client.clone(),
-            inspinia_client.clone()
-        )),
-        task::spawn(subscribe_state(mqtt_client, inspinia_client))
-    )?;
+    let set_handle = task::spawn(subscribe_action(
+        mqtt_client.clone(),
+        inspinia_client.clone(),
+    ));
+    let state_handle = task::spawn(subscribe_state(mqtt_client, inspinia_client));
 
-    set_handle?;
-    state_handle?;
+    tokio::select! {
+        _ = try_join(set_handle, state_handle) => {},
+        _ = tokio::spawn(async move {
+            let mut sig = signal(SignalKind::terminate()).unwrap();
+            sig.recv().await
+        }) => { info!("got SIGTERM, exiting...") },
+    };
+
+    Ok(())
+}
+
+async fn try_join(
+    left: task::JoinHandle<Result<()>>,
+    right: task::JoinHandle<Result<()>>,
+) -> Result<()> {
+    let (left, right) = tokio::try_join!(left, right)?;
+
+    left?;
+    right?;
 
     Ok(())
 }

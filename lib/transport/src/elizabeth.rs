@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{DeviceType, Room};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct Action {
     pub room: Room,
@@ -10,7 +10,7 @@ pub struct Action {
     pub action_type: ActionType,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionType {
     SetIsEnabled(bool),

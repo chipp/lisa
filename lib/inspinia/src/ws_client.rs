@@ -43,7 +43,11 @@ impl From<serde_json::Error> for WsError {
 
 impl From<tokio_tungstenite::tungstenite::error::Error> for WsError {
     fn from(value: tokio_tungstenite::tungstenite::error::Error) -> Self {
-        WsError::WebSocketError(value)
+        if let tokio_tungstenite::tungstenite::error::Error::AlreadyClosed = value {
+            WsError::StreamClosed
+        } else {
+            WsError::WebSocketError(value)
+        }
     }
 }
 

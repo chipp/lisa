@@ -1,7 +1,10 @@
 mod client;
 pub use client::Client;
 
-use log::{debug, error};
+use futures_util::future::BoxFuture;
+use futures_util::FutureExt;
+use inspinia::WsError;
+use log::{debug, error, info};
 
 use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 
@@ -33,7 +36,7 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, inspinia: 
 
     for action in request.actions {
         if let transport::action::Action::Elizabeth(action, action_id) = action {
-            let result = match update_state(action, inspinia).await {
+            let result = match try_updating_state(action, inspinia).await {
                 Ok(_) => ActionResult::Success,
                 Err(err) => {
                     error!("Error updating state: {}", err);
@@ -60,6 +63,30 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, inspinia: 
             }
         }
     }
+}
+
+fn try_updating_state(action: Action, inspinia: &mut Client) -> BoxFuture<Result<()>> {
+    async move {
+        match update_state(action, inspinia).await {
+            Ok(()) => Ok(()),
+            Err(err) => match err.downcast::<WsError>() {
+                Ok(err) => match *err {
+                    WsError::StreamClosed => {
+                        error!("Lost Inspinia connection. Attempting reconnect.");
+                        inspinia.reconnect().await?;
+
+                        info!("Reconnected to Inspinia!");
+                        update_state(action, inspinia).await?;
+
+                        Ok(())
+                    }
+                    err => Err(err.into()),
+                },
+                Err(err) => Err(err),
+            },
+        }
+    }
+    .boxed()
 }
 
 async fn update_state(action: Action, inspinia: &mut Client) -> Result<()> {

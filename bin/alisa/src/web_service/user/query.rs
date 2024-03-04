@@ -92,6 +92,10 @@ pub async fn query(request: Request<Body>) -> Result<Response<Body>> {
         mqtt_client.stop_stream();
         mqtt_client.unsubscribe(&response_topic);
 
+        for device_id in device_ids {
+            devices.push(StateDevice::new_empty(device_id));
+        }
+
         let response = StateResponse::new(request_id, devices);
 
         Ok(Response::builder()

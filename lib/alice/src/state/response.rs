@@ -64,6 +64,14 @@ impl ResponseDevice {
 }
 
 impl ResponseDevice {
+    pub fn new_empty(id: DeviceId) -> ResponseDevice {
+        ResponseDevice {
+            id,
+            properties: vec![],
+            capabilities: vec![],
+        }
+    }
+
     pub fn new_with_properties(id: DeviceId, properties: Vec<Property>) -> ResponseDevice {
         ResponseDevice {
             id,

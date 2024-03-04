@@ -102,8 +102,8 @@ jobs:
 
       - name: Install cloudflared
         run: |
-          curl -sSLO https://github.com/cloudflare/cloudflared/releases/download/2023.10.0/cloudflared-linux-amd64
-          echo "33e6876bd55c2db13a931cf812feb9cb17c071ab45d3b50c588642b022693cdc  cloudflared-linux-amd64" | sha256sum -c -
+          curl -sSLO https://github.com/cloudflare/cloudflared/releases/download/2024.2.1/cloudflared-linux-amd64
+          echo "f140d18894206a45f5150d34066e8940a3bca82a0da670fcb4e6d93b11f0c81c  cloudflared-linux-amd64" | sha256sum -c -
           chmod +x cloudflared-linux-amd64
 
       - name: Deploy alisa and elizabeth
@@ -135,7 +135,7 @@ jobs:
           export TUNNEL_SERVICE_TOKEN_ID=${{ secrets.TUNNEL_SERVICE_TOKEN_ID }}
           export TUNNEL_SERVICE_TOKEN_SECRET=${{ secrets.TUNNEL_SERVICE_TOKEN_SECRET }}
 
-          ssh -v chipp@pi4.chipp.dev "echo test"
+          ssh chipp@pi4.chipp.dev "echo test"
 
           ssh chipp@pi4.chipp.dev "sudo service elisa stop && sudo service isabel stop"
           scp elisa isabel chipp@pi4.chipp.dev:/usr/local/bin

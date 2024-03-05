@@ -3,5 +3,5 @@
 *.tar
 
 requests.sql
-template-v7.db
+template-v*.db
 websocket.txt

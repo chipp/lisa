@@ -4,68 +4,46 @@ use std::{
 };
 
 use crate::Result;
-use hyper::{body::HttpBody, client::HttpConnector, Body, Client, Method, Request, StatusCode};
-use hyper_tls::HttpsConnector;
+use chipp_http::{HttpClient, HttpMethod};
+use log::info;
 use md5::Context;
 use serde::Deserialize;
 
 pub async fn download_template(target_id: &str) -> Result<PathBuf> {
-    let https = HttpsConnector::new();
-    let client = Client::builder().build::<_, hyper::Body>(https);
+    let client = HttpClient::new("https://skyplatform.io/api").unwrap();
 
     let template_version = get_template_version(&client, target_id).await?;
 
-    let request = Request::builder()
-        .method(Method::POST)
-        .uri("https://skyplatform.io/api/template/publishedVersionDownload")
-        .body(Body::from(target_id.to_string()))
-        .unwrap();
-
-    let mut response = client.request(request).await?;
-
-    if response.status() != StatusCode::OK {
-        panic!("unable to get template");
-    }
-
-    let mut context = Context::new();
-
-    let path = format!("./template-v{}.db", template_version);
+    let path = format!("./template-v{template_version}.db");
     let path = Path::new(&path).to_path_buf();
 
     if path.exists() {
+        info!("template-v{template_version}.db is already downloaded");
         return Ok(path);
     }
 
-    const MAX_ALLOWED_RESPONSE_SIZE: u64 = 10 * 1024 * 1024;
+    info!("downloading template-v{template_version}.db...");
 
-    let response_content_length = match response.body().size_hint().upper() {
-        Some(v) => v,
-        None => MAX_ALLOWED_RESPONSE_SIZE + 1,
-    };
+    let mut request = client.new_request(["template", "publishedVersionDownload"]);
+    request.method = HttpMethod::Post;
+    request.body = Some(target_id.as_bytes().to_vec());
 
-    if response_content_length >= MAX_ALLOWED_RESPONSE_SIZE {
-        panic!("too big file {}", response_content_length);
-    }
+    let response = client
+        .perform_request(request, |req, res| {
+            if res.status_code == 200 {
+                Ok(res.body)
+            } else {
+                Err((req, res).into())
+            }
+        })
+        .await?;
 
-    let mut template = std::fs::File::create(&path)?;
+    let mut context = Context::new();
 
     let mut expected_hash = [0u8; 16];
-    let mut hash_extracted = false;
+    expected_hash.copy_from_slice(&response[..16]);
 
-    while let Some(chunk) = response.body_mut().data().await {
-        let data = chunk?;
-        let mut data = &data[..];
-
-        if !hash_extracted {
-            expected_hash.copy_from_slice(&data[..16]);
-            hash_extracted = true;
-
-            data = &data[16..];
-        }
-
-        context.consume(data);
-        template.write_all(data)?;
-    }
+    context.consume(&response[16..]);
 
     let result_hash = context.compute();
 
@@ -73,42 +51,27 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
         panic!("invalid hash");
     }
 
+    let mut template = std::fs::File::create(&path)?;
+    template.write_all(&response[16..])?;
+
+    info!("downloaded template-v{template_version}.db");
+
     Ok(path)
 }
 
-async fn get_template_version(
-    client: &Client<HttpsConnector<HttpConnector>, Body>,
-    target_id: &str,
-) -> Result<u16> {
+async fn get_template_version(client: &HttpClient<'_>, target_id: &str) -> Result<u16> {
     #[derive(Deserialize)]
     struct ResponseBody {
         version: u16,
     }
 
-    let request = Request::builder()
-        .method(Method::POST)
-        .uri("https://skyplatform.io/api/template/publishedVersion")
-        .body(Body::from(target_id.to_string()))
-        .unwrap();
+    let mut request = client.new_request(["template", "publishedVersion"]);
+    request.method = HttpMethod::Post;
+    request.body = Some(target_id.as_bytes().to_vec());
 
-    let response = client.request(request).await?;
-
-    const MAX_ALLOWED_RESPONSE_SIZE: u64 = 4096;
-
-    let response_content_length = match response.body().size_hint().upper() {
-        Some(v) => v,
-        None => MAX_ALLOWED_RESPONSE_SIZE + 1,
-    };
-
-    if response_content_length >= MAX_ALLOWED_RESPONSE_SIZE {
-        panic!(
-            "template file is bigger than expected {} >= {}",
-            response_content_length, MAX_ALLOWED_RESPONSE_SIZE
-        );
-    }
-
-    let body: ResponseBody =
-        serde_json::from_slice(&response.into_body().collect().await?.to_bytes())?;
+    let body: ResponseBody = client
+        .perform_request(request, chipp_http::json::parse_json)
+        .await?;
 
     Ok(body.version)
 }

@@ -14,19 +14,19 @@ use transport::elizabeth::State as ElizabethState;
 use transport::state::StateUpdate;
 use transport::DeviceType;
 
+use chipp_http::{HttpClient, HttpMethod};
 use chrono::Utc;
 use log::{debug, error};
-use reqwest::{header, Client, StatusCode};
 
-pub struct Reporter {
-    inner: Client,
+pub struct Reporter<'a> {
+    inner: HttpClient<'a>,
     skill_id: String,
     token: String,
 }
 
-impl Reporter {
+impl Reporter<'_> {
     pub fn new(skill_id: String, token: String) -> Self {
-        let inner = Client::new();
+        let inner = HttpClient::new("https://dialogs.yandex.net/api/v1").unwrap();
 
         Self {
             inner,
@@ -50,30 +50,43 @@ impl Reporter {
             serde_json::to_string_pretty(&body).unwrap()
         );
 
+        let mut request = self
+            .inner
+            .new_request(["skills", &self.skill_id, "callback", "state"]);
+
+        request.method = HttpMethod::Post;
+        request.set_json_body(&body);
+        request.add_header("Authorization", format!("OAuth {}", self.token));
+
         let result = self
             .inner
-            .post(format!(
-                "https://dialogs.yandex.net/api/v1/skills/{}/callback/state",
-                self.skill_id
-            ))
-            .json(&body)
-            .header(header::AUTHORIZATION, format!("OAuth {}", self.token))
-            .send()
+            .perform_request(request, |req, res| {
+                if res.status_code == 202 {
+                    Ok(res)
+                } else {
+                    Err((req, res).into())
+                }
+            })
             .await;
 
         match result {
-            Ok(response) => {
-                if let StatusCode::ACCEPTED = response.status() {
-                    debug!("successfully notified alice about changes");
-                } else {
-                    error!("unable to report state changes {}", response.status());
-                    debug!("{:#?}", response);
+            Ok(_) => {
+                debug!("successfully notified alice about changes");
+            }
+            Err(err) => {
+                if let chipp_http::ErrorKind::HttpError(ref res) = err.kind {
+                    error!("unable to report state changes {}", res.status_code);
+                    debug!("{:#?}", res);
 
-                    let json: String = response.json().await?;
-                    debug!("{}", json);
+                    if let Ok(json) = std::str::from_utf8(&res.body) {
+                        debug!("{}", json);
+                    } else {
+                        error!("unable to report state changes {}", err)
+                    }
+                } else {
+                    error!("unable to report state changes {}", err)
                 }
             }
-            Err(err) => error!("unable to report state changes {}", err),
         }
 
         Ok(())

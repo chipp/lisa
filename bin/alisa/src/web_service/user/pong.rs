@@ -1,9 +1,5 @@
-use hyper::{Body, Response, StatusCode};
+use axum::{http::StatusCode, response::IntoResponse};
 
-use crate::Result;
-
-pub fn pong() -> Result<Response<Body>> {
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .body(Body::empty())?)
+pub async fn pong() -> impl IntoResponse {
+    StatusCode::OK
 }

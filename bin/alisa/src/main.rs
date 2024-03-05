@@ -1,12 +1,10 @@
-use alisa::{web_handler, ErasedError, Reporter, Result};
+use alisa::{router, Reporter, Result};
 use transport::state::StateUpdate;
 use transport::{connect_mqtt, Topic};
 
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use hyper::service::{make_service_fn, service_fn};
-use hyper::Server;
 use log::{error, info};
 use paho_mqtt::AsyncClient as MqClient;
 use tokio::signal::unix::{signal, SignalKind};
@@ -57,20 +55,15 @@ async fn try_join(
 }
 
 async fn listen_web() -> Result<()> {
-    let make_svc = make_service_fn(move |_| async move {
-        Ok::<_, ErasedError>(service_fn(move |req| async move { web_handler(req).await }))
-    });
+    let router = router();
 
-    let addr = ([0, 0, 0, 0], 8080).into();
-    let server = Server::bind(&addr).serve(make_svc);
-
-    info!("Listening http://{}", addr);
-    server.await?;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    axum::serve(listener, router).await?;
 
     Ok(())
 }
 
-async fn subscribe_state(mut mqtt: MqClient, reporter: Reporter) -> Result<()> {
+async fn subscribe_state(mut mqtt: MqClient, reporter: Reporter<'_>) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     let topic = Topic::StateUpdate.to_string();

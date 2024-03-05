@@ -15,13 +15,12 @@ log = "0.4"
 bytes = "1"
 url = "2.5"
 
-futures-util = "0.3"
-
-hyper = { version = "0.14", features = ["server", "http1"] }
-hyper-tls = "0.5"
+axum = "0.7"
+chipp_http = "1.0"
 
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util", "net", "time", "signal"] }
 futures = "0.3"
+futures-util = "0.3"
 
 jsonwebtoken = "9.2"
 chrono = { version = "0.4", features = ["std", "clock"], default-features = false }
@@ -32,4 +31,4 @@ serde_urlencoded = "0.7"
 
 paho-mqtt = "0.12.3"
 
-uuid = { version = "1.6.1", features = ["v4", "fast-rng"] }
+uuid = { version = "1.7", features = ["v4", "fast-rng"] }

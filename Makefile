@@ -50,7 +50,7 @@ run_elisa: RUST_LOG = elisa=debug,info
 run_elisa: MQTT_ADDRESS = mqtt://localhost:1883
 run_elisa: MQTT_USER = elisa
 run_elisa: MQTT_PASS = 123mqtt
-run_elisa: VACUUM_IP = 192.168.1.150
+run_elisa: VACUUM_IP = 10.0.1.150
 run_elisa: VACUUM_TOKEN = $(shell op read "op://private/vacuum/credential" -n)
 run_elisa:
 	@RUST_LOG=${RUST_LOG} VACUUM_IP=${VACUUM_IP} VACUUM_TOKEN=${VACUUM_TOKEN} \

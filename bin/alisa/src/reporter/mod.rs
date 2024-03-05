@@ -14,21 +14,19 @@ use transport::elizabeth::State as ElizabethState;
 use transport::state::StateUpdate;
 use transport::DeviceType;
 
+use chipp_http::{HttpClient, HttpMethod};
 use chrono::Utc;
-use hyper::{client::HttpConnector, Body, Client, Method, Request, StatusCode};
-use hyper_tls::HttpsConnector;
 use log::{debug, error};
 
-pub struct Reporter {
-    inner: Client<HttpsConnector<HttpConnector>>,
+pub struct Reporter<'a> {
+    inner: HttpClient<'a>,
     skill_id: String,
     token: String,
 }
 
-impl Reporter {
+impl Reporter<'_> {
     pub fn new(skill_id: String, token: String) -> Self {
-        let https = HttpsConnector::new();
-        let inner = Client::builder().build(https);
+        let inner = HttpClient::new("https://dialogs.yandex.net/api/v1").unwrap();
 
         Self {
             inner,
@@ -52,34 +50,43 @@ impl Reporter {
             serde_json::to_string_pretty(&body).unwrap()
         );
 
-        let body = serde_json::to_vec(&body).unwrap();
+        let mut request = self
+            .inner
+            .new_request(["skills", &self.skill_id, "callback", "state"]);
 
-        let request = Request::builder()
-            .method(Method::POST)
-            .uri(format!(
-                "https://dialogs.yandex.net/api/v1/skills/{}/callback/state",
-                self.skill_id
-            ))
-            .header("Content-Type", "application/json")
-            .header("Authorization", format!("OAuth {}", self.token))
-            .body(Body::from(body))
-            .unwrap();
+        request.method = HttpMethod::Post;
+        request.set_json_body(&body);
+        request.add_header("Authorization", format!("OAuth {}", self.token));
 
-        debug!("request: {:?}", request);
-
-        match self.inner.request(request).await {
-            Ok(response) => {
-                if let StatusCode::ACCEPTED = response.status() {
-                    debug!("successfully notified alice about changes");
+        let result = self
+            .inner
+            .perform_request(request, |req, res| {
+                if res.status_code == 202 {
+                    Ok(res)
                 } else {
-                    error!("unable to report state changes {}", response.status());
-                    debug!("{:#?}", response);
-                    let body = hyper::body::to_bytes(response.into_body()).await?;
+                    Err((req, res).into())
+                }
+            })
+            .await;
 
-                    debug!("{}", String::from_utf8(body.to_vec()).unwrap());
+        match result {
+            Ok(_) => {
+                debug!("successfully notified alice about changes");
+            }
+            Err(err) => {
+                if let chipp_http::ErrorKind::HttpError(ref res) = err.kind {
+                    error!("unable to report state changes {}", res.status_code);
+                    debug!("{:#?}", res);
+
+                    if let Ok(json) = std::str::from_utf8(&res.body) {
+                        debug!("{}", json);
+                    } else {
+                        error!("unable to report state changes {}", err)
+                    }
+                } else {
+                    error!("unable to report state changes {}", err)
                 }
             }
-            Err(err) => error!("unable to report state changes {}", err),
         }
 
         Ok(())

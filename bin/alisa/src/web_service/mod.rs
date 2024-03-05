@@ -25,37 +25,35 @@ mod user {
     pub use unlink::unlink;
 }
 
-use hyper::body::HttpBody;
-use hyper::{Body, Method, Request, Response, StatusCode};
+use axum::body::Body;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, head, post};
+use axum::Router;
 use log::error;
 
-use crate::Result;
+pub struct ServiceError(Box<dyn std::error::Error + Send + Sync>, uuid::Uuid);
+impl IntoResponse for ServiceError {
+    fn into_response(self) -> Response<Body> {
+        error!("ServiceError[{}]: {}", self.1, self.0);
 
-pub async fn web_handler(request: Request<Body>) -> Result<Response<Body>> {
-    match (request.uri().path(), request.method()) {
-        ("/auth", &Method::GET) => auth::auth_page(request),
-        ("/auth", &Method::POST) => auth::authorize(request).await,
-        ("/token", &Method::POST) => auth::issue_token(request).await,
-        ("/v1.0", &Method::HEAD) | ("/v1.0", &Method::GET) => user::pong(),
-        ("/v1.0/user/devices", &Method::GET) => user::devices(request).await,
-        ("/v1.0/user/devices/query", &Method::POST) => user::query(request).await,
-        ("/v1.0/user/devices/action", &Method::POST) => user::action(request).await,
-        ("/v1.0/user/unlink", &Method::POST) => user::unlink(request).await,
-        _ => {
-            error!("Unsupported request: {:?}", request);
-
-            let body = request.into_body().collect().await?.to_bytes();
-
-            match std::str::from_utf8(&body) {
-                Ok(body) if !body.is_empty() => error!("Body {}", body),
-                _ => (),
-            }
-
-            let response = Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("invalid request"))?;
-
-            Ok(response)
-        }
+        (StatusCode::INTERNAL_SERVER_ERROR, self.0.to_string()).into_response()
     }
+}
+
+impl<T: std::error::Error + Sync + Send + 'static> From<T> for ServiceError {
+    fn from(value: T) -> Self {
+        ServiceError(Box::new(value), uuid::Uuid::new_v4())
+    }
+}
+
+pub fn router() -> Router {
+    Router::new()
+        .route("/auth", get(auth::auth_page).post(auth::authorize))
+        .route("/token", post(auth::issue_token))
+        .route("/v1.0", head(user::pong).get(user::pong))
+        .route("/v1.0/user/devices", get(user::devices))
+        .route("/v1.0/user/devices/query", post(user::query))
+        .route("/v1.0/user/devices/action", post(user::action))
+        .route("/v1.0/user/unlink", post(user::unlink))
 }

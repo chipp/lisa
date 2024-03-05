@@ -1,13 +1,8 @@
-use hyper::{Body, Request, Response, StatusCode};
+use axum::{http::HeaderMap, response::Result};
 
-use super::super::auth::validate_autorization;
-use crate::Result;
+use crate::web_service::auth::validate_autorization;
 
-pub async fn unlink(request: Request<Body>) -> Result<Response<Body>> {
-    validate_autorization(request, "devices_action", |_| async move {
-        Ok(Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(Body::from("invalid request"))?)
-    })
-    .await
+pub async fn unlink(headers: HeaderMap) -> Result<()> {
+    validate_autorization(&headers, "unlink")?;
+    Ok(())
 }

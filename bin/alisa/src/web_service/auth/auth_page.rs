@@ -1,25 +1,21 @@
 use std::borrow::Cow;
 
+use axum::{
+    extract::Query,
+    http::StatusCode,
+    response::{Html, IntoResponse},
+};
+use log::debug;
 use serde::Deserialize;
 
-use hyper::{Body, Request, Response, StatusCode};
-use log::debug;
-
-use crate::Result;
-
-pub fn auth_page(request: Request<Body>) -> Result<Response<Body>> {
-    Ok(match params_for_auth_page(&request).and_then(auth_html) {
+pub async fn auth_page(Query(params): Query<AuthParams<'_>>) -> impl IntoResponse {
+    match auth_html(params) {
         Some(html) => {
             debug!("starting authentication process");
-
-            Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(html))?
+            (StatusCode::OK, Html(html))
         }
-        None => Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(Body::from("invalid request"))?,
-    })
+        None => (StatusCode::BAD_REQUEST, Html("bad request".to_string())),
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -31,11 +27,6 @@ pub struct AuthParams<'a> {
 }
 
 static AUTH_HTML: &str = include_str!("./auth_page.html");
-
-fn params_for_auth_page(request: &Request<Body>) -> Option<AuthParams> {
-    let query = request.uri().query()?;
-    serde_urlencoded::de::from_str(query).ok()
-}
 
 fn auth_html(auth: AuthParams) -> Option<String> {
     let mut html = String::from(AUTH_HTML);

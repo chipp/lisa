@@ -15,20 +15,18 @@ use transport::state::StateUpdate;
 use transport::DeviceType;
 
 use chrono::Utc;
-use hyper::{body::HttpBody, client::HttpConnector, Body, Client, Method, Request, StatusCode};
-use hyper_tls::HttpsConnector;
 use log::{debug, error};
+use reqwest::{header, Client, StatusCode};
 
 pub struct Reporter {
-    inner: Client<HttpsConnector<HttpConnector>>,
+    inner: Client,
     skill_id: String,
     token: String,
 }
 
 impl Reporter {
     pub fn new(skill_id: String, token: String) -> Self {
-        let https = HttpsConnector::new();
-        let inner = Client::builder().build(https);
+        let inner = Client::new();
 
         Self {
             inner,
@@ -52,22 +50,18 @@ impl Reporter {
             serde_json::to_string_pretty(&body).unwrap()
         );
 
-        let body = serde_json::to_vec(&body).unwrap();
-
-        let request = Request::builder()
-            .method(Method::POST)
-            .uri(format!(
+        let result = self
+            .inner
+            .post(format!(
                 "https://dialogs.yandex.net/api/v1/skills/{}/callback/state",
                 self.skill_id
             ))
-            .header("Content-Type", "application/json")
-            .header("Authorization", format!("OAuth {}", self.token))
-            .body(Body::from(body))
-            .unwrap();
+            .json(&body)
+            .header(header::AUTHORIZATION, format!("OAuth {}", self.token))
+            .send()
+            .await;
 
-        debug!("request: {:?}", request);
-
-        match self.inner.request(request).await {
+        match result {
             Ok(response) => {
                 if let StatusCode::ACCEPTED = response.status() {
                     debug!("successfully notified alice about changes");
@@ -75,8 +69,8 @@ impl Reporter {
                     error!("unable to report state changes {}", response.status());
                     debug!("{:#?}", response);
 
-                    let body = response.into_body().collect().await?.to_bytes();
-                    debug!("{}", String::from_utf8(body.to_vec()).unwrap());
+                    let json: String = response.json().await?;
+                    debug!("{}", json);
                 }
             }
             Err(err) => error!("unable to report state changes {}", err),

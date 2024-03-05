@@ -2,53 +2,48 @@ use alice::{Device, DeviceCapability, DeviceProperty, DeviceType};
 use alice::{Mode, ModeFunction, Range, RangeFunction, TemperatureUnit, ToggleFunction};
 use transport::{DeviceId, Room};
 
-use hyper::{Body, Request, Response, StatusCode};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::{IntoResponse, Result};
+use axum::Json;
 use log::info;
 use serde_json::json;
 
 use crate::web_service::auth::validate_autorization;
-use crate::Result;
 
-pub async fn devices(request: Request<Body>) -> Result<Response<Body>> {
-    validate_autorization(request, "devices", |request| async move {
-        let request_id =
-            std::str::from_utf8(request.headers().get("X-Request-Id").unwrap().as_bytes()).unwrap();
+pub async fn devices(headers: HeaderMap) -> Result<impl IntoResponse> {
+    validate_autorization(&headers, "devices")?;
 
-        info!("{request_id}/devices");
+    let request_id = headers.get("X-Request-Id").unwrap().to_str().unwrap();
+    info!("{request_id}/devices");
 
-        let json = json!({
-            "request_id": request_id,
-            "payload": {
-                "user_id": "chipp",
-                "devices": [
-                    sensor_device(Room::Bedroom),
-                    sensor_device(Room::HomeOffice),
-                    sensor_device(Room::Kitchen),
-                    sensor_device(Room::Nursery),
-                    vacuum_cleaner_device(Room::Bathroom),
-                    vacuum_cleaner_device(Room::Bedroom),
-                    vacuum_cleaner_device(Room::Corridor),
-                    vacuum_cleaner_device(Room::Hallway),
-                    vacuum_cleaner_device(Room::HomeOffice),
-                    vacuum_cleaner_device(Room::Kitchen),
-                    vacuum_cleaner_device(Room::LivingRoom),
-                    vacuum_cleaner_device(Room::Nursery),
-                    vacuum_cleaner_device(Room::Toilet),
-                    thermostat_device(Room::Bedroom),
-                    thermostat_device(Room::HomeOffice),
-                    thermostat_device(Room::LivingRoom),
-                    thermostat_device(Room::Nursery),
-                    recuperator_device(),
-                ]
-            }
-        });
+    let json = json!({
+        "request_id": request_id,
+        "payload": {
+            "user_id": "chipp",
+            "devices": [
+                sensor_device(Room::Bedroom),
+                sensor_device(Room::HomeOffice),
+                sensor_device(Room::Kitchen),
+                sensor_device(Room::Nursery),
+                vacuum_cleaner_device(Room::Bathroom),
+                vacuum_cleaner_device(Room::Bedroom),
+                vacuum_cleaner_device(Room::Corridor),
+                vacuum_cleaner_device(Room::Hallway),
+                vacuum_cleaner_device(Room::HomeOffice),
+                vacuum_cleaner_device(Room::Kitchen),
+                vacuum_cleaner_device(Room::LivingRoom),
+                vacuum_cleaner_device(Room::Nursery),
+                vacuum_cleaner_device(Room::Toilet),
+                thermostat_device(Room::Bedroom),
+                thermostat_device(Room::HomeOffice),
+                thermostat_device(Room::LivingRoom),
+                thermostat_device(Room::Nursery),
+                recuperator_device(),
+            ]
+        }
+    });
 
-        Ok(Response::builder()
-            .status(StatusCode::OK)
-            .header("Content-Type", "application/json")
-            .body(Body::from(serde_json::to_vec(&json)?))?)
-    })
-    .await
+    Ok((StatusCode::OK, Json(json)))
 }
 
 fn name_for_room(room: &Room) -> &'static str {

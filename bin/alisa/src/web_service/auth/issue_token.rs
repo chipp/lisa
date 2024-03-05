@@ -1,138 +1,145 @@
 use std::borrow::Cow;
 
+use axum::{http::StatusCode, response::IntoResponse, Form, Json};
 use chrono::Duration;
-use hyper::{body::HttpBody, Body, Request, Response, StatusCode};
 use log::debug;
 use serde::{Deserialize, Serialize};
-use serde_urlencoded::de;
-
-use crate::Result;
 
 use super::token::{create_token_with_expiration_in, is_valid_token, TokenType};
 
-pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
-    let body = request.into_body().collect().await?.to_bytes();
-    let client_creds: ClientCreds = de::from_bytes(&body).unwrap();
-
+pub async fn issue_token(Form(client_creds): Form<Creds<'_>>) -> impl IntoResponse {
     if !validate_client_creds(&client_creds) {
-        return Ok(Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(Body::from("invalid client creds"))?);
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(Response::failure("invalid client creds".to_string())),
+        );
     }
 
-    match client_creds.grant_type {
-        GrantType::AuthorizationCode => {
-            let auth_code: AuthorizationCode = de::from_bytes(&body).unwrap();
-
-            if is_valid_token(auth_code.value, TokenType::Code) {
+    match client_creds {
+        Creds::AuthorizationCode { value, .. } => {
+            if is_valid_token(value, TokenType::Code) {
                 // TODO: save token version
 
                 debug!("received a valid authorization code, generating access and refresh tokens");
-
-                Ok(Response::builder()
-                    .status(StatusCode::OK)
-                    .body(Body::from(serde_json::to_vec(&TokenResponse::new())?))?)
+                (StatusCode::OK, Json(Response::success()))
             } else {
                 debug!("received an invalid authorization code");
 
-                Ok(Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .body(Body::from("invalid auth code"))?)
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(Response::failure("invalid auth code".to_string())),
+                )
             }
         }
-        GrantType::RefreshToken => {
-            let refresh_token: RefreshToken = de::from_bytes(&body).unwrap();
-
-            if is_valid_token(refresh_token.value, TokenType::Refresh) {
+        Creds::RefreshToken { value, .. } => {
+            if is_valid_token(value, TokenType::Refresh) {
                 // TODO: increment token version
 
                 debug!("received a valid refresh token, generating new access and refresh tokens");
 
-                Ok(Response::builder()
-                    .status(StatusCode::OK)
-                    .body(Body::from(serde_json::to_vec(&TokenResponse::new())?))?)
+                (StatusCode::OK, Json(Response::success()))
             } else {
                 debug!("received an invalid refresh token");
 
-                Ok(Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .body(Body::from("invalid refresh token"))?)
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(Response::failure("invalid refresh token".to_string())),
+                )
             }
         }
     }
 }
 
 #[derive(Debug, Deserialize)]
-struct ClientCreds<'a> {
-    grant_type: GrantType,
-    client_id: Cow<'a, str>,
-    client_secret: Cow<'a, str>,
-    redirect_uri: Option<Cow<'a, str>>,
+#[serde(tag = "grant_type", rename_all = "snake_case")]
+pub enum Creds<'a> {
+    AuthorizationCode {
+        #[serde(rename = "code")]
+        value: Cow<'a, str>,
+        client_id: Cow<'a, str>,
+        client_secret: Cow<'a, str>,
+        redirect_uri: Option<Cow<'a, str>>,
+    },
+    RefreshToken {
+        #[serde(rename = "refresh_token")]
+        value: Cow<'a, str>,
+        client_id: Cow<'a, str>,
+        client_secret: Cow<'a, str>,
+        redirect_uri: Option<Cow<'a, str>>,
+    },
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum GrantType {
-    AuthorizationCode,
-    RefreshToken,
-}
-
-#[derive(Debug, Deserialize)]
-struct AuthorizationCode<'a> {
-    #[serde(rename = "code")]
-    value: Cow<'a, str>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RefreshToken<'a> {
-    #[serde(rename = "refresh_token")]
-    value: Cow<'a, str>,
-}
-
-fn validate_client_creds(client_creds: &ClientCreds) -> bool {
-    let redirect_uri_valid = client_creds
-        .redirect_uri
-        .as_ref()
-        .map(|uri| uri == "https://social.yandex.net/broker/redirect")
-        .unwrap_or(true);
-
-    client_creds.client_id == "tbd" && client_creds.client_secret == "tbd" && redirect_uri_valid
-}
-
-#[derive(Serialize)]
-struct TokenResponse {
-    access_token: String,
-    refresh_token: String,
-    token_type: String,
-
-    #[serde(serialize_with = "duration_ser::serialize")]
-    expires_in: Duration,
-}
-
-impl TokenResponse {
-    fn access_token_exp() -> Duration {
-        Duration::hours(1)
+impl<'a> Creds<'a> {
+    pub fn redirect_uri(&self) -> Option<&Cow<'a, str>> {
+        match self {
+            Creds::AuthorizationCode { redirect_uri, .. } => redirect_uri.as_ref(),
+            Creds::RefreshToken { redirect_uri, .. } => redirect_uri.as_ref(),
+        }
     }
 
-    fn refresh_token_exp() -> Duration {
-        Duration::weeks(1)
+    pub fn client_id(&self) -> &Cow<'a, str> {
+        match self {
+            Creds::AuthorizationCode { client_id, .. } => client_id,
+            Creds::RefreshToken { client_id, .. } => client_id,
+        }
     }
 
-    fn new() -> TokenResponse {
-        TokenResponse {
-            access_token: create_token_with_expiration_in(
-                Self::access_token_exp(),
-                TokenType::Access,
-            ),
-            refresh_token: create_token_with_expiration_in(
-                Self::refresh_token_exp(),
-                TokenType::Refresh,
-            ),
-            token_type: "Bearer".to_string(),
-            expires_in: Self::access_token_exp(),
+    pub fn client_secret(&self) -> &Cow<'a, str> {
+        match self {
+            Creds::AuthorizationCode { client_secret, .. } => client_secret,
+            Creds::RefreshToken { client_secret, .. } => client_secret,
         }
     }
 }
+
+fn validate_client_creds(client_creds: &Creds) -> bool {
+    let redirect_uri_valid = client_creds
+        .redirect_uri()
+        .map(|uri| uri == "https://social.yandex.net/broker/redirect")
+        .unwrap_or(true);
+
+    client_creds.client_id() == "tbd" && client_creds.client_secret() == "tbd" && redirect_uri_valid
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum Response {
+    Success {
+        access_token: String,
+        refresh_token: String,
+        token_type: String,
+
+        #[serde(serialize_with = "duration_ser::serialize")]
+        expires_in: Duration,
+    },
+    Failure {
+        error: String,
+    },
+}
+
+impl Response {
+    fn success() -> Response {
+        Response::Success {
+            access_token: create_token_with_expiration_in(
+                ACCESS_TOKEN_EXPIRATION,
+                TokenType::Access,
+            ),
+            refresh_token: create_token_with_expiration_in(
+                REFRESH_TOKEN_EXPIRATION,
+                TokenType::Refresh,
+            ),
+            token_type: "Bearer".to_string(),
+            expires_in: ACCESS_TOKEN_EXPIRATION,
+        }
+    }
+
+    fn failure(error: String) -> Response {
+        Response::Failure { error }
+    }
+}
+
+const ACCESS_TOKEN_EXPIRATION: Duration = Duration::hours(1);
+const REFRESH_TOKEN_EXPIRATION: Duration = Duration::weeks(1);
 
 mod duration_ser {
     use chrono::Duration;

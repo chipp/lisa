@@ -6,12 +6,12 @@ use alice::{
     UpdateStateCapability, UpdateStateErrorCode, UpdateStateRequest, UpdateStateResponse,
     UpdatedDeviceState,
 };
-use futures_util::StreamExt;
 use transport::elisa::Action as ElisaAction;
 use transport::elizabeth::{Action as ElizabethAction, ActionType as ElizabethActionType};
 use transport::{connect_mqtt, DeviceId, DeviceType, Room, Topic};
 
-use bytes::Buf;
+use futures_util::StreamExt;
+use hyper::body::HttpBody;
 use hyper::{Body, Request, Response, StatusCode};
 use log::{debug, error, info, trace};
 use paho_mqtt::{Message, MessageBuilder, Properties, PropertyCode, QOS_1};
@@ -35,12 +35,12 @@ pub async fn action(request: Request<Body>) -> Result<Response<Body>> {
             request.headers().get("X-Request-Id").unwrap().as_bytes(),
         )?);
 
-        let body = hyper::body::aggregate(request).await?;
+        let body = request.into_body().collect().await?.to_bytes();
         unsafe {
-            trace!("[action]: {}", std::str::from_utf8_unchecked(body.chunk()));
+            trace!("[action]: {}", std::str::from_utf8_unchecked(&body));
         }
 
-        let action: UpdateStateRequest = serde_json::from_slice(body.chunk())?;
+        let action: UpdateStateRequest = serde_json::from_slice(&body)?;
 
         info!(
             "{request_id}/action ({})",

@@ -15,7 +15,7 @@ use transport::state::StateUpdate;
 use transport::DeviceType;
 
 use chrono::Utc;
-use hyper::{client::HttpConnector, Body, Client, Method, Request, StatusCode};
+use hyper::{body::HttpBody, client::HttpConnector, Body, Client, Method, Request, StatusCode};
 use hyper_tls::HttpsConnector;
 use log::{debug, error};
 
@@ -74,8 +74,8 @@ impl Reporter {
                 } else {
                     error!("unable to report state changes {}", response.status());
                     debug!("{:#?}", response);
-                    let body = hyper::body::to_bytes(response.into_body()).await?;
 
+                    let body = response.into_body().collect().await?.to_bytes();
                     debug!("{}", String::from_utf8(body.to_vec()).unwrap());
                 }
             }

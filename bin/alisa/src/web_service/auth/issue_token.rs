@@ -1,8 +1,7 @@
 use std::borrow::Cow;
 
-use bytes::Buf;
 use chrono::Duration;
-use hyper::{Body, Request, Response, StatusCode};
+use hyper::{body::HttpBody, Body, Request, Response, StatusCode};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_urlencoded::de;
@@ -12,8 +11,8 @@ use crate::Result;
 use super::token::{create_token_with_expiration_in, is_valid_token, TokenType};
 
 pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
-    let body = hyper::body::aggregate(request).await?;
-    let client_creds: ClientCreds = de::from_bytes(body.chunk()).unwrap();
+    let body = request.into_body().collect().await?.to_bytes();
+    let client_creds: ClientCreds = de::from_bytes(&body).unwrap();
 
     if !validate_client_creds(&client_creds) {
         return Ok(Response::builder()
@@ -23,7 +22,7 @@ pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
 
     match client_creds.grant_type {
         GrantType::AuthorizationCode => {
-            let auth_code: AuthorizationCode = de::from_bytes(body.chunk()).unwrap();
+            let auth_code: AuthorizationCode = de::from_bytes(&body).unwrap();
 
             if is_valid_token(auth_code.value, TokenType::Code) {
                 // TODO: save token version
@@ -42,7 +41,7 @@ pub async fn issue_token(request: Request<Body>) -> Result<Response<Body>> {
             }
         }
         GrantType::RefreshToken => {
-            let refresh_token: RefreshToken = de::from_bytes(body.chunk()).unwrap();
+            let refresh_token: RefreshToken = de::from_bytes(&body).unwrap();
 
             if is_valid_token(refresh_token.value, TokenType::Refresh) {
                 // TODO: increment token version

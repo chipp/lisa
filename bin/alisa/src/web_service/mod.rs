@@ -25,10 +25,9 @@ mod user {
     pub use unlink::unlink;
 }
 
-use bytes::Buf;
-use log::error;
-
+use hyper::body::HttpBody;
 use hyper::{Body, Method, Request, Response, StatusCode};
+use log::error;
 
 use crate::Result;
 
@@ -45,9 +44,9 @@ pub async fn web_handler(request: Request<Body>) -> Result<Response<Body>> {
         _ => {
             error!("Unsupported request: {:?}", request);
 
-            let body = hyper::body::aggregate(request).await?;
+            let body = request.into_body().collect().await?.to_bytes();
 
-            match std::str::from_utf8(body.chunk()) {
+            match std::str::from_utf8(&body) {
                 Ok(body) if !body.is_empty() => error!("Body {}", body),
                 _ => (),
             }

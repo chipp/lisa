@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
-use bytes::Buf;
 use chrono::Duration;
+use hyper::body::HttpBody;
 use hyper::{header, Body, Request, Response, StatusCode};
 use log::info;
 use serde::Deserialize;
@@ -14,12 +14,12 @@ use super::auth_page::AuthParams;
 use super::token::{create_token_with_expiration_in, TokenType};
 
 pub async fn authorize(request: Request<Body>) -> Result<Response<Body>> {
-    let body = hyper::body::aggregate(request).await?;
+    let body = request.into_body().collect().await?.to_bytes();
 
-    let credentials = de::from_bytes(body.chunk()).unwrap();
+    let credentials = de::from_bytes(&body).unwrap();
 
     if verify_credentials(credentials) {
-        let auth_params = de::from_bytes(body.chunk()).unwrap();
+        let auth_params = de::from_bytes(&body).unwrap();
         let redirect_url = get_redirect_url_from_params(auth_params).unwrap();
 
         info!("received credentials, generating an authorization code");

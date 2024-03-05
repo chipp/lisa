@@ -108,7 +108,7 @@ async fn get_template_version(
     }
 
     let body: ResponseBody =
-        serde_json::from_slice(&hyper::body::to_bytes(response.into_body()).await?)?;
+        serde_json::from_slice(&response.into_body().collect().await?.to_bytes())?;
 
     Ok(body.version)
 }

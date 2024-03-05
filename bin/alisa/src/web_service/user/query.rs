@@ -4,8 +4,8 @@ use std::time::Duration;
 use alice::{StateDevice, StateRequest, StateResponse};
 use transport::{connect_mqtt, DeviceId, DeviceType, Topic};
 
-use bytes::Buf;
 use futures_util::StreamExt;
+use hyper::body::HttpBody;
 use hyper::{Body, Request, Response};
 use log::{debug, info, trace};
 use paho_mqtt::{Message, MessageBuilder, Properties, PropertyCode, QOS_1};
@@ -28,12 +28,12 @@ pub async fn query(request: Request<Body>) -> Result<Response<Body>> {
             request.headers().get("X-Request-Id").unwrap().as_bytes(),
         )?);
 
-        let body = hyper::body::aggregate(request).await?;
+        let body = request.into_body().collect().await?.to_bytes();
         unsafe {
-            trace!("[query]: {}", std::str::from_utf8_unchecked(body.chunk()));
+            trace!("[query]: {}", std::str::from_utf8_unchecked(&body));
         }
 
-        let query: StateRequest = serde_json::from_slice(body.chunk())?;
+        let query: StateRequest = serde_json::from_slice(&body)?;
         let device_ids = query
             .devices
             .iter()

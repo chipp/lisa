@@ -1,0 +1,18 @@
+{
+	"folders":
+	[
+		{
+			"path": "/Users/Vladimir_Burdukov/d/rs/p/lisa",
+		}
+	],
+	"settings":
+	{
+		"LSP":
+		{
+			"LSP-copilot":
+			{
+				"enabled": true
+			}
+		}
+	},
+}

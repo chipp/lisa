@@ -149,6 +149,9 @@ impl Client {
                                 .unwrap_or_default()
                         )
                     }
+                    "404" => {
+                        return Err(WsError::StreamClosed.into());
+                    }
                     _ => info!("unsupported message: {:?}", payload),
                 },
                 Err(WsError::Pong) => (),

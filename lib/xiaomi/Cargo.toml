@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+crypto = { path = "../crypto" }
+
 log = "0.4"
 
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util", "net", "time", "sync"] }
@@ -14,9 +16,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 serde_repr = { git = "https://github.com/chipp/serde-repr", branch = "master" }
 
-aes = "0.8"
-cbc = "0.1"
-cipher = { version = "0.4", features = ["std", "block-padding"] }
 md-5 = "0.10"
 
 # can be removed when migrate to Rust 1.75

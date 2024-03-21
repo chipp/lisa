@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+crypto = { path = "../../lib/crypto" }
 xiaomi = { path = "../../lib/xiaomi" }
 transport = { path = "../../lib/transport" }
 

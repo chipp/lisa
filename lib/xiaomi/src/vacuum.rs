@@ -13,7 +13,8 @@ use command_executor::{CommandExecutor, CommandExecutorTrait};
 use status::{BinType, CleanMode};
 
 use crate::device::Device;
-use crate::{Result, Token};
+use crate::Result;
+use crypto::Token;
 
 use log::info;
 use serde_json::from_value;

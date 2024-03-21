@@ -1,10 +1,10 @@
 mod encryption;
 use std::fmt;
 
-pub use encryption::{decrypt, encrypt};
 use md5::{Digest, Md5};
 
-use crate::{Result, Token};
+use crate::Result;
+use crypto::{decrypt, encrypt, Token};
 
 #[derive(Debug)]
 pub struct Message {
@@ -27,7 +27,9 @@ impl std::error::Error for InvalidChecksum {}
 impl Message {
     pub fn encode(data: Vec<u8>, token: Token<16>, id: u32, send_ts: u32) -> Result<Message> {
         let mut data = data;
-        let data = encrypt(&mut data, token)?.to_vec();
+        let (key, iv) = encryption::key_iv_from_token(token);
+
+        let data = encrypt(&mut data, key, iv)?.to_vec();
 
         let header = Header {
             id,
@@ -52,7 +54,9 @@ impl Message {
         }
 
         let mut data = self.data;
-        let mut data = decrypt(&mut data, token)?.to_vec();
+
+        let (key, iv) = encryption::key_iv_from_token(token);
+        let mut data = decrypt(&mut data, key, iv)?.to_vec();
         while data.ends_with(&[0x0]) {
             data.pop();
         }

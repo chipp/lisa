@@ -403,6 +403,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
 
 [[package]]
+name = "crypto"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "cbc",
+ "cipher",
+ "hex-literal",
+ "md-5",
+]
+
+[[package]]
 name = "crypto-common"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2315,10 +2326,8 @@ checksum = "32b752e52a2da0ddfbdbcc6fceadfeede4c939ed16d13e648833a61dfb611ed8"
 name = "xiaomi"
 version = "0.1.0"
 dependencies = [
- "aes",
  "async-trait",
- "cbc",
- "cipher",
+ "crypto",
  "hex-literal",
  "log",
  "md-5",

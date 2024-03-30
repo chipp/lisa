@@ -8,8 +8,8 @@ members = [
   "bin/isabel", # gateway between MQTT and temperature sensors
 
   "lib/alice", # Yandex.Alisa API types
-  "lib/crypto",
   "lib/bluetooth",
+  "lib/crypto",
   "lib/inspinia", # Inspinia WS API types
   "lib/str_derive",
   "lib/transport", # MQTT topics and payloads

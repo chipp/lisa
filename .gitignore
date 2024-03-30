@@ -6,3 +6,4 @@ build/
 requests.sql
 template-v*.db
 websocket.txt
+tuya.txt

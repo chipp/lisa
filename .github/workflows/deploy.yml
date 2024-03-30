@@ -17,6 +17,8 @@ jobs:
             mode: image
           - binary: elisa
             mode: binary
+          - binary: elisheba
+            mode: binary
           - binary: elizabeth
             mode: image
           - binary: isabel

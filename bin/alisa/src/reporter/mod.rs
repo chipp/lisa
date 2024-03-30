@@ -98,6 +98,7 @@ fn device_from_update(update: StateUpdate) -> Option<Vec<StateDevice>> {
         StateUpdate::Elizabeth(state) => Some(vec![prepare_elizabeth_device(state)?]),
         StateUpdate::Elisa(state) => Some(prepare_vacuum_updates(state)),
         StateUpdate::Isabel(state) => Some(vec![prepare_sensor_update(state)]),
+        StateUpdate::Elisheba(_) => todo!(),
     }
 }
 

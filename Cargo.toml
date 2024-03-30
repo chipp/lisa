@@ -4,6 +4,7 @@ resolver = "2"
 members = [
   "bin/alisa", # gateway between MQTT and Yandex.Alisa
   "bin/elisa", # gateway between MQTT and Xiaomi Vacuum Cleaner
+  "bin/elisheba",
   "bin/elizabeth", # gateway between MQTT and Inspinia
   "bin/isabel", # gateway between MQTT and temperature sensors
 
@@ -11,6 +12,7 @@ members = [
   "lib/bluetooth",
   "lib/crypto",
   "lib/inspinia", # Inspinia WS API types
+  "lib/sonoff", # Sonoff LAN API client
   "lib/str_derive",
   "lib/transport", # MQTT topics and payloads
   "lib/xiaomi", # Xiaomi Vacuum Cleaner communication protocol

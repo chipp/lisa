@@ -16,8 +16,9 @@ RUN USER=rust \
   cargo new --bin /home/rust/src/bin/elizabeth && \
   cargo new --bin /home/rust/src/bin/isabel
 
-COPY ./bin/elizabeth/Cargo.toml ./bin/elizabeth/Cargo.toml
-COPY ./lib/inspinia/Cargo.toml ./lib/inspinia/Cargo.toml
+COPY ./bin/elisheba/Cargo.toml ./bin/elisheba/Cargo.toml
+COPY ./lib/crypto/Cargo.toml ./lib/crypto/Cargo.toml
+COPY ./lib/sonoff/Cargo.toml ./lib/sonoff/Cargo.toml
 COPY ./lib/str_derive/Cargo.toml ./lib/str_derive/Cargo.toml
 COPY ./lib/str_derive/fake_macro.rs ./lib/str_derive/src/lib.rs
 COPY ./lib/transport/Cargo.toml ./lib/transport/Cargo.toml
@@ -26,25 +27,29 @@ COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
 RUN cargo build \
-  -p elizabeth \
-  -p inspinia \
+  -p elisheba \
+  -p crypto \
+  -p sonoff \
   -p str_derive \
   -p transport && \
   cargo clean \
-  -p elizabeth \
-  -p inspinia \
+  -p elisheba \
+  -p crypto \
+  -p sonoff \
   -p str_derive \
   -p transport \
   --target x86_64-unknown-linux-musl && \
-  rm ./bin/elizabeth/src/*.rs \
-  ./lib/inspinia/src/*.rs \
+  rm ./bin/elisheba/src/*.rs \
+  ./lib/crypto/src/*.rs \
+  ./lib/sonoff/src/*.rs \
   ./lib/str_derive/src/*.rs \
   ./lib/transport/src/*.rs
 
-COPY ./lib/inspinia/src ./lib/inspinia/src
+COPY ./lib/crypto/src ./lib/crypto/src
+COPY ./lib/sonoff/src ./lib/sonoff/src
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
-COPY ./bin/elizabeth/src ./bin/elizabeth/src
+COPY ./bin/elisheba/src ./bin/elisheba/src
 
-RUN cargo test -p elizabeth -p inspinia -p str_derive -p transport && \
+RUN cargo test -p elisheba -p crypto -p sonoff -p str_derive -p transport && \
   rm -rf target/x86_64-unknown-linux-musl/debug/ target/debug/

@@ -4,7 +4,7 @@ use std::fmt;
 use md5::{Digest, Md5};
 
 use crate::Result;
-use crypto::{decrypt, encrypt, Token};
+use crypto::{cbc::decrypt, cbc::encrypt, Token};
 
 #[derive(Debug)]
 pub struct Message {

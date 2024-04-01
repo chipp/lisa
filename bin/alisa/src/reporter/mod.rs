@@ -1,8 +1,10 @@
+mod light;
 mod recuperator;
 mod temperature_sensor;
 mod thermostat;
 mod vacuum_cleaner;
 
+pub use light::prepare_light_update;
 pub use recuperator::{prepare_recuperator_current_state, prepare_recuperator_update};
 pub use temperature_sensor::prepare_sensor_update;
 pub use thermostat::{prepare_thermostat_current_state, prepare_thermostat_update};
@@ -98,7 +100,7 @@ fn device_from_update(update: StateUpdate) -> Option<Vec<StateDevice>> {
         StateUpdate::Elizabeth(state) => Some(vec![prepare_elizabeth_device(state)?]),
         StateUpdate::Elisa(state) => Some(prepare_vacuum_updates(state)),
         StateUpdate::Isabel(state) => Some(vec![prepare_sensor_update(state)]),
-        StateUpdate::Elisheba(_) => todo!(),
+        StateUpdate::Elisheba(state) => Some(vec![prepare_light_update(state)]),
     }
 }
 
@@ -106,7 +108,6 @@ fn prepare_elizabeth_device(state: ElizabethState) -> Option<StateDevice> {
     match state.device_type {
         DeviceType::Recuperator => prepare_recuperator_update(state),
         DeviceType::Thermostat => prepare_thermostat_update(state),
-        DeviceType::Light => todo!(),
-        DeviceType::TemperatureSensor | DeviceType::VacuumCleaner => todo!(),
+        _ => unreachable!(),
     }
 }

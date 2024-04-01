@@ -39,6 +39,7 @@ pub async fn devices(headers: HeaderMap) -> Result<impl IntoResponse> {
                 thermostat_device(Room::LivingRoom),
                 thermostat_device(Room::Nursery),
                 recuperator_device(),
+                light_device(Room::Nursery),
             ]
         }
     });
@@ -147,5 +148,19 @@ fn recuperator_device() -> Device {
             )
             .reportable(),
         ],
+    }
+}
+
+fn light_device(room: Room) -> Device {
+    let room_name = name_for_room(&room).to_string();
+
+    Device {
+        id: DeviceId::light_at_room(room),
+        name: "Верхний свет".to_string(),
+        description: format!("в {}", room_name),
+        room: room_name,
+        device_type: DeviceType::Light,
+        properties: vec![],
+        capabilities: vec![DeviceCapability::on_off(false).reportable()],
     }
 }

@@ -14,15 +14,25 @@ run_alisa:
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin alisa
 
-release_alisa: IMAGE_ID = ghcr.io/chipp/alisa
-release_alisa:
+build_alisa: IMAGE_ID = ghcr.io/chipp/alisa
+build_alisa:
 	docker build . \
 		--file bin/alisa/Dockerfile \
 		--tag ${IMAGE_ID}:test \
-		--push \
-		--platform linux/amd64 \
+		--load \
 		--label "org.opencontainers.image.source=https://github.com/chipp/lisa" \
 		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+	docker run --rm -v "${PWD}/build:/build" \
+		${IMAGE_ID}:test \
+		cp /root/alisa /build/alisa
+	docker build . \
+		--file conf/arm64.Dockerfile \
+		--load \
+		--platform linux/arm64 \
+		--progress plain \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg BINARY=alisa \
+		--label "org.opencontainers.image.source=https://github.com/chipp/lisa"
 
 run_elizabeth: RUST_LOG = elizabeth=debug,info
 run_elizabeth: MQTT_ADDRESS = mqtt://localhost:1883
@@ -36,15 +46,25 @@ run_elizabeth:
 	INSPINIA_CLIENT_ID=${INSPINIA_CLIENT_ID} INSPINIA_TOKEN=${INSPINIA_TOKEN} \
 	cargo run --bin elizabeth
 
-release_elizabeth: IMAGE_ID = ghcr.io/chipp/elizabeth
-release_elizabeth:
+build_elizabeth: IMAGE_ID = ghcr.io/chipp/elizabeth
+build_elizabeth:
 	docker build . \
 		--file bin/elizabeth/Dockerfile \
 		--tag ${IMAGE_ID}:test \
-		--push \
-		--platform linux/amd64 \
+		--load \
 		--label "org.opencontainers.image.source=https://github.com/chipp/lisa" \
 		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+	docker run --rm -v "${PWD}/build:/build" \
+		${IMAGE_ID}:test \
+		cp /root/elizabeth /build/elizabeth
+	docker build . \
+		--file conf/arm64.Dockerfile \
+		--load \
+		--platform linux/arm64 \
+		--progress plain \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg BINARY=elizabeth \
+		--label "org.opencontainers.image.source=https://github.com/chipp/lisa"
 
 run_elisa: RUST_LOG = elisa=debug,info
 run_elisa: MQTT_ADDRESS = mqtt://localhost:1883
@@ -57,8 +77,8 @@ run_elisa:
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin elisa
 
-release_elisa: IMAGE_ID = ghcr.io/chipp/elisa
-release_elisa:
+build_elisa: IMAGE_ID = ghcr.io/chipp/elisa
+build_elisa:
 	docker build . \
 		--file bin/elisa/Dockerfile \
 		--tag ${IMAGE_ID}:test \
@@ -77,8 +97,8 @@ run_isabel:
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin isabel
 
-release_isabel: IMAGE_ID = ghcr.io/chipp/isabel
-release_isabel:
+build_isabel: IMAGE_ID = ghcr.io/chipp/isabel
+build_isabel:
 	docker build . \
 		--file bin/isabel/Dockerfile \
 		--tag ${IMAGE_ID}:test \
@@ -98,8 +118,8 @@ run_elisheba:
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin elisheba
 
-release_elisheba: IMAGE_ID = ghcr.io/chipp/elisheba
-release_elisheba:
+build_elisheba: IMAGE_ID = ghcr.io/chipp/elisheba
+build_elisheba:
 	docker build . \
 		--file bin/elisheba/Dockerfile \
 		--tag ${IMAGE_ID}:test \

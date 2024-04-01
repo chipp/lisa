@@ -124,12 +124,17 @@ jobs:
         with:
           name: elisa
 
+      - name: Download elisheba
+        uses: actions/download-artifact@v4
+        with:
+          name: elisheba
+
       - name: Download isabel
         uses: actions/download-artifact@v4
         with:
           name: isabel
 
-      - name: Deploy elisa and isabel
+      - name: Deploy elisa, elisheba, isabel
         run: |
           eval `ssh-agent -s`
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
@@ -137,8 +142,12 @@ jobs:
           export TUNNEL_SERVICE_TOKEN_ID=${{ secrets.TUNNEL_SERVICE_TOKEN_ID }}
           export TUNNEL_SERVICE_TOKEN_SECRET=${{ secrets.TUNNEL_SERVICE_TOKEN_SECRET }}
 
-          ssh chipp@pi4.chipp.dev "echo test"
+          ssh chipp@pi4.chipp.dev "sudo service elisa stop"
+          ssh chipp@pi4.chipp.dev "sudo service elisheba stop"
+          ssh chipp@pi4.chipp.dev "sudo service isabel stop"
 
-          ssh chipp@pi4.chipp.dev "sudo service elisa stop && sudo service isabel stop"
-          scp elisa isabel chipp@pi4.chipp.dev:/usr/local/bin
-          ssh chipp@pi4.chipp.dev "sudo service elisa start && sudo service isabel start"
+          scp elisa elisheba isabel chipp@pi4.chipp.dev:/usr/local/bin
+
+          ssh chipp@pi4.chipp.dev "sudo service elisa start"
+          ssh chipp@pi4.chipp.dev "sudo service elisheba start"
+          ssh chipp@pi4.chipp.dev "sudo service isabel start"

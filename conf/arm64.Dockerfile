@@ -13,5 +13,5 @@ ENV RUST_BACKTRACE=full
 
 ARG BINARY
 
-COPY build/${BINARY} .
+COPY ./build/${BINARY} .
 CMD [ "${BINARY}" ]

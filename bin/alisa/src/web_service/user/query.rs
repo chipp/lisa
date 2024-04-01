@@ -139,8 +139,9 @@ fn handle_message(
                     devices.push(state);
                 }
             }
-            DeviceType::TemperatureSensor | DeviceType::VacuumCleaner => (),
+            DeviceType::TemperatureSensor | DeviceType::VacuumCleaner | DeviceType::Light => (),
         },
+        StateResponse::Elisheba(_) => todo!(),
     }
 
     Ok(())

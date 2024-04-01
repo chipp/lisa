@@ -42,6 +42,7 @@ pub enum DeviceType {
     TemperatureSensor,
     Thermostat,
     VacuumCleaner,
+    Light,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq, Eq, Hash)]

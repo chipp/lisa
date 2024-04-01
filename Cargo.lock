@@ -302,15 +302,14 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chipp_http"
-version = "1.0.2"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9981fc87b888bd6839911eb9648b3e77f7437ac4f6b696d8067c1b5107413fb5"
+checksum = "3c8e2bddb5dfaa65cd68737c1ad8a1b911ecc4ab3acc511bc71a7663b16faea4"
 dependencies = [
  "curl",
  "futures-channel",
  "log",
  "serde",
- "serde_derive",
  "serde_json",
  "url",
 ]
@@ -1737,10 +1736,13 @@ name = "sonoff"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.0",
+ "chipp_http",
  "crypto",
  "dns-parser",
  "futures-util",
  "log",
+ "rand",
+ "serde",
  "serde_json",
  "socket2",
  "tokio",

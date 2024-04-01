@@ -88,13 +88,13 @@ release_isabel:
 		${IMAGE_ID}:test \
 		cp /root/isabel /build/isabel
 
-run_elisheba: RUST_LOG = elisheba=debug,info
-run_elisheba: DEVICES = $(shell op read "op://private/elisheba devices/notesPlain")
+run_elisheba: RUST_LOG = elisheba=debug,sonoff=trace,info
+run_elisheba: KEYS = $(shell op read "op://private/elisheba devices/notesPlain")
 run_elisheba: MQTT_ADDRESS = mqtt://localhost:1883
 run_elisheba: MQTT_USER = elisheba
 run_elisheba: MQTT_PASS = 123mqtt
 run_elisheba:
-	@RUST_LOG=${RUST_LOG} DEVICES='${DEVICES}' \
+	@RUST_LOG=${RUST_LOG} KEYS='${KEYS}' \
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin elisheba
 

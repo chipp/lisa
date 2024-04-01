@@ -8,7 +8,7 @@ pub struct SonoffDevice {
     pub meta: serde_json::Value,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SonoffDevicesManager {
     pub devices: HashMap<String, SonoffDevice>,
 }

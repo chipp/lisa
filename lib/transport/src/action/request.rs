@@ -1,6 +1,7 @@
-use crate::{elisa, elizabeth};
+use crate::{elisa, elisheba, elizabeth};
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -11,14 +12,16 @@ pub struct Request {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
-    Elisa(elisa::Action, uuid::Uuid),
-    Elizabeth(elizabeth::Action, uuid::Uuid),
+    Elisa(elisa::Action, Uuid),
+    Elisheba(elisheba::Action, Uuid),
+    Elizabeth(elizabeth::Action, Uuid),
 }
 
 impl Action {
-    pub fn id(&self) -> uuid::Uuid {
+    pub fn id(&self) -> Uuid {
         match self {
             Action::Elisa(_, id) => *id,
+            Action::Elisheba(_, id) => *id,
             Action::Elizabeth(_, id) => *id,
         }
     }
@@ -91,6 +94,24 @@ mod tests {
     }
 
     #[test]
+    fn test_elisheba_serialization() {
+        let id = uuid!("FBD5E476-AD19-4932-98B3-608136B670FF");
+        let action = Action::Elisheba(
+            elisheba::Action {
+                room: Room::Bathroom,
+                is_enabled: true,
+            },
+            id,
+        );
+
+        let serialized = serde_json::to_string(&action).unwrap();
+        assert_eq!(
+            serialized,
+            r#"{"elisheba":[{"room":"bathroom","is_enabled":true},"fbd5e476-ad19-4932-98b3-608136b670ff"]}"#
+        );
+    }
+
+    #[test]
     fn test_deserialization() {
         let id = uuid!("2E363D79-5D42-4F11-955E-7B2046319943");
         let action = Action::Elisa(elisa::Action::Stop, id);
@@ -143,6 +164,28 @@ mod tests {
                     }
                 },
                 "cff182e2-2bcb-4c19-a070-43d43ef7c104"
+            ]
+        });
+
+        let deserialized: Action = serde_json::from_value(json).unwrap();
+        assert_eq!(deserialized, action);
+
+        let id = uuid!("FBD5E476-AD19-4932-98B3-608136B670FF");
+        let action = Action::Elisheba(
+            elisheba::Action {
+                room: Room::Bathroom,
+                is_enabled: true,
+            },
+            id,
+        );
+
+        let json = json!({
+            "elisheba": [
+                {
+                    "room": "bathroom",
+                    "is_enabled": true
+                },
+                "fbd5e476-ad19-4932-98b3-608136b670ff"
             ]
         });
 

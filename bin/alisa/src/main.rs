@@ -63,7 +63,7 @@ async fn listen_web() -> Result<()> {
     Ok(())
 }
 
-async fn subscribe_state(mut mqtt: MqClient, reporter: Reporter<'_>) -> Result<()> {
+async fn subscribe_state(mut mqtt: MqClient, reporter: Reporter) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     let topic = Topic::StateUpdate.to_string();

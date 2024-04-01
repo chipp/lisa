@@ -3,6 +3,7 @@ use tokio_util::{
     codec::{Decoder, Encoder},
 };
 
+#[derive(Debug)]
 pub struct DnsCoder;
 
 impl Decoder for DnsCoder {

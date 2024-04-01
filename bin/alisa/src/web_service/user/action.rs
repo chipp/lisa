@@ -82,6 +82,7 @@ pub async fn action(
                 }
             }
             DeviceType::TemperatureSensor => (),
+            DeviceType::Light => todo!(),
         };
     }
 

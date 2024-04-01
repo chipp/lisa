@@ -4,6 +4,8 @@ pub enum Error {
     Dns(dns_parser::Error),
     Json(serde_json::Error),
     Io(std::io::Error),
+    UrlParse(chipp_http::UrlParseError),
+    HttpError(chipp_http::Error),
     UnknownDevice(String),
     MissingHostname,
     MissingService,
@@ -30,6 +32,18 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<chipp_http::UrlParseError> for Error {
+    fn from(err: chipp_http::UrlParseError) -> Self {
+        Self::UrlParse(err)
+    }
+}
+
+impl From<chipp_http::Error> for Error {
+    fn from(err: chipp_http::Error) -> Self {
+        Self::HttpError(err)
+    }
+}
+
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -37,6 +51,8 @@ impl std::fmt::Display for Error {
             Self::Dns(err) => write!(f, "DNS error: {err}"),
             Self::Json(err) => write!(f, "JSON error: {err}"),
             Self::Io(err) => write!(f, "IO error: {err}"),
+            Self::UrlParse(err) => write!(f, "URL parse error: {err}"),
+            Self::HttpError(err) => write!(f, "HTTP error: {err}"),
             Self::UnknownDevice(device) => write!(f, "Unknown device: {device}"),
             Self::MissingHostname => write!(f, "Missing hostname"),
             Self::MissingService => write!(f, "Missing service"),

@@ -14,17 +14,17 @@ use transport::elizabeth::State as ElizabethState;
 use transport::state::StateUpdate;
 use transport::DeviceType;
 
-use chipp_http::{HttpClient, HttpMethod};
+use chipp_http::{HttpClient, HttpMethod, NoInterceptor};
 use chrono::Utc;
 use log::{debug, error};
 
-pub struct Reporter<'a> {
-    inner: HttpClient<'a>,
+pub struct Reporter {
+    inner: HttpClient<NoInterceptor>,
     skill_id: String,
     token: String,
 }
 
-impl Reporter<'_> {
+impl Reporter {
     pub fn new(skill_id: String, token: String) -> Self {
         let inner = HttpClient::new("https://dialogs.yandex.net/api/v1").unwrap();
 
@@ -106,6 +106,7 @@ fn prepare_elizabeth_device(state: ElizabethState) -> Option<StateDevice> {
     match state.device_type {
         DeviceType::Recuperator => prepare_recuperator_update(state),
         DeviceType::Thermostat => prepare_thermostat_update(state),
+        DeviceType::Light => todo!(),
         DeviceType::TemperatureSensor | DeviceType::VacuumCleaner => todo!(),
     }
 }

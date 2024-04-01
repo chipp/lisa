@@ -5,6 +5,7 @@ use super::Error;
 use base64::prelude::*;
 use crypto::{cbc::decrypt, Token};
 use dns_parser::{rdata::Txt, Name, Packet};
+use log::trace;
 
 pub struct ParsedPacket<'p> {
     pub ipv4: Option<Ipv4Addr>,
@@ -33,17 +34,22 @@ pub fn parse_packet<'p>(packet: &Packet<'p>) -> Result<ParsedPacket<'p>, Error> 
             dns_parser::RData::A(data) => {
                 host = Some(answer.name);
                 ipv4 = Some(data.0);
+                trace!("A [{}] {}", answer.name, data.0);
             }
             dns_parser::RData::TXT(data) => {
-                info = Some(parse_txt_record(data));
+                let data = parse_txt_record(data);
+                trace!("TXT [{}] {data:?}", answer.name);
+                info = Some(data);
             }
             dns_parser::RData::PTR(data) => {
                 service = Some(answer.name.to_string());
                 ptr = Some(data.0);
+                trace!("PTR {:?}", data);
             }
             dns_parser::RData::SRV(data) => {
                 host = Some(data.target);
                 port = Some(data.port);
+                trace!("SRV {:?}", data);
             }
             _ => (),
         }

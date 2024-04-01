@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use crypto::Token;
 use elisheba::{handle_action_request, handle_state_request, ErasedError, Storage};
 use sonoff::{Client, Error};
 use transport::state::StateUpdate;
@@ -21,11 +22,7 @@ async fn main() -> Result<(), ErasedError> {
     info!("elisheba version {VERSION}");
 
     let keys = std::env::var("KEYS").expect("set ENV variable KEYS");
-    let keys: HashMap<String, String> = serde_json::from_str(&keys)?;
-    let keys = keys
-        .into_iter()
-        .map(|(k, v)| (k, md5::compute(v).0))
-        .collect();
+    let keys = parse_keys_string(keys);
 
     let client = Client::connect(keys).await?;
     info!("connected sonoff");
@@ -175,4 +172,12 @@ async fn subscribe_state(mqtt: MqClient, mut sonoff: Client) -> Result<(), Erase
             }
         }
     }
+}
+
+fn parse_keys_string(string: String) -> HashMap<String, Token<16>> {
+    string
+        .split(",")
+        .filter_map(|s| s.split_once("="))
+        .map(|(id, key)| (id.to_string(), md5::compute(key).0))
+        .collect()
 }

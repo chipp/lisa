@@ -108,7 +108,7 @@ build_isabel:
 		${IMAGE_ID}:test \
 		cp /root/isabel /build/isabel
 
-run_elisheba: RUST_LOG = elisheba=debug,sonoff=trace,info
+run_elisheba: RUST_LOG = elisheba=debug,sonoff=debug,info
 run_elisheba: KEYS = $(shell op read "op://private/elisheba devices/notesPlain")
 run_elisheba: MQTT_ADDRESS = mqtt://localhost:1883
 run_elisheba: MQTT_USER = elisheba

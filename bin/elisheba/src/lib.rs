@@ -6,7 +6,7 @@ use transport::{
     DeviceType, Room,
 };
 
-use log::{debug, error};
+use log::{debug, error, info};
 use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 
 pub type ErasedError = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -32,6 +32,11 @@ impl Storage {
                         return None;
                     }
                 }
+
+                info!(
+                    "ligths at nursery are toggled {}",
+                    if state.is_enabled { "on" } else { "off" }
+                );
 
                 self.nursery_light = Some(state);
                 Some(state)
@@ -106,8 +111,15 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, sonoff: &m
 }
 
 async fn update_state(action: Action, sonoff: &mut Client) -> Result<(), ErasedError> {
+    let state = if action.is_enabled { "on" } else { "off" };
+
+    info!("wants to toggle {state} lights at {}", action.room);
+
     let device_id = map_room_to_id(action.room).ok_or("Unknown device")?;
     sonoff.update_state(device_id, action.is_enabled).await?;
+
+    info!("successfully toggled {state} at {}", action.room);
+
     Ok(())
 }
 

@@ -1,7 +1,8 @@
 .DS_Store
 /target
 *.tar
+build/
 
 requests.sql
 template-v*.db
-websocket.txt
+*.txt

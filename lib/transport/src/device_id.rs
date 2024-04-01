@@ -42,6 +42,13 @@ impl DeviceId {
             device_type: DeviceType::VacuumCleaner,
         }
     }
+
+    pub fn light_at_room(room: Room) -> DeviceId {
+        DeviceId {
+            room,
+            device_type: DeviceType::Light,
+        }
+    }
 }
 
 impl fmt::Display for DeviceId {

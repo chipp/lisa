@@ -1,7 +1,8 @@
+use crypto::parse_token;
 use elisa::{handle_action_request, handle_state_request, prepare_state, Result, Storage};
 use transport::state::StateUpdate;
 use transport::{connect_mqtt, Topic};
-use xiaomi::{parse_token, Vacuum};
+use xiaomi::Vacuum;
 
 use std::sync::Arc;
 use std::time::Duration;

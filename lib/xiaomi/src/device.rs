@@ -3,7 +3,8 @@ use response::Response;
 
 use crate::discover::discover;
 use crate::message::{Header, Message};
-use crate::{Result, Token};
+use crate::Result;
+use crypto::Token;
 
 use std::{
     net::{Ipv4Addr, SocketAddr},

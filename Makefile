@@ -55,7 +55,6 @@ run_elisa: VACUUM_TOKEN = $(shell op read "op://private/vacuum/credential" -n)
 run_elisa:
 	@RUST_LOG=${RUST_LOG} VACUUM_IP=${VACUUM_IP} VACUUM_TOKEN=${VACUUM_TOKEN} \
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
-	SSL_CERT_FILE=${SSL_CERT_FILE} SSL_CERT_DIR=${SSL_CERT_DIR} \
 	cargo run --bin elisa
 
 release_elisa: IMAGE_ID = ghcr.io/chipp/elisa
@@ -74,7 +73,7 @@ run_isabel: MQTT_ADDRESS = mqtt://localhost:1883
 run_isabel: MQTT_USER = isabel
 run_isabel: MQTT_PASS = 123mqtt
 run_isabel:
-	@RUST_LOG=${RUST_LOG} SSL_CERT_FILE=${SSL_CERT_FILE} SSL_CERT_DIR=${SSL_CERT_DIR} \
+	@RUST_LOG=${RUST_LOG} \
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin isabel
 
@@ -88,3 +87,24 @@ release_isabel:
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/isabel /build/isabel
+
+run_elisheba: RUST_LOG = elisheba=debug,sonoff=trace,info
+run_elisheba: KEYS = $(shell op read "op://private/elisheba devices/notesPlain")
+run_elisheba: MQTT_ADDRESS = mqtt://localhost:1883
+run_elisheba: MQTT_USER = elisheba
+run_elisheba: MQTT_PASS = 123mqtt
+run_elisheba:
+	@RUST_LOG=${RUST_LOG} KEYS='${KEYS}' \
+	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
+	cargo run --bin elisheba
+
+release_elisheba: IMAGE_ID = ghcr.io/chipp/elisheba
+release_elisheba:
+	docker build . \
+		--file bin/elisheba/Dockerfile \
+		--tag ${IMAGE_ID}:test \
+		--load \
+		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+	docker run --rm -v "${PWD}/build:/build" \
+		${IMAGE_ID}:test \
+		cp /root/elisheba /build/elisheba

@@ -7,6 +7,7 @@ use alice::{
     UpdatedDeviceState,
 };
 use transport::elisa::Action as ElisaAction;
+use transport::elisheba::Action as ElishebaAction;
 use transport::elizabeth::{Action as ElizabethAction, ActionType as ElizabethActionType};
 use transport::{connect_mqtt, DeviceId, DeviceType, Room, Topic};
 
@@ -82,6 +83,14 @@ pub async fn action(
                 }
             }
             DeviceType::TemperatureSensor => (),
+            DeviceType::Light => {
+                let result = handle_elisheba_capabilities(device.id.room, &device.capabilities);
+
+                for (action, capability) in result {
+                    response_capabilities.insert(action.id(), (device.id, capability));
+                    actions.push(action);
+                }
+            }
         };
     }
 
@@ -210,6 +219,28 @@ fn handle_elisa_capabilities(
     capabilities
         .iter()
         .map(prepare_response_capability)
+        .collect()
+}
+
+fn handle_elisheba_capabilities(
+    room: Room,
+    capabilities: &[StateCapability],
+) -> Vec<(transport::action::Action, UpdateStateCapability)> {
+    capabilities
+        .iter()
+        .filter_map(|capability| match capability {
+            StateCapability::OnOff { value } => Some((
+                transport::action::Action::Elisheba(
+                    ElishebaAction {
+                        room,
+                        is_enabled: *value,
+                    },
+                    Uuid::new_v4(),
+                ),
+                prepare_response_capability(capability),
+            )),
+            _ => None,
+        })
         .collect()
 }
 

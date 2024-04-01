@@ -7,10 +7,10 @@ edition = "2021"
 log = "0.4"
 
 tokio-tungstenite = { version = "0.21.0", features = ["native-tls"] }
-tokio = { version = "1", features = ["net"] }
+tokio = { version = "1", features = ["net", "sync"] }
 futures-util = "0.3"
 
-chipp_http = "1.0"
+chipp_http = "1.1"
 
 md5 = "0.7"
 

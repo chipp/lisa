@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::Result;
-use chipp_http::{HttpClient, HttpMethod};
+use chipp_http::{HttpClient, HttpMethod, NoInterceptor};
 use log::info;
 use md5::Context;
 use serde::Deserialize;
@@ -59,7 +59,7 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-async fn get_template_version(client: &HttpClient<'_>, target_id: &str) -> Result<u16> {
+async fn get_template_version(client: &HttpClient<NoInterceptor>, target_id: &str) -> Result<u16> {
     #[derive(Deserialize)]
     struct ResponseBody {
         version: u16,

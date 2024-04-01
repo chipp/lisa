@@ -1,4 +1,5 @@
 pub mod elisa;
+pub mod elisheba;
 pub mod elizabeth;
 pub mod isabel;
 
@@ -41,6 +42,7 @@ pub enum DeviceType {
     TemperatureSensor,
     Thermostat,
     VacuumCleaner,
+    Light,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, Str, PartialEq, Eq, Hash)]

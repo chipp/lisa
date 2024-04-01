@@ -1,8 +1,10 @@
+mod light;
 mod recuperator;
 mod temperature_sensor;
 mod thermostat;
 mod vacuum_cleaner;
 
+pub use light::prepare_light_update;
 pub use recuperator::{prepare_recuperator_current_state, prepare_recuperator_update};
 pub use temperature_sensor::prepare_sensor_update;
 pub use thermostat::{prepare_thermostat_current_state, prepare_thermostat_update};
@@ -14,17 +16,17 @@ use transport::elizabeth::State as ElizabethState;
 use transport::state::StateUpdate;
 use transport::DeviceType;
 
-use chipp_http::{HttpClient, HttpMethod};
+use chipp_http::{HttpClient, HttpMethod, NoInterceptor};
 use chrono::Utc;
 use log::{debug, error};
 
-pub struct Reporter<'a> {
-    inner: HttpClient<'a>,
+pub struct Reporter {
+    inner: HttpClient<NoInterceptor>,
     skill_id: String,
     token: String,
 }
 
-impl Reporter<'_> {
+impl Reporter {
     pub fn new(skill_id: String, token: String) -> Self {
         let inner = HttpClient::new("https://dialogs.yandex.net/api/v1").unwrap();
 
@@ -98,6 +100,7 @@ fn device_from_update(update: StateUpdate) -> Option<Vec<StateDevice>> {
         StateUpdate::Elizabeth(state) => Some(vec![prepare_elizabeth_device(state)?]),
         StateUpdate::Elisa(state) => Some(prepare_vacuum_updates(state)),
         StateUpdate::Isabel(state) => Some(vec![prepare_sensor_update(state)]),
+        StateUpdate::Elisheba(state) => Some(vec![prepare_light_update(state)]),
     }
 }
 
@@ -105,6 +108,6 @@ fn prepare_elizabeth_device(state: ElizabethState) -> Option<StateDevice> {
     match state.device_type {
         DeviceType::Recuperator => prepare_recuperator_update(state),
         DeviceType::Thermostat => prepare_thermostat_update(state),
-        DeviceType::TemperatureSensor | DeviceType::VacuumCleaner => todo!(),
+        _ => unreachable!(),
     }
 }

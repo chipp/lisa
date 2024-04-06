@@ -1,3 +1,4 @@
+mod discovery;
 mod error;
 
 use dns_parser::{QueryClass, QueryType};
@@ -17,7 +18,7 @@ use std::sync::Arc;
 use chipp_http::{HttpClient, HttpMethod, NoInterceptor};
 use crypto::Token;
 use futures_util::stream::{SplitSink, SplitStream};
-use futures_util::{SinkExt, StreamExt};
+use futures_util::StreamExt;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
@@ -89,16 +90,6 @@ impl Client {
         Ok(())
     }
 
-    pub async fn discover(&self) -> Result<(), Error> {
-        let mut write = self.write.lock().await;
-
-        write
-            .send((create_discovery_packet(SERVICE), MDNS_ADDR))
-            .await?;
-
-        Ok(())
-    }
-
     pub async fn read(&mut self) -> Result<SonoffDevice, Error> {
         let read = self.read.clone();
         let mut read = read.lock().await;
@@ -108,10 +99,8 @@ impl Client {
                 HandleResult::Ignored(msg) => {
                     trace!("ignored {msg}");
                 }
-                HandleResult::AddedNewDevice(hostname, device) => {
+                HandleResult::AddedNewDevice(_, device) => {
                     debug!("found new device: {device:?}");
-                    self.query(&hostname).await?;
-                    debug!("query device: {hostname}");
                     return Ok(device);
                 }
                 HandleResult::UpdatedDevice(_, device) => {
@@ -197,16 +186,6 @@ impl Client {
                 trace!("response: {}", String::from_utf8_lossy(&response.body));
                 Ok(())
             })
-            .await?;
-
-        Ok(())
-    }
-
-    async fn query(&self, hostname: &str) -> Result<(), Error> {
-        let mut write = self.write.lock().await;
-
-        write
-            .send((create_query_packet(hostname), MDNS_ADDR))
             .await?;
 
         Ok(())

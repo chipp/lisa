@@ -22,7 +22,12 @@ async fn main() -> Result<()> {
     let inspinia_client_id =
         std::env::var("INSPINIA_CLIENT_ID").expect("set ENV variable INSPINIA_CLIENT_ID");
     let inspinia_token = std::env::var("INSPINIA_TOKEN").expect("set ENV variable INSPINIA_TOKEN");
-    let inspinia_client = Client::new(inspinia_client_id, inspinia_token).await?;
+    let inspinia_logs_path = std::env::var("INSPINIA_LOGS_PATH")
+        .expect("set ENV variable INSPINIA_LOGS_PATH")
+        .into();
+
+    let inspinia_client =
+        Client::new(inspinia_client_id, inspinia_token, inspinia_logs_path).await?;
 
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");

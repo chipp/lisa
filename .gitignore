@@ -2,6 +2,7 @@
 /target
 *.tar
 build/
+logs/
 
 requests.sql
 template-v*.db

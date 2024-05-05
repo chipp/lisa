@@ -28,10 +28,13 @@ services:
   elizabeth:
     image: ghcr.io/chipp/elizabeth:latest
     entrypoint: ["./elizabeth"]
+    volumes:
+      - ./logs:/data/logs
     env_file:
       - .elizabeth.env
     environment:
       - RUST_LOG=info
+      - INSPINIA_LOGS_PATH=/data/logs
     restart: unless-stopped
 networks:
   default:

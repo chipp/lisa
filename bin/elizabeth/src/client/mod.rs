@@ -29,14 +29,16 @@ pub struct Client {
     client: WsClient,
     initial_state: Vec<PortState>,
     storage: Arc<Mutex<Storage>>,
+    logs_path: PathBuf,
 }
 
 impl Client {
-    pub async fn new(client_id: String, token: String) -> Result<Client> {
+    pub async fn new(client_id: String, token: String, logs_path: PathBuf) -> Result<Client> {
         let target_id = token_as_uuid(format!("{:x}", md5::compute(token)));
         let db_path = download_template(&target_id).await?;
 
-        let (client, initial_state) = Self::connect(client_id.clone(), target_id.clone()).await?;
+        let (client, initial_state) =
+            Self::connect(client_id.clone(), target_id.clone(), logs_path.clone()).await?;
 
         info!("initialized");
 
@@ -57,13 +59,18 @@ impl Client {
             client,
             initial_state,
             storage,
+            logs_path,
         })
     }
 
     pub async fn reconnect(&mut self) -> Result<()> {
         let (client, port_states) = timeout(
             Duration::from_secs(5),
-            Self::connect(self.client_id.clone(), self.target_id.clone()),
+            Self::connect(
+                self.client_id.clone(),
+                self.target_id.clone(),
+                self.logs_path.clone(),
+            ),
         )
         .await??;
         info!("reconnected");
@@ -74,8 +81,12 @@ impl Client {
         Ok(())
     }
 
-    async fn connect(client_id: String, target_id: String) -> Result<(WsClient, Vec<PortState>)> {
-        let mut client = WsClient::connect(client_id, target_id).await?;
+    async fn connect(
+        client_id: String,
+        target_id: String,
+        logs_path: PathBuf,
+    ) -> Result<(WsClient, Vec<PortState>)> {
+        let mut client = WsClient::connect(client_id, target_id, logs_path).await?;
 
         debug!("connected web socket");
 

@@ -1,19 +1,21 @@
+use std::ffi::OsStr;
 use std::fmt;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
+use tokio::fs::{File, OpenOptions};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
 use crate::{ReceivedMessage, Result};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, TimeDelta};
+use chrono_humanize::{Accuracy, HumanTime, Tense};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
-use log::debug;
+use log::{debug, info};
 use serde::Serialize;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
@@ -71,7 +73,6 @@ pub struct WsClient {
     write: Arc<Mutex<Writer>>,
     read: Arc<Mutex<Reader>>,
     log: Arc<Mutex<Log>>,
-    logs_path: PathBuf,
 }
 
 impl WsClient {
@@ -88,7 +89,7 @@ impl WsClient {
         let write = Arc::from(Mutex::new(write));
         let read = Arc::from(Mutex::new(read));
 
-        let log = Arc::new(Mutex::new(Log::new()));
+        let log = Arc::new(Mutex::new(Log::new(logs_path)));
 
         Ok(WsClient {
             start: Instant::now(),
@@ -97,7 +98,6 @@ impl WsClient {
             write,
             read,
             log,
-            logs_path,
         })
     }
 
@@ -169,53 +169,110 @@ impl WsClient {
 
     async fn log_socket_message(&self, message: &Message) {
         let mut log = self.log.lock().await;
-        log.add(message);
+        let now = Local::now();
 
-        if log.entries.len() > 500 {
-            _ = log.save(&self.logs_path).await;
+        log.add(now, message).await.unwrap();
+
+        let duration = now - log.start;
+
+        if log.size >= TEN_MIB || duration.num_days() >= 1 {
+            let size = format_size(log.size);
+            let duration = format_duration(duration);
+
+            info!("saving log {}, started {}", size, duration);
+            _ = log.archive().await;
+            info!("saved log");
         }
     }
 }
 
+fn format_duration(duration: TimeDelta) -> String {
+    HumanTime::from(duration).to_text_en(Accuracy::Rough, Tense::Past)
+}
+
+fn format_size(size: usize) -> String {
+    let kb = size / 1024;
+    let mb = kb / 1024;
+
+    if mb > 0 {
+        format!("{} MiB", mb)
+    } else {
+        format!("{} KiB", kb)
+    }
+}
+
+const ONE_MIB: usize = 1024 * 1024;
+const TEN_MIB: usize = 10 * ONE_MIB;
+
 struct Log {
-    start: DateTime<chrono::Local>,
-    entries: Vec<(DateTime<Local>, String)>,
+    start: DateTime<Local>,
+    size: usize,
+    path: PathBuf,
 }
 
 impl Log {
-    fn new() -> Self {
+    fn new(root_path: PathBuf) -> Self {
+        let start = Local::now();
+        let mut path = root_path;
+        path.push(format!(
+            "inspinia-{}.txt",
+            start.format("%Y-%m-%d-%H-%M-%S")
+        ));
+
         Self {
-            start: chrono::Local::now(),
-            entries: Vec::new(),
+            start,
+            size: 0,
+            path,
         }
     }
 
-    fn add(&mut self, message: &Message) {
-        let ts = chrono::Local::now();
+    async fn add(&mut self, ts: DateTime<Local>, message: &Message) -> Result<()> {
         let entry = format!("{}", LogEntry(message));
-        self.entries.push((ts, entry));
+        let string = format!("{}: {}\n", ts.to_rfc2822(), entry);
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)
+            .await?;
+        file.write_all(string.as_bytes()).await?;
+
+        self.size += string.as_bytes().len();
+
+        Ok(())
     }
 
-    async fn save(&mut self, path: &Path) -> Result<()> {
-        let mut buf = Vec::with_capacity(1024 * 1024);
+    async fn archive(&mut self) -> Result<()> {
+        let mut buf = Vec::with_capacity(TEN_MIB);
 
         {
             let mut cursor = std::io::Cursor::new(&mut buf);
             let mut zip = zip::ZipWriter::new(&mut cursor);
 
-            zip.start_file("log.txt", Default::default())?;
+            let filename = self
+                .path
+                .file_name()
+                .and_then(OsStr::to_str)
+                .unwrap_or("log.txt");
 
-            for (ts, entry) in &self.entries {
-                zip.write_all(ts.to_rfc2822().as_bytes())?;
-                zip.write_all(b": ")?;
-                zip.write_all(entry.as_bytes())?;
-                zip.write_all(b"\n")?;
+            zip.start_file(filename, Default::default())?;
+
+            let mut buf = Vec::with_capacity(TEN_MIB + ONE_MIB);
+
+            {
+                let mut file = File::open(&self.path).await?;
+                file.read_to_end(&mut buf).await?;
             }
+
+            zip.write_all(&buf)?;
 
             zip.finish()?;
         }
 
-        let mut path = path.to_path_buf();
+        tokio::fs::remove_file(&self.path).await?;
+
+        let mut path = self.path.clone();
+        path.pop();
         path.push(format!(
             "inspinia-{}.zip",
             self.start.format("%Y-%m-%d-%H-%M-%S")
@@ -224,8 +281,14 @@ impl Log {
         let mut file = File::create(path).await.unwrap();
         file.write_all(&buf).await?;
 
-        self.start = chrono::Local::now();
-        self.entries.clear();
+        self.start = Local::now();
+        self.size = 0;
+
+        self.path.pop();
+        self.path.push(format!(
+            "inspinia-{}.txt",
+            self.start.format("%Y-%m-%d-%H-%M-%S")
+        ));
 
         Ok(())
     }

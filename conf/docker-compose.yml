@@ -1,4 +1,3 @@
-version: "3"
 services:
   mq:
     image: eclipse-mosquitto:2.0.18-openssl

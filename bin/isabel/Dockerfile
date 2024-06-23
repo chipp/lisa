@@ -1,11 +1,13 @@
-FROM ghcr.io/chipp/build.rust.arm64_musl:1.79.0_1 as libs_builder
+ARG RUST_VERSION
+
+FROM ghcr.io/chipp/build.rust.arm64_musl:${RUST_VERSION} AS libs_builder
 
 COPY ./bin/isabel/install_static_libs.sh ./install_static_libs.sh
 RUN chmod +x ./install_static_libs.sh && \
   ./install_static_libs.sh && \
   rm ./install_static_libs.sh
 
-FROM ghcr.io/chipp/build.rust.arm64_musl:1.79.0_1 AS builder
+FROM ghcr.io/chipp/build.rust.arm64_musl:${RUST_VERSION} AS builder
 
 COPY --from=0 $PREFIX $PREFIX
 

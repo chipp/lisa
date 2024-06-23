@@ -1,4 +1,6 @@
-FROM ghcr.io/chipp/build.rust.x86_64_musl:1.79.0_1 AS builder
+ARG RUST_VERSION
+
+FROM ghcr.io/chipp/build.rust.x86_64_musl:${RUST_VERSION} AS builder
 
 WORKDIR /home/rust/src
 RUN USER=rust \

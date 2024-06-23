@@ -11,7 +11,7 @@ jobs:
 
     strategy:
       matrix:
-        binary: 
+        binary:
           - alisa
           - elisa
           - elisheba
@@ -45,3 +45,36 @@ jobs:
              --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
              --cache-from=type=registry,ref=$IMAGE_ID:cache \
              --cache-to=type=registry,ref=$IMAGE_ID:cache,mode=max
+
+  test-isabel-libs:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        build_arch:
+          - arm64
+          - amd64
+        host_arch:
+          - arm64
+          - amd64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log into registry
+        run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Test
+        run: |
+          IMAGE_ID=ghcr.io/chipp/isabel
+          TEST_TAG=test-cache-libs-${{ matrix.build_arch }}-${{ matrix.host_arch }}
+
+          docker buildx build . --file bin/isabel/test_libs/${{ matrix.host_arch }}.Dockerfile \
+             --load \
+             --platform linux/${{ matrix.build_arch }} \
+             --cache-from=type=registry,ref=$IMAGE_ID:TEST_TAG \
+             --cache-to=type=registry,ref=$IMAGE_ID:$TEST_TAG,mode=max

@@ -109,6 +109,20 @@ build_isabel:
 		${IMAGE_ID}:test \
 		cp /root/isabel /build/isabel
 
+test_isabel_libs_amd64: IMAGE_ID = ghcr.io/chipp/isabel
+test_isabel_libs_amd64:
+	docker build . \
+		--file bin/isabel/test_libs/amd64.Dockerfile \
+		--tag ${IMAGE_ID}:test_libs_amd64 \
+		--load
+
+test_isabel_libs_arm64: IMAGE_ID = ghcr.io/chipp/isabel
+test_isabel_libs_arm64:
+	docker build . \
+		--file bin/isabel/test_libs/arm64.Dockerfile \
+		--tag ${IMAGE_ID}:test_libs_arm64 \
+		--load
+
 run_elisheba: RUST_LOG = elisheba=debug,sonoff=debug,info
 run_elisheba: KEYS = $(shell op read "op://private/elisheba devices/notesPlain")
 run_elisheba: MQTT_ADDRESS = mqtt://localhost:1883

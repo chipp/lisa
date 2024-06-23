@@ -37,11 +37,13 @@ jobs:
       - name: Build image
         run: |
           IMAGE_ID=ghcr.io/chipp/${{ matrix.binary }}
+          RUST_VERSION=$(cat .rust-version)
 
           docker buildx build . --file bin/${{ matrix.binary }}/Dockerfile \
              --load \
              --progress plain \
              --tag $IMAGE_ID:latest \
+             --build-arg RUST_VERSION="${RUST_VERSION}" \
              --build-arg VERSION="0.1.${{ github.run_number }}" \
              --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
              --cache-from=type=registry,ref=$IMAGE_ID:cache \

@@ -1,3 +1,5 @@
+RUST_VERSION = $(shell cat .rust-version)
+
 run_alisa: RUST_LOG = alisa=debug,info
 run_alisa: JWT_SECRET = 123456
 run_alisa: LISA_USER = chipp
@@ -19,12 +21,15 @@ build_alisa:
 	docker build . \
 		--file bin/alisa/Dockerfile \
 		--tag ${IMAGE_ID}:test \
+		--build-arg RUST_VERSION="${RUST_VERSION}" \
 		--load \
 		--label "org.opencontainers.image.source=https://github.com/chipp/lisa" \
 		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/alisa /build/alisa
+
 	docker build . \
 		--file conf/arm64.Dockerfile \
 		--load \
@@ -52,12 +57,15 @@ build_elizabeth:
 	docker build . \
 		--file bin/elizabeth/Dockerfile \
 		--tag ${IMAGE_ID}:test \
+		--build-arg RUST_VERSION="${RUST_VERSION}" \
 		--load \
 		--label "org.opencontainers.image.source=https://github.com/chipp/lisa" \
 		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/elizabeth /build/elizabeth
+
 	docker build . \
 		--file conf/arm64.Dockerfile \
 		--load \
@@ -83,8 +91,10 @@ build_elisa:
 	docker build . \
 		--file bin/elisa/Dockerfile \
 		--tag ${IMAGE_ID}:test \
+		--build-arg RUST_VERSION="${RUST_VERSION}" \
 		--load \
 		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/elisa /build/elisa
@@ -103,11 +113,29 @@ build_isabel:
 	docker build . \
 		--file bin/isabel/Dockerfile \
 		--tag ${IMAGE_ID}:test \
+		--build-arg RUST_VERSION="${RUST_VERSION}" \
 		--load \
 		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/isabel /build/isabel
+
+test_isabel_libs_amd64: IMAGE_ID = ghcr.io/chipp/isabel
+test_isabel_libs_amd64:
+	docker build . \
+		--file bin/isabel/test_libs/amd64.Dockerfile \
+		--tag ${IMAGE_ID}:test_libs_amd64 \
+		--build-arg RUST_VERSION="${RUST_VERSION}" \
+		--load
+
+test_isabel_libs_arm64: IMAGE_ID = ghcr.io/chipp/isabel
+test_isabel_libs_arm64:
+	docker build . \
+		--file bin/isabel/test_libs/arm64.Dockerfile \
+		--tag ${IMAGE_ID}:test_libs_arm64 \
+		--build-arg RUST_VERSION="${RUST_VERSION}" \
+		--load
 
 run_elisheba: RUST_LOG = elisheba=debug,sonoff=debug,info
 run_elisheba: KEYS = $(shell op read "op://private/elisheba devices/notesPlain")
@@ -124,8 +152,10 @@ build_elisheba:
 	docker build . \
 		--file bin/elisheba/Dockerfile \
 		--tag ${IMAGE_ID}:test \
+		--build-arg RUST_VERSION="${RUST_VERSION}" \
 		--load \
 		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/elisheba /build/elisheba

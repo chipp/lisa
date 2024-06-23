@@ -142,9 +142,18 @@ async fn subscribe_state(mqtt: MqClient, mut inspinia: Client) -> Result<()> {
         } else {
             error!("Lost Inspinia connection. Attempting reconnect.");
 
+            let mut attempt = 0;
+
             while let Err(err) = inspinia.reconnect().await {
+                attempt += 1;
+
+                if attempt > 10 {
+                    error!("Failed to reconnect to Inspinia after 10 attempts. Exiting.");
+                    return Err(err);
+                }
+
                 error!("Error Inspinia reconnecting: {}", err);
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
 
             info!("Reconnected to Inspinia!");

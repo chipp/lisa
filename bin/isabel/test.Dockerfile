@@ -1,11 +1,6 @@
 ARG RUST_VERSION
 
-FROM ghcr.io/chipp/build.rust.x86_64_musl:${RUST_VERSION} AS libs_builder
-
-COPY ./bin/isabel/install_static_libs.sh ./install_static_libs.sh
-RUN chmod +x ./install_static_libs.sh && \
-  ./install_static_libs.sh && \
-  rm ./install_static_libs.sh
+FROM ghcr.io/chipp/bluez.static.x86_64_musl:5.66_3 AS libs_builder
 
 FROM ghcr.io/chipp/build.rust.x86_64_musl:${RUST_VERSION} AS builder
 

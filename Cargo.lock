@@ -1036,6 +1036,7 @@ dependencies = [
  "md5",
  "paho-mqtt",
  "pretty_env_logger",
+ "rusqlite",
  "serde",
  "serde_json",
  "tokio",

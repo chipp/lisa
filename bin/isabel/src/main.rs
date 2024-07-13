@@ -1,5 +1,5 @@
 use bluetooth::{Event, MacAddr, Scanner, ScannerTrait};
-use isabel::{Result, Storage};
+use isabel::{Db, Result, Storage};
 use transport::{
     connect_mqtt,
     isabel::{Property, State},
@@ -22,18 +22,20 @@ async fn main() -> Result<()> {
 
     info!("isabel version {VERSION}");
 
+    let db_path = std::env::var("DB_PATH").expect("set ENV variable DB_PATH");
+
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");
     let mqtt_password = std::env::var("MQTT_PASS").expect("set ENV variable MQTT_PASS");
     let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "isabel").await?;
     info!("connected mqtt");
 
-    subscribe_state(mqtt_client).await?;
+    subscribe_state(mqtt_client, &db_path).await?;
 
     Ok(())
 }
 
-async fn subscribe_state(mqtt: MqClient) -> Result<()> {
+async fn subscribe_state(mqtt: MqClient, db_path: &str) -> Result<()> {
     let mut scanner = Scanner::new();
 
     fn match_addr_to_room(addr: MacAddr) -> Option<Room> {
@@ -48,6 +50,7 @@ async fn subscribe_state(mqtt: MqClient) -> Result<()> {
 
     let mut rx = scanner.start_scan();
     let mut storage = Storage::default();
+    let db = Db::new(&db_path);
 
     while let Some((addr, event)) = rx.recv().await {
         if let Some(room) = match_addr_to_room(addr) {
@@ -62,6 +65,13 @@ async fn subscribe_state(mqtt: MqClient) -> Result<()> {
                     )
                 }
             };
+
+            match db.save(&room, &event) {
+                Ok(()) => (),
+                Err(err) => {
+                    error!("Error saving to db: {}", err);
+                }
+            }
 
             let state = State { room, property };
             if !storage.apply_update(&state) {

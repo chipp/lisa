@@ -100,11 +100,12 @@ build_elisa:
 		cp /root/elisa /build/elisa
 
 run_isabel: RUST_LOG = isabel=debug,info
+run_isabel: DB_PATH = ${PWD}/target/isabel.db
 run_isabel: MQTT_ADDRESS = mqtt://localhost:1883
 run_isabel: MQTT_USER = isabel
 run_isabel: MQTT_PASS = 123mqtt
 run_isabel:
-	@RUST_LOG=${RUST_LOG} \
+	@RUST_LOG=${RUST_LOG} DB_PATH=${DB_PATH} \
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin isabel
 

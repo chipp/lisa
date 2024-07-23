@@ -1,4 +1,4 @@
-ARG RUST_VERSION
+ARG RUST_VERSION=1.79.0_3
 
 FROM ghcr.io/chipp/build.rust.arm64_musl:${RUST_VERSION} AS builder
 

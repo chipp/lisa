@@ -1,4 +1,4 @@
-ARG RUST_VERSION
+ARG RUST_VERSION=1.79.0_3
 
 FROM ghcr.io/chipp/bluez.static.arm64_musl:5.66_3 AS libs_builder
 

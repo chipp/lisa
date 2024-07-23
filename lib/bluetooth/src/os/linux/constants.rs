@@ -1,4 +1,5 @@
-use libc::{c_char, c_int, c_uint};
+use libc::{c_char, c_int, c_uint, c_ulong};
+use nix::request_code_write;
 
 pub const HCI_MAX_EVENT_SIZE: c_int = 260;
 
@@ -30,7 +31,16 @@ const fn _iow<T>(r#type: c_char, nr: c_int) -> c_int {
     _ioc(_IOC_WRITE, r#type, nr, std::mem::size_of::<T>())
 }
 
-pub const HCIDEVUP: c_int = _iow::<c_int>(b'H' as c_char, 201);
-pub const HCIDEVDOWN: c_int = _iow::<c_int>(b'H' as c_char, 202);
+#[cfg(not(target_env = "musl"))]
+pub const HCIDEVUP: c_ulong = request_code_write!(b'H', 201, std::mem::size_of::<c_int>());
+
+#[cfg(target_env = "musl")]
+pub const HCIDEVUP: c_int = request_code_write!(b'H', 201, std::mem::size_of::<c_int>());
+
+#[cfg(not(target_env = "musl"))]
+pub const HCIDEVDOWN: c_ulong = request_code_write!(b'H', 202, std::mem::size_of::<c_int>());
+
+#[cfg(target_env = "musl")]
+pub const HCIDEVDOWN: c_int = request_code_write!(b'H', 202, std::mem::size_of::<c_int>());
 
 pub const EVT_LE_ADVERTISING_REPORT: u8 = 0x02;

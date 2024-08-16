@@ -33,6 +33,7 @@ use axum::Router;
 use log::error;
 
 pub struct ServiceError(Box<dyn std::error::Error + Send + Sync>, uuid::Uuid);
+
 impl IntoResponse for ServiceError {
     fn into_response(self) -> Response<Body> {
         error!("ServiceError[{}]: {}", self.1, self.0);

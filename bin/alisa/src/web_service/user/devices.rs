@@ -39,6 +39,7 @@ pub async fn devices(headers: HeaderMap) -> Result<impl IntoResponse> {
                 thermostat_device(Room::LivingRoom),
                 thermostat_device(Room::Nursery),
                 recuperator_device(),
+                light_device(Room::Corridor),
                 light_device(Room::Nursery),
             ]
         }

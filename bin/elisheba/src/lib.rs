@@ -185,6 +185,7 @@ async fn get_state(room: Room, sonoff: &mut Client) -> Result<State, ErasedError
 
 fn map_id_to_room(id: &str) -> Option<Room> {
     match id {
+        "1002074ed2" => Some(Room::Corridor),
         "10020750eb" => Some(Room::Nursery),
         _ => None,
     }
@@ -192,6 +193,7 @@ fn map_id_to_room(id: &str) -> Option<Room> {
 
 fn map_room_to_id(room: Room) -> Option<&'static str> {
     match room {
+        Room::Corridor => Some("1002074ed2"),
         Room::Nursery => Some("10020750eb"),
         _ => None,
     }

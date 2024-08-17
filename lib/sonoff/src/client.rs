@@ -220,18 +220,26 @@ impl Client {
         let host = host.ok_or(Error::MissingHostname)?;
         let host = host.to_string();
 
+        debug!("got host {host}");
+
         let mut manager = self.manager.lock().await;
 
         let result = if let Some(device) = manager.devices.get_mut(&host) {
+            debug!("host exists {host}");
+
             if let Some(ipv4) = ipv4 {
+                debug!("updating ipv4 {ipv4}");
                 device.addr.set_ip(ipv4);
             }
 
             if let Some(port) = port {
+                debug!("updating port {port}");
                 device.addr.set_port(port);
             }
 
             if let Some(mut info) = info {
+                debug!("updating meta {info:?}");
+
                 let key = self
                     .keys
                     .get(&device.id)
@@ -243,6 +251,8 @@ impl Client {
 
             HandleResult::UpdatedDevice(host, device.clone())
         } else {
+            debug!("new host {host}");
+
             let service = service.ok_or(Error::MissingService)?;
             if service != "_ewelink._tcp.local" {
                 return Ok(HandleResult::Ignored("Unknown service"));

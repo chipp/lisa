@@ -10,7 +10,7 @@ use transport::state::StateUpdate;
 use transport::{connect_mqtt, Topic};
 
 use futures_util::StreamExt;
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use paho_mqtt::{AsyncClient as MqClient, MessageBuilder, QOS_1};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::{task, time};

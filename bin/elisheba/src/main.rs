@@ -10,7 +10,7 @@ use transport::state::StateUpdate;
 use transport::{connect_mqtt, Topic};
 
 use futures_util::StreamExt;
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 use paho_mqtt::{AsyncClient as MqClient, MessageBuilder, QOS_1};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::{task, time};
@@ -37,7 +37,7 @@ async fn main() -> Result<(), ErasedError> {
     let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "elisheba").await?;
     info!("connected mqtt");
 
-    let mut storage = Storage::new();
+    let mut storage = Storage::default();
     send_initial_state(devices, &mut storage, mqtt_client.clone()).await?;
 
     let set_handle = task::spawn(subscribe_action(mqtt_client.clone(), client.clone()));

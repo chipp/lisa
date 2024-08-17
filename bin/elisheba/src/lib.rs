@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sonoff::{Client, SonoffDevice};
 use transport::{
     action::{ActionRequest, ActionResponse, ActionResult},
@@ -11,38 +13,29 @@ use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 
 pub type ErasedError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
+#[derive(Default)]
 pub struct Storage {
-    nursery_light: Option<State>,
+    lights: HashMap<Room, State>,
 }
 
 impl Storage {
-    pub fn new() -> Self {
-        Self {
-            nursery_light: None,
-        }
-    }
-
     pub fn apply(&mut self, device: &SonoffDevice) -> Option<State> {
         let state = map_device_to_state(device)?;
 
-        match state.room {
-            Room::Nursery => {
-                if let Some(ref nursery_light) = self.nursery_light {
-                    if nursery_light.is_enabled == state.is_enabled {
-                        return None;
-                    }
-                }
-
-                info!(
-                    "ligths at nursery are toggled {}",
-                    if state.is_enabled { "on" } else { "off" }
-                );
-
-                self.nursery_light = Some(state);
-                Some(state)
+        if let Some(prev) = self.lights.get(&state.room) {
+            if prev.is_enabled == state.is_enabled {
+                return None;
             }
-            _ => None,
         }
+
+        info!(
+            "ligths at {room} are toggled {state}",
+            room = state.room,
+            state = if state.is_enabled { "on" } else { "off" }
+        );
+
+        self.lights.insert(state.room, state);
+        Some(state)
     }
 }
 

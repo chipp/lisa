@@ -48,8 +48,23 @@ impl Client {
                             break;
                         }
 
-                        info!("{} left to discover", ids.len());
-                        info!("{} left to resolve", hosts.len());
+                        info!(
+                            "{} left to discover: [{}]",
+                            ids.len(),
+                            ids.iter()
+                                .map(|s| s.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        );
+                        info!(
+                            "{} left to resolve: [{}]",
+                            hosts.len(),
+                            hosts
+                                .iter()
+                                .map(|s| s.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        );
 
                         last_update = Instant::now();
                     }
@@ -60,8 +75,16 @@ impl Client {
                     if last_update.elapsed().as_secs() > 2 {
                         for host in hosts.iter() {
                             debug!("query device again: {}", host);
+
                             let query = create_query_packet(&host);
                             socket.send_to(&query, MDNS_ADDR).await?;
+                        }
+
+                        if !ids.is_empty() {
+                            debug!("discover devices again");
+
+                            let discover = create_discovery_packet(SERVICE);
+                            socket.send_to(&discover, MDNS_ADDR).await?;
                         }
 
                         last_update = Instant::now();

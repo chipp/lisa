@@ -139,7 +139,7 @@ test_isabel_libs_arm64:
 		--load
 
 run_elisheba: RUST_LOG = elisheba=debug,sonoff=debug,info
-run_elisheba: KEYS = $(shell op read "op://private/elisheba devices/notesPlain")
+run_elisheba: KEYS = 10020750eb=$(shell op read "op://private/elisheba devices/10020750eb"),1002074ed2=$(shell op read "op://private/elisheba devices/1002074ed2")
 run_elisheba: MQTT_ADDRESS = mqtt://localhost:1883
 run_elisheba: MQTT_USER = elisheba
 run_elisheba: MQTT_PASS = 123mqtt

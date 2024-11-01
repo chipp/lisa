@@ -71,7 +71,7 @@ fn try_updating_state(action: Action, inspinia: &mut Client) -> BoxFuture<Result
             Ok(()) => Ok(()),
             Err(err) => match err.downcast::<WsError>() {
                 Ok(err) => match *err {
-                    WsError::StreamClosed => {
+                    WsError::StreamClosed | WsError::WebSocketError(_) => {
                         error!("Lost Inspinia connection. Attempting reconnect.");
                         inspinia.reconnect().await?;
 

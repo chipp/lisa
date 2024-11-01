@@ -18,6 +18,7 @@ use futures_util::{SinkExt, StreamExt};
 use log::{debug, info};
 use serde::Serialize;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+use zip::write::SimpleFileOptions;
 
 #[derive(Debug)]
 pub enum WsError {
@@ -255,7 +256,7 @@ impl Log {
                 .and_then(OsStr::to_str)
                 .unwrap_or("log.txt");
 
-            zip.start_file(filename, Default::default())?;
+            zip.start_file(filename, SimpleFileOptions::default())?;
 
             let mut buf = Vec::with_capacity(TEN_MIB + ONE_MIB);
 

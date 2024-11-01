@@ -80,6 +80,7 @@ impl<'de> Visitor<'de> for ResponseVisitor {
 
 #[derive(Debug, Deserialize)]
 pub struct DeviceError {
+    #[allow(dead_code)]
     pub code: i16,
     pub message: String,
 }

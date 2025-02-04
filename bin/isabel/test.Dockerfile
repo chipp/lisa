@@ -1,8 +1,8 @@
 ARG RUST_VERSION=1.79.0_3
 
-FROM ghcr.io/chipp/bluez.static.x86_64_musl:5.66_3 AS libs_builder
+FROM ghcr.io/chipp/bluez.static.arm64_musl:5.66_4 AS libs_builder
 
-FROM ghcr.io/chipp/build.rust.x86_64_musl:${RUST_VERSION} AS builder
+FROM ghcr.io/chipp/build.rust.arm64_musl:${RUST_VERSION} AS builder
 
 COPY --from=0 $PREFIX $PREFIX
 

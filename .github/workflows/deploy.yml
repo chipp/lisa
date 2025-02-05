@@ -106,15 +106,15 @@ jobs:
           echo "pi4.chipp.dev ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMFENzlmv0ZYkEREgu8EERva4dLF/6UjXlkNOmc2Q1SJ" >> ~/.ssh/known_hosts
 
           echo "Host pi4.chipp.dev" > ~/.ssh/config
-          echo "  ProxyCommand $PWD/cloudflared-linux-amd64 access ssh --hostname %h" >> ~/.ssh/config
+          echo "  ProxyCommand $PWD/cloudflared-linux-arm64 access ssh --hostname %h" >> ~/.ssh/config
 
           chmod -R 700 ~/.ssh/
 
       - name: Install cloudflared
         run: |
-          curl -sSLO https://github.com/cloudflare/cloudflared/releases/download/2024.2.1/cloudflared-linux-amd64
-          echo "f140d18894206a45f5150d34066e8940a3bca82a0da670fcb4e6d93b11f0c81c  cloudflared-linux-amd64" | sha256sum -c -
-          chmod +x cloudflared-linux-amd64
+          curl -sSLO https://github.com/cloudflare/cloudflared/releases/download/2025.2.0/cloudflared-linux-arm64
+          echo "92b8917aeb655ef8b9e90176dd9475b40ea85ec54b21bcafbdf57d9a68b72d15  cloudflared-linux-arm64" | sha256sum -c -
+          chmod +x cloudflared-linux-arm64
 
       - name: Deploy alisa and elizabeth
         run: |

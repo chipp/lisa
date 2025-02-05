@@ -40,7 +40,7 @@ RUN cargo build \
   -p str_derive \
   -p transport \
   -p xiaomi \
-  --target x86_64-unknown-linux-musl && \
+  --target aarch64-unknown-linux-musl && \
   rm ./bin/elisa/src/*.rs \
   ./lib/crypto/src/*.rs \
   ./lib/str_derive/src/*.rs \
@@ -54,4 +54,4 @@ COPY ./lib/xiaomi/src ./lib/xiaomi/src
 COPY ./bin/elisa/src ./bin/elisa/src
 
 RUN cargo test -p elisa -p crypto -p str_derive -p transport -p xiaomi && \
-  rm -rf target/x86_64-unknown-linux-musl/debug/ target/debug/
+  rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

@@ -37,7 +37,7 @@ RUN cargo build \
   -p inspinia \
   -p str_derive \
   -p transport \
-  --target x86_64-unknown-linux-musl && \
+  --target aarch64-unknown-linux-musl && \
   rm ./bin/elizabeth/src/*.rs \
   ./lib/inspinia/src/*.rs \
   ./lib/str_derive/src/*.rs \
@@ -49,4 +49,4 @@ COPY ./lib/transport/src ./lib/transport/src
 COPY ./bin/elizabeth/src ./bin/elizabeth/src
 
 RUN cargo test -p elizabeth -p inspinia -p str_derive -p transport && \
-  rm -rf target/x86_64-unknown-linux-musl/debug/ target/debug/
+  rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

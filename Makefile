@@ -58,9 +58,7 @@ build_elizabeth:
 		--file bin/elizabeth/Dockerfile \
 		--tag ${IMAGE_ID}:test \
 		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load \
-		--label "org.opencontainers.image.source=https://github.com/chipp/lisa" \
-		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+		--load
 
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
@@ -121,22 +119,6 @@ build_isabel:
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/isabel /build/isabel
-
-test_isabel_libs_amd64: IMAGE_ID = ghcr.io/chipp/isabel
-test_isabel_libs_amd64:
-	docker build . \
-		--file bin/isabel/test_libs/amd64.Dockerfile \
-		--tag ${IMAGE_ID}:test_libs_amd64 \
-		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load
-
-test_isabel_libs_arm64: IMAGE_ID = ghcr.io/chipp/isabel
-test_isabel_libs_arm64:
-	docker build . \
-		--file bin/isabel/test_libs/arm64.Dockerfile \
-		--tag ${IMAGE_ID}:test_libs_arm64 \
-		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load
 
 run_elisheba: RUST_LOG = elisheba=debug,sonoff=debug,info
 run_elisheba: KEYS = 10020750eb=$(shell op read "op://private/elisheba devices/10020750eb"),1002074ed2=$(shell op read "op://private/elisheba devices/1002074ed2")

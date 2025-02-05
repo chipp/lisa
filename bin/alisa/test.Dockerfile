@@ -37,7 +37,7 @@ RUN cargo build \
   -p alice \
   -p str_derive \
   -p transport \
-  --target x86_64-unknown-linux-musl && \
+  --target aarch64-unknown-linux-musl && \
   rm \
   ./bin/alisa/src/*.rs \
   ./lib/alice/src/*.rs \
@@ -54,4 +54,4 @@ RUN cargo test \
   -p alice \
   -p str_derive \
   -p transport && \
-  rm -rf target/x86_64-unknown-linux-musl/debug/ target/debug/
+  rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

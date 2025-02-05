@@ -41,7 +41,7 @@ RUN cargo build \
   -p bluetooth \
   -p str_derive \
   -p transport \
-  --target armv7-unknown-linux-musleabihf && \
+  --target aarch64-unknown-linux-musl && \
   rm ./bin/isabel/src/*.rs \
   ./lib/bluetooth/src/*.rs \
   ./lib/str_derive/src/*.rs \
@@ -54,4 +54,4 @@ COPY ./lib/transport/src ./lib/transport/src
 COPY ./bin/isabel/src ./bin/isabel/src
 
 RUN cargo test -p elisa -p str_derive -p transport -p xiaomi && \
-  rm -rf target/x86_64-unknown-linux-musl/debug/ target/debug/
+  rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

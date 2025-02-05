@@ -58,9 +58,7 @@ build_elizabeth:
 		--file bin/elizabeth/Dockerfile \
 		--tag ${IMAGE_ID}:test \
 		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load \
-		--label "org.opencontainers.image.source=https://github.com/chipp/lisa" \
-		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+		--load
 
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
@@ -122,22 +120,6 @@ build_isabel:
 		${IMAGE_ID}:test \
 		cp /root/isabel /build/isabel
 
-test_isabel_libs_amd64: IMAGE_ID = ghcr.io/chipp/isabel
-test_isabel_libs_amd64:
-	docker build . \
-		--file bin/isabel/test_libs/amd64.Dockerfile \
-		--tag ${IMAGE_ID}:test_libs_amd64 \
-		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load
-
-test_isabel_libs_arm64: IMAGE_ID = ghcr.io/chipp/isabel
-test_isabel_libs_arm64:
-	docker build . \
-		--file bin/isabel/test_libs/arm64.Dockerfile \
-		--tag ${IMAGE_ID}:test_libs_arm64 \
-		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load
-
 run_elisheba: RUST_LOG = elisheba=debug,sonoff=debug,info
 run_elisheba: KEYS = 10020750eb=$(shell op read "op://private/elisheba devices/10020750eb"),1002074ed2=$(shell op read "op://private/elisheba devices/1002074ed2")
 run_elisheba: MQTT_ADDRESS = mqtt://localhost:1883
@@ -160,3 +142,40 @@ build_elisheba:
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/elisheba /build/elisheba
+
+test: test_alisa test_elizabeth test_elisa test_isabel test_elisheba
+
+test_alisa: IMAGE_ID = ghcr.io/chipp/alisa
+test_alisa:
+	docker buildx build . --file bin/alisa/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_elizabeth: IMAGE_ID = ghcr.io/chipp/elizabeth
+test_elizabeth:
+	docker buildx build . --file bin/elizabeth/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_elisa: IMAGE_ID = ghcr.io/chipp/elisa
+test_elisa:
+	docker buildx build . --file bin/elisa/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_isabel: IMAGE_ID = ghcr.io/chipp/isabel
+test_isabel:
+	docker buildx build . --file bin/isabel/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_elisheba: IMAGE_ID = ghcr.io/chipp/elisheba
+test_elisheba:
+	docker buildx build . --file bin/elisheba/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"

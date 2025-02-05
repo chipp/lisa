@@ -1,6 +1,6 @@
 ARG RUST_VERSION=1.79.0_3
 
-FROM ghcr.io/chipp/build.rust.x86_64_musl:${RUST_VERSION} AS builder
+FROM ghcr.io/chipp/build.rust.arm64_musl:${RUST_VERSION} AS builder
 
 WORKDIR /home/rust/src
 RUN USER=rust \
@@ -40,7 +40,7 @@ RUN cargo build \
   -p sonoff \
   -p str_derive \
   -p transport \
-  --target x86_64-unknown-linux-musl && \
+  --target aarch64-unknown-linux-musl && \
   rm ./bin/elisheba/src/*.rs \
   ./lib/crypto/src/*.rs \
   ./lib/sonoff/src/*.rs \
@@ -54,4 +54,4 @@ COPY ./lib/transport/src ./lib/transport/src
 COPY ./bin/elisheba/src ./bin/elisheba/src
 
 RUN cargo test -p elisheba -p crypto -p sonoff -p str_derive -p transport && \
-  rm -rf target/x86_64-unknown-linux-musl/debug/ target/debug/
+  rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
 
     strategy:
       matrix:
@@ -28,23 +28,24 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
 
+      - name: Expose GitHub Runtime
+        uses: crazy-max/ghaction-github-runtime@v1
+
       - name: Test
         run: |
           IMAGE_ID=ghcr.io/chipp/${{ matrix.binary }}
           RUST_VERSION=$(cat .rust-version)
 
           docker buildx build . --file bin/${{ matrix.binary }}/test.Dockerfile \
-             --load \
+             --output type=cacheonly \
              --tag $IMAGE_ID:latest \
              --build-arg RUST_VERSION="${RUST_VERSION}" \
-             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-             --cache-from=type=registry,ref=$IMAGE_ID:test-cache \
-             --cache-to=type=registry,ref=$IMAGE_ID:test-cache,mode=max
+             --cache-from=type=gha,scope=${{ matrix.binary }}-test \
+             --cache-to=type=gha,scope=${{ matrix.binary }}-test,mode=max
 
           docker buildx build . --file bin/${{ matrix.binary }}/Dockerfile \
-             --load \
+             --output type=cacheonly \
              --tag $IMAGE_ID:latest \
              --build-arg RUST_VERSION="${RUST_VERSION}" \
-             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-             --cache-from=type=registry,ref=$IMAGE_ID:cache \
-             --cache-to=type=registry,ref=$IMAGE_ID:cache,mode=max
+             --cache-from=type=gha,scope=${{ matrix.binary }} \
+             --cache-to=type=gha,scope=${{ matrix.binary }},mode=max

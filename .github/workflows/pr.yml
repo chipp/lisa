@@ -37,14 +37,14 @@ jobs:
           RUST_VERSION=$(cat .rust-version)
 
           docker buildx build . --file bin/${{ matrix.binary }}/test.Dockerfile \
-             --load \
+             --output type=cacheonly \
              --tag $IMAGE_ID:latest \
              --build-arg RUST_VERSION="${RUST_VERSION}" \
              --cache-from=type=gha,scope=${{ matrix.binary }}-test \
              --cache-to=type=gha,scope=${{ matrix.binary }}-test,mode=max
 
           docker buildx build . --file bin/${{ matrix.binary }}/Dockerfile \
-             --load \
+             --output type=cacheonly \
              --tag $IMAGE_ID:latest \
              --build-arg RUST_VERSION="${RUST_VERSION}" \
              --cache-from=type=gha,scope=${{ matrix.binary }} \

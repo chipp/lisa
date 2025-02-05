@@ -142,3 +142,40 @@ build_elisheba:
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
 		cp /root/elisheba /build/elisheba
+
+test: test_alisa test_elizabeth test_elisa test_isabel test_elisheba
+
+test_alisa: IMAGE_ID = ghcr.io/chipp/alisa
+test_alisa:
+	docker buildx build . --file bin/alisa/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_elizabeth: IMAGE_ID = ghcr.io/chipp/elizabeth
+test_elizabeth:
+	docker buildx build . --file bin/elizabeth/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_elisa: IMAGE_ID = ghcr.io/chipp/elisa
+test_elisa:
+	docker buildx build . --file bin/elisa/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_isabel: IMAGE_ID = ghcr.io/chipp/isabel
+test_isabel:
+	docker buildx build . --file bin/isabel/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_elisheba: IMAGE_ID = ghcr.io/chipp/elisheba
+test_elisheba:
+	docker buildx build . --file bin/elisheba/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"

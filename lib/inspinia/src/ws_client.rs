@@ -138,7 +138,7 @@ impl WsClient {
         debug!("sent {}", text);
 
         let mut write = self.write.lock().await;
-        write.send(Message::Text(text)).await?;
+        write.send(Message::Text(text.into())).await?;
 
         Ok(())
     }

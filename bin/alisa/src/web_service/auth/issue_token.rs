@@ -139,7 +139,7 @@ impl Response {
 }
 
 const ACCESS_TOKEN_EXPIRATION: Duration = Duration::hours(1);
-const REFRESH_TOKEN_EXPIRATION: Duration = Duration::weeks(1);
+const REFRESH_TOKEN_EXPIRATION: Duration = Duration::weeks(4);
 
 mod duration_ser {
     use chrono::Duration;

@@ -143,10 +143,8 @@ impl Client {
                                 Self::state_payload(&update.id, &update.value, &self.db_path)
                             {
                                 let storage = self.storage.lock().await;
-
-                                if storage.apply_state(&update).await {
-                                    return Ok(update);
-                                }
+                                storage.apply_state(&update).await;
+                                return Ok(update);
                             }
                         }
                     }

@@ -1,5 +1,5 @@
 use bluetooth::{Event, MacAddr, Scanner, ScannerTrait};
-use isabel::{Db, Result, Storage};
+use isabel::{Db, Result};
 use transport::{
     connect_mqtt,
     isabel::{Property, State},
@@ -49,7 +49,6 @@ async fn subscribe_state(mqtt: MqClient, db_path: &str) -> Result<()> {
     }
 
     let mut rx = scanner.start_scan();
-    let mut storage = Storage::default();
     let db = Db::new(&db_path);
 
     while let Some((addr, event)) = rx.recv().await {
@@ -74,10 +73,6 @@ async fn subscribe_state(mqtt: MqClient, db_path: &str) -> Result<()> {
             }
 
             let state = State { room, property };
-            if !storage.apply_update(&state) {
-                continue;
-            }
-
             let topic = Topic::StateUpdate;
 
             debug!("sending state {:?}", state);

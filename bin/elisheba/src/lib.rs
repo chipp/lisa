@@ -22,12 +22,6 @@ impl Storage {
     pub fn apply(&mut self, device: &SonoffDevice) -> Option<State> {
         let state = map_device_to_state(device)?;
 
-        if let Some(prev) = self.lights.get(&state.room) {
-            if prev.is_enabled == state.is_enabled {
-                return None;
-            }
-        }
-
         info!(
             "ligths at {room} are toggled {state}",
             room = state.room,
@@ -35,6 +29,7 @@ impl Storage {
         );
 
         self.lights.insert(state.room, state);
+
         Some(state)
     }
 }

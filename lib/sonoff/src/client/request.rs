@@ -1,12 +1,3 @@
-// {
-//   "sequence": "1711902015000",
-//   "iv": "0A2nJUk3EMnfoovQpUTv/w==",
-//   "data": "Szq2juexggaLuW4IKH6esE86hzTlB99kBwCrpikFNnORJqN9eyPyttDzkE+8IQwB",
-//   "selfApikey": "4f822ae6-4b06-4af1-a275-c13138e7a921",
-//   "deviceid": "10020750eb",
-//   "encrypt": true
-// }
-
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crypto::Token;
@@ -67,6 +58,6 @@ impl RequestBody<'_> {
 
 fn generate_iv() -> Token<16> {
     let mut iv = [0u8; 16];
-    rand::thread_rng().fill(&mut iv);
+    rand::rng().fill(&mut iv);
     iv
 }

@@ -1,5 +1,5 @@
 use crypto::parse_token;
-use elisa::{handle_action_request, handle_state_request, prepare_state, Result, Storage};
+use elisa::{handle_action_request, handle_state_request, prepare_state, Result};
 use transport::state::StateUpdate;
 use transport::{connect_mqtt, Topic};
 use xiaomi::Vacuum;
@@ -114,7 +114,6 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Re
 
 async fn subscribe_state(mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
     let mut timer = time::interval(Duration::from_secs(10));
-    let mut storage = Storage::new();
 
     loop {
         timer.tick().await;
@@ -122,25 +121,22 @@ async fn subscribe_state(mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<(
 
         if let Ok(status) = vacuum.status().await {
             let state = prepare_state(status, vacuum.last_cleaning_rooms());
+            info!("publishing state: {:?}", state);
 
-            if storage.apply_state(&state) {
-                info!("publishing state: {:?}", state);
+            let topic = Topic::StateUpdate;
 
-                let topic = Topic::StateUpdate;
+            let update = StateUpdate::Elisa(state);
+            let payload = serde_json::to_vec(&update).unwrap();
 
-                let update = StateUpdate::Elisa(state);
-                let payload = serde_json::to_vec(&update).unwrap();
+            let message = MessageBuilder::new()
+                .topic(topic.to_string())
+                .payload(payload)
+                .finalize();
 
-                let message = MessageBuilder::new()
-                    .topic(topic.to_string())
-                    .payload(payload)
-                    .finalize();
-
-                match mqtt.publish(message).await {
-                    Ok(()) => (),
-                    Err(err) => {
-                        error!("Error publishing state: {}", err);
-                    }
+            match mqtt.publish(message).await {
+                Ok(()) => (),
+                Err(err) => {
+                    error!("Error publishing state: {}", err);
                 }
             }
         }

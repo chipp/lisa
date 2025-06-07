@@ -18,48 +18,34 @@ impl Storage {
         }
     }
 
-    pub async fn apply_state(&self, state: &State) -> bool {
+    pub async fn apply_state(&self, state: &State) {
         let mut devices = self.devices.lock().await;
         let device = devices
             .iter_mut()
             .find(|device| device.room == state.room && device.device_type == state.device_type);
-
-        let mut updated = false;
 
         if let Some(device) = device {
             let mut found = false;
 
             for capability in device.capabilities.iter_mut() {
                 match (&capability, &state.capability) {
-                    (IsEnabled(lhs), IsEnabled(rhs)) => {
-                        if lhs != rhs {
-                            *capability = state.capability;
-                            updated = true;
-                        }
+                    (IsEnabled(..), IsEnabled(..)) => {
+                        *capability = state.capability;
                         found = true;
                         break;
                     }
-                    (FanSpeed(lhs), FanSpeed(rhs)) => {
-                        if lhs != rhs {
-                            *capability = state.capability;
-                            updated = true;
-                        }
+                    (FanSpeed(..), FanSpeed(..)) => {
+                        *capability = state.capability;
                         found = true;
                         break;
                     }
-                    (CurrentTemperature(lhs), CurrentTemperature(rhs)) => {
-                        if lhs != rhs {
-                            *capability = state.capability;
-                            updated = true;
-                        }
+                    (CurrentTemperature(..), CurrentTemperature(..)) => {
+                        *capability = state.capability;
                         found = true;
                         break;
                     }
-                    (Temperature(lhs), Temperature(rhs)) => {
-                        if lhs != rhs {
-                            *capability = state.capability;
-                            updated = true;
-                        }
+                    (Temperature(..), Temperature(..)) => {
+                        *capability = state.capability;
                         found = true;
                         break;
                     }
@@ -73,7 +59,6 @@ impl Storage {
                     state.room, state.device_type, state.capability
                 );
                 device.capabilities.push(state.capability);
-                updated = true;
             }
         } else {
             devices.push(Device {
@@ -81,10 +66,7 @@ impl Storage {
                 device_type: state.device_type,
                 capabilities: vec![state.capability],
             });
-            updated = true;
         }
-
-        updated
     }
 
     pub async fn get_capabilities(&self, room: Room, device_type: DeviceType) -> Vec<Capability> {

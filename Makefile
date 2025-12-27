@@ -73,14 +73,16 @@ build_elizabeth:
 		--build-arg BINARY=elizabeth \
 		--label "org.opencontainers.image.source=https://github.com/chipp/lisa"
 
-run_elisa: RUST_LOG = elisa=debug,info
+run_elisa: RUST_LOG = elisa=debug,roborock=debug,info
 run_elisa: MQTT_ADDRESS = mqtt://localhost:1883
 run_elisa: MQTT_USER = elisa
 run_elisa: MQTT_PASS = 123mqtt
-run_elisa: VACUUM_IP = 10.0.1.150
-run_elisa: VACUUM_TOKEN = $(shell op read "op://private/vacuum/credential" -n)
+run_elisa: ROBOROCK_IP = 10.0.1.150
+run_elisa: ROBOROCK_DUID = $(shell op read "op://private/vacuum roborock/username" -n)
+run_elisa: ROBOROCK_LOCAL_KEY = $(shell op read "op://private/vacuum roborock/credential" -n)
 run_elisa:
-	@RUST_LOG=${RUST_LOG} VACUUM_IP=${VACUUM_IP} VACUUM_TOKEN=${VACUUM_TOKEN} \
+	@RUST_LOG=${RUST_LOG} ROBOROCK_IP=${ROBOROCK_IP} \
+	ROBOROCK_DUID=${ROBOROCK_DUID} ROBOROCK_LOCAL_KEY=${ROBOROCK_LOCAL_KEY} \
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin elisa
 

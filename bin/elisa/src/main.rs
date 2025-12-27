@@ -1,8 +1,7 @@
-use crypto::parse_token;
-use elisa::{handle_action_request, handle_state_request, prepare_state, Result};
+use elisa::{handle_action_request, handle_state_request, prepare_state, Result, VacuumQueue};
+use roborock::Vacuum;
 use transport::state::StateUpdate;
 use transport::{connect_mqtt, Topic};
-use xiaomi::Vacuum;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -11,7 +10,6 @@ use futures_util::stream::StreamExt;
 use log::{error, info};
 use paho_mqtt::AsyncClient as MqClient;
 use paho_mqtt::{MessageBuilder, QOS_1};
-use tokio::sync::Mutex;
 use tokio::{task, time};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -22,19 +20,16 @@ async fn main() -> Result<()> {
 
     info!("elisa version {VERSION}");
 
-    let vacuum_token = std::env::var("VACUUM_TOKEN").expect("set ENV variable VACUUM_TOKEN");
-    let vacuum_token = parse_token::<16>(&vacuum_token);
-
-    let vacuum_ip = std::env::var("VACUUM_IP")
+    let vacuum_ip = std::env::var("ROBOROCK_IP")
         .unwrap_or("10.0.1.150".to_string())
         .parse()?;
 
-    let mut vacuum = Vacuum::new(vacuum_ip, vacuum_token);
-    if let Ok(status) = vacuum.status().await {
-        info!("vacuum status: {:?}", status);
-    }
+    let vacuum_duid = std::env::var("ROBOROCK_DUID").expect("set ENV variable ROBOROCK_DUID");
+    let vacuum_local_key =
+        std::env::var("ROBOROCK_LOCAL_KEY").expect("set ENV variable ROBOROCK_LOCAL_KEY");
 
-    let vacuum = Arc::from(Mutex::from(vacuum));
+    let vacuum = Vacuum::new(vacuum_ip, vacuum_duid, vacuum_local_key).await?;
+    let vacuum_queue = Arc::new(VacuumQueue::new(vacuum));
 
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");
@@ -42,9 +37,11 @@ async fn main() -> Result<()> {
     let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "elisa").await?;
     info!("connected mqtt");
 
+    let disable_polling =
+        std::env::var("ELISA_DISABLE_POLLING").map_or(false, |value| value == "1");
     let (set_handle, state_handle) = tokio::try_join!(
-        task::spawn(subscribe_actions(mqtt_client.clone(), vacuum.clone())),
-        task::spawn(subscribe_state(mqtt_client, vacuum))
+        task::spawn(subscribe_actions(mqtt_client.clone(), vacuum_queue.clone())),
+        task::spawn(subscribe_state(mqtt_client, vacuum_queue, disable_polling))
     )?;
 
     set_handle?;
@@ -53,7 +50,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
+async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     let topics = [
@@ -112,15 +109,25 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Re
     Ok(())
 }
 
-async fn subscribe_state(mqtt: MqClient, vacuum: Arc<Mutex<Vacuum>>) -> Result<()> {
+async fn subscribe_state(
+    mqtt: MqClient,
+    vacuum: Arc<VacuumQueue>,
+    disable_polling: bool,
+) -> Result<()> {
     let mut timer = time::interval(Duration::from_secs(10));
 
     loop {
         timer.tick().await;
-        let mut vacuum = vacuum.lock().await;
+        if disable_polling {
+            continue;
+        }
 
-        if let Ok(status) = vacuum.status().await {
-            let state = prepare_state(status, vacuum.last_cleaning_rooms());
+        if let Ok((status, rooms)) = vacuum.get_status().await {
+            info!(
+                "roborock modes: mop={:?}, water_box={:?}, wash_status={:?}, wash_phase={:?}",
+                status.mop_mode, status.water_box_mode, status.wash_status, status.wash_phase
+            );
+            let state = prepare_state(status, &rooms);
             info!("publishing state: {:?}", state);
 
             let topic = Topic::StateUpdate;

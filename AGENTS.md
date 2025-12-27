@@ -26,6 +26,11 @@
 - After implementing a task or fixing a bug, run `cargo test` to ensure no regressions.
 - Run all tests with `cargo test`; for Docker build validation use `make test`.
 - Add tests alongside the module you are changing to keep coverage close to the code.
+- Manual `elisa` MQTT checks: publish to `action/request` and `state/request` with MQTT v5 `ResponseTopic` set; responses arrive on `action/response/<uuid>` or `state/response/<uuid>`.
+- Example action request (cleanup + speed in one payload):
+  - `mosquitto_pub -h localhost -p 1883 -u elisa -P 123mqtt -t action/request -V mqttv5 -D publish response-topic action/response/TEST-UUID -m '{"actions":[{"elisa":[{"set_cleanup_mode":"dry_cleaning"},"ID-1"]},{"elisa":[{"set_work_speed":"turbo"},"ID-2"]}]}'`
+- Example state request:
+  - `mosquitto_pub -h localhost -p 1883 -u elisa -P 123mqtt -t state/request -V mqttv5 -D publish response-topic state/response/TEST-UUID -m '{"device_ids":["vacuum_cleaner/living_room"]}'`
 
 ## Commit & Pull Request Guidelines
 - Commit messages are short, imperative sentences (e.g., “Increase refresh token expiration duration”).
@@ -38,6 +43,16 @@
 ## Security & Configuration Tips
 - Several run targets expect secrets from 1Password (`op read ...`) and MQTT credentials; avoid hard-coding secrets.
 - Keep local config in env vars and document new required variables in the PR description.
+
+## Roborock Local Notes
+- `lib/roborock` supports L01 local protocol only; V1/A01/B01/MAP are not implemented.
+- Local RPC responses can arrive as `GeneralResponse` (5) or `RpcResponse` (102); handle both.
+- RPC payload format: outer `{"dps":{"101":"<inner_json>"},"t":<unix_timestamp>}`, inner `{"id":<request_id>,"method":"<method>","params":<params>}`.
+- `set_custom_mode` uses params list: `[<fan_speed_code>]`.
+- `set_water_box_custom_mode` uses params object: `{"water_box_mode": <code>}`.
+- `app_segment_clean` uses params list: `[{ "segments": [<segment_id>], "repeat": 1 }]`.
+- When stopping `elisa` locally, prefer `pkill -f target/debug/elisa` over `pgrep`.
+- Set `ELISA_DISABLE_POLLING=1` to disable status polling during manual command tests.
 
 ## Rust Toolchain & Base Builder Tags
 - `rust-toolchain.toml` pins the local Rust toolchain (e.g., `channel = "1.92.0"`).

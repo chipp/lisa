@@ -22,45 +22,49 @@ use std::{
 };
 
 use crate::{event::parse_event, Event, MacAddr};
+use super::{Error, Result};
 
 pub struct Scanner {
     dd: Arc<Mutex<c_int>>,
 }
 
 impl super::ScannerTrait for Scanner {
-    fn new() -> Scanner {
+    fn new() -> Result<Scanner> {
         let dev_id = unsafe { hci_get_route(std::ptr::null()) };
 
         let dd = unsafe { hci_open_dev(dev_id) };
         if dd < 0 {
-            panic!("Could not open device: {}", IoError::last_os_error());
+            return Err(Error::new("could not open device", IoError::last_os_error()));
         }
 
         unsafe {
             if libc::ioctl(dd, HCIDEVDOWN, dev_id) < 0 {
                 hci_close_dev(dd);
-                panic!("Could not down hdi{}: {}", dev_id, IoError::last_os_error());
+                return Err(Error::new("could not down hci device", IoError::last_os_error()));
             }
 
             if libc::ioctl(dd, HCIDEVUP, dev_id) < 0 {
                 hci_close_dev(dd);
-                panic!("Could not up hdi{}: {}", dev_id, IoError::last_os_error());
+                return Err(Error::new("could not up hci device", IoError::last_os_error()));
             }
         }
 
-        Scanner {
+        Ok(Scanner {
             dd: Arc::from(Mutex::from(dd)),
-        }
+        })
     }
 
-    fn start_scan(&mut self) -> Receiver<(MacAddr, Event)> {
+    fn start_scan(&mut self) -> Result<Receiver<(MacAddr, Event)>> {
         unsafe {
             let dd = *self.dd.lock().unwrap();
             if hci_le_set_scan_parameters(dd, 0x01, htobs(0x0010), htobs(0x0010), 0x00, 0x00, 1000)
                 < 0
             {
                 hci_close_dev(dd);
-                panic!("Set scan parameters failed: {}", IoError::last_os_error());
+                return Err(Error::new(
+                    "set scan parameters failed",
+                    IoError::last_os_error(),
+                ));
             }
         }
 
@@ -68,7 +72,7 @@ impl super::ScannerTrait for Scanner {
             let dd = *self.dd.lock().unwrap();
             if hci_le_set_scan_enable(dd, 0x01, 0x00, 1000) < 0 {
                 hci_close_dev(dd);
-                panic!("Enable scan failed: {}", IoError::last_os_error());
+                return Err(Error::new("enable scan failed", IoError::last_os_error()));
             }
         }
 
@@ -79,7 +83,7 @@ impl super::ScannerTrait for Scanner {
 
         std::thread::spawn(move || unsafe { Self::read_events(dd, tx) });
 
-        rx
+        Ok(rx)
     }
 }
 
@@ -87,7 +91,7 @@ impl Scanner {
     unsafe fn stop_scan(dd: c_int) {
         let err = hci_le_set_scan_enable(dd, 0x00, 0x00, 1000);
         if err < 0 {
-            panic!("Disable scan failed: {}", IoError::last_os_error());
+            error!("Disable scan failed: {}", IoError::last_os_error());
         }
 
         hci_close_dev(dd);
@@ -109,7 +113,8 @@ impl Scanner {
             &mut olen,
         ) < 0
         {
-            panic!("Could not get socket options: {}", IoError::last_os_error());
+            error!("Could not get socket options: {}", IoError::last_os_error());
+            return;
         }
 
         hci_filter_set_ptype(HCI_EVENT_PKT, nf.as_mut_ptr());
@@ -123,7 +128,8 @@ impl Scanner {
             std::mem::size_of::<HciFilter>() as u32,
         ) < 0
         {
-            panic!("Could not set socket options: {}", IoError::last_os_error());
+            error!("Could not set socket options: {}", IoError::last_os_error());
+            return;
         }
 
         let mut buf = [0; HCI_MAX_EVENT_SIZE as usize];

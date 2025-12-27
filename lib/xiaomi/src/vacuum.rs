@@ -19,6 +19,19 @@ use crypto::Token;
 use log::info;
 use serde_json::from_value;
 
+#[derive(Debug)]
+struct StartError {
+    bin_type: BinType,
+}
+
+impl std::fmt::Display for StartError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "unsupported bin type for start: {}", self.bin_type)
+    }
+}
+
+impl std::error::Error for StartError {}
+
 pub struct Vacuum {
     executor: Box<dyn CommandExecutorTrait + Send>,
     last_cleaning_rooms: Vec<u8>,
@@ -86,7 +99,12 @@ impl Vacuum {
         info!("{} and {}", status.bin_type, status.clean_mode);
 
         match (status.bin_type, status.clean_mode) {
-            (BinType::NoBin | BinType::Water, _) => todo!(),
+            (BinType::NoBin | BinType::Water, _) => {
+                return Err(StartError {
+                    bin_type: status.bin_type,
+                }
+                .into());
+            }
             (BinType::Vacuum, CleanMode::Vacuum)
             | (BinType::VacuumAndWater, CleanMode::VacuumAndMop) => {
                 info!("don't change clean mode");
@@ -264,6 +282,40 @@ mod tests {
 
         assert!(vacuum.start(vec![10, 11, 12]).await.is_ok());
         assert_eq!(vacuum.last_cleaning_rooms, vec![10, 11, 12]);
+    }
+
+    #[tokio::test]
+    async fn test_start_no_bin_fails() {
+        let mut mock = MockExecutor::new();
+
+        mock.expect_execute_command()
+            .withf(|cmd| cmd == &GetProperties(PROPERTIES))
+            .once()
+            .returning(|_| Ok(json!([100, 0, 0, 1, 0, 11])));
+
+        let mut vacuum = Vacuum {
+            executor: Box::new(mock),
+            last_cleaning_rooms: vec![],
+        };
+
+        assert!(vacuum.start(vec![10, 11, 12]).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_start_water_bin_fails() {
+        let mut mock = MockExecutor::new();
+
+        mock.expect_execute_command()
+            .withf(|cmd| cmd == &GetProperties(PROPERTIES))
+            .once()
+            .returning(|_| Ok(json!([100, 2, 0, 1, 0, 11])));
+
+        let mut vacuum = Vacuum {
+            executor: Box::new(mock),
+            last_cleaning_rooms: vec![],
+        };
+
+        assert!(vacuum.start(vec![10, 11, 12]).await.is_err());
     }
 
     #[tokio::test]

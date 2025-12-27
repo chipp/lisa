@@ -15,7 +15,7 @@ pub struct Status {
     pub water_grade: WaterGrade,
 }
 
-#[derive(Debug, Deserialize_repr, PartialEq)]
+#[derive(Debug, Deserialize_repr, PartialEq, Copy, Clone)]
 #[repr(u8)]
 pub enum BinType {
     NoBin = 0,

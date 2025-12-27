@@ -201,7 +201,7 @@ fn handle_elisa_capabilities(
 ) -> Vec<UpdateStateCapability> {
     let actions: Vec<_> = capabilities
         .iter()
-        .map(|capability| map_elisa_action(capability, room).unwrap())
+        .filter_map(|capability| map_elisa_action(capability, room))
         .collect();
 
     trace!("elisa actions: {:?}", actions);
@@ -250,9 +250,7 @@ fn map_elizabeth_action(state_capability: &StateCapability) -> Option<ElizabethA
         StateCapability::Mode {
             function: ModeFunction::FanSpeed,
             mode,
-        } => Some(ElizabethActionType::SetFanSpeed(map_mode_to_fan_speed(
-            *mode,
-        ))),
+        } => map_mode_to_fan_speed(*mode).map(ElizabethActionType::SetFanSpeed),
         StateCapability::Range {
             function: RangeFunction::Temperature,
             value,
@@ -280,7 +278,7 @@ fn map_elisa_action(state_capability: &StateCapability, room: Room) -> Option<El
         StateCapability::Mode {
             function: ModeFunction::WorkSpeed,
             mode,
-        } => Some(ElisaAction::SetWorkSpeed(map_mode_to_work_speed(*mode))),
+        } => map_mode_to_work_speed(*mode).map(ElisaAction::SetWorkSpeed),
         StateCapability::Toggle {
             function: ToggleFunction::Pause,
             value,
@@ -301,25 +299,27 @@ fn map_elisa_action(state_capability: &StateCapability, room: Room) -> Option<El
     }
 }
 
-fn map_mode_to_fan_speed(mode: alice::Mode) -> transport::elizabeth::FanSpeed {
+fn map_mode_to_fan_speed(mode: alice::Mode) -> Option<transport::elizabeth::FanSpeed> {
     match mode {
-        alice::Mode::Low => transport::elizabeth::FanSpeed::Low,
-        alice::Mode::Medium => transport::elizabeth::FanSpeed::Medium,
-        alice::Mode::High => transport::elizabeth::FanSpeed::High,
+        alice::Mode::Low => Some(transport::elizabeth::FanSpeed::Low),
+        alice::Mode::Medium => Some(transport::elizabeth::FanSpeed::Medium),
+        alice::Mode::High => Some(transport::elizabeth::FanSpeed::High),
         alice::Mode::Quiet | alice::Mode::Normal | alice::Mode::Turbo => {
-            panic!("Unsupported mode {} for recuperator", mode)
+            error!("Unsupported mode {} for recuperator", mode);
+            None
         }
     }
 }
 
-fn map_mode_to_work_speed(mode: alice::Mode) -> transport::elisa::WorkSpeed {
+fn map_mode_to_work_speed(mode: alice::Mode) -> Option<transport::elisa::WorkSpeed> {
     match mode {
-        alice::Mode::Quiet => transport::elisa::WorkSpeed::Silent,
-        alice::Mode::Normal => transport::elisa::WorkSpeed::Standard,
-        alice::Mode::Medium => transport::elisa::WorkSpeed::Medium,
-        alice::Mode::Turbo => transport::elisa::WorkSpeed::Turbo,
+        alice::Mode::Quiet => Some(transport::elisa::WorkSpeed::Silent),
+        alice::Mode::Normal => Some(transport::elisa::WorkSpeed::Standard),
+        alice::Mode::Medium => Some(transport::elisa::WorkSpeed::Medium),
+        alice::Mode::Turbo => Some(transport::elisa::WorkSpeed::Turbo),
         alice::Mode::Low | alice::Mode::High => {
-            panic!("Unsupported mode {} for vacuum cleaner", mode)
+            error!("Unsupported mode {} for vacuum cleaner", mode);
+            None
         }
     }
 }
@@ -383,37 +383,39 @@ mod tests {
     #[test]
     fn map_fan_speed() {
         assert_eq!(
-            map_mode_to_fan_speed(Mode::Low),
+            map_mode_to_fan_speed(Mode::Low).unwrap(),
             transport::elizabeth::FanSpeed::Low
         );
         assert_eq!(
-            map_mode_to_fan_speed(Mode::Medium),
+            map_mode_to_fan_speed(Mode::Medium).unwrap(),
             transport::elizabeth::FanSpeed::Medium
         );
         assert_eq!(
-            map_mode_to_fan_speed(Mode::High),
+            map_mode_to_fan_speed(Mode::High).unwrap(),
             transport::elizabeth::FanSpeed::High
         );
+        assert!(map_mode_to_fan_speed(Mode::Quiet).is_none());
     }
 
     #[test]
     fn map_work_speed() {
         assert_eq!(
-            map_mode_to_work_speed(Mode::Quiet),
+            map_mode_to_work_speed(Mode::Quiet).unwrap(),
             transport::elisa::WorkSpeed::Silent
         );
         assert_eq!(
-            map_mode_to_work_speed(Mode::Normal),
+            map_mode_to_work_speed(Mode::Normal).unwrap(),
             transport::elisa::WorkSpeed::Standard
         );
         assert_eq!(
-            map_mode_to_work_speed(Mode::Medium),
+            map_mode_to_work_speed(Mode::Medium).unwrap(),
             transport::elisa::WorkSpeed::Medium
         );
         assert_eq!(
-            map_mode_to_work_speed(Mode::Turbo),
+            map_mode_to_work_speed(Mode::Turbo).unwrap(),
             transport::elisa::WorkSpeed::Turbo
         );
+        assert!(map_mode_to_work_speed(Mode::Low).is_none());
     }
 
     #[test]

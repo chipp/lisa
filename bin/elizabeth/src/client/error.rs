@@ -6,6 +6,7 @@ use transport::{DeviceType, Room};
 pub enum Error {
     UnsupportedDevice(String),
     MissingCapability(&'static str, DeviceType, Room),
+    MissingPort(&'static str, DeviceType, Room),
 }
 
 impl fmt::Display for Error {
@@ -15,6 +16,10 @@ impl fmt::Display for Error {
             Error::MissingCapability(capability, device_type, room) => f.write_fmt(format_args!(
                 "missing capability `{}` for device {} in room {}",
                 capability, device_type, room
+            )),
+            Error::MissingPort(port, device_type, room) => f.write_fmt(format_args!(
+                "missing port `{}` for device {} in room {}",
+                port, device_type, room
             )),
         }
     }

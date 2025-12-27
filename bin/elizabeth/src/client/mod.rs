@@ -15,7 +15,7 @@ use tokio::time::timeout;
 
 use crate::Result;
 use inspinia::{
-    download_template, Device, DeviceManager, PortName, PortState, PortType, ReceivedMessage,
+    download_template, Device, DeviceManager, Port, PortName, PortState, PortType, ReceivedMessage,
     RegisterMessage, UpdateMessageContent, UpdateStateMessage, WsClient, WsError,
 };
 use transport::elizabeth::{self, Capability, State};
@@ -281,20 +281,16 @@ impl Client {
                 continue;
             }
 
-            for (id, port) in thermostat.ports.iter() {
-                if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
-                    self.client
-                        .send_message(UpdateStateMessage::new(false, id, &port.name, value))
-                        .await?;
+            if let Some((id, port)) = find_output_port(thermostat, PortName::OnOff) {
+                self.client
+                    .send_message(UpdateStateMessage::new(false, id, &port.name, value))
+                    .await?;
 
-                    return Ok(());
-                } else {
-                    continue;
-                }
+                return Ok(());
             }
         }
 
-        panic!("set_is_enabled_in_room")
+        Err(Error::MissingPort("OnOff", DeviceType::Thermostat, room).into())
     }
 
     pub async fn set_thermostat_temperature(
@@ -313,20 +309,16 @@ impl Client {
                 continue;
             }
 
-            for (id, port) in thermostat.ports.iter() {
-                if let (PortName::SetTemp, PortType::Output) = (&port.name, &port.r#type) {
-                    self.client
-                        .send_message(UpdateStateMessage::new(false, id, &port.name, &temp))
-                        .await?;
+            if let Some((id, port)) = find_output_port(thermostat, PortName::SetTemp) {
+                self.client
+                    .send_message(UpdateStateMessage::new(false, id, &port.name, &temp))
+                    .await?;
 
-                    return Ok(());
-                } else {
-                    continue;
-                }
+                return Ok(());
             }
         }
 
-        panic!("set_temperature_in_room")
+        Err(Error::MissingPort("SetTemp", DeviceType::Thermostat, room).into())
     }
 }
 
@@ -338,19 +330,20 @@ impl Client {
 
         let recuperator = Self::get_recuperator(&self.db_path)?;
 
-        for (id, port) in recuperator.ports.iter() {
-            if let (PortName::OnOff, PortType::Output) = (&port.name, &port.r#type) {
-                self.client
-                    .send_message(UpdateStateMessage::new(false, id, &port.name, value))
-                    .await?;
+        if let Some((id, port)) = find_output_port(&recuperator, PortName::OnOff) {
+            self.client
+                .send_message(UpdateStateMessage::new(false, id, &port.name, value))
+                .await?;
 
-                return Ok(());
-            } else {
-                continue;
-            }
+            return Ok(());
         }
 
-        panic!("set_is_enabled_on_recuperator")
+        Err(Error::MissingPort(
+            "OnOff",
+            DeviceType::Recuperator,
+            transport::Room::LivingRoom,
+        )
+        .into())
     }
 
     pub async fn set_recuperator_fan_speed(&mut self, value: elizabeth::FanSpeed) -> Result<()> {
@@ -361,19 +354,20 @@ impl Client {
         let device_manager = DeviceManager::new(&self.db_path)?;
         let recuperator = device_manager.get_recuperator_in_room(inspinia::Room::LivingRoom)?;
 
-        for (id, port) in recuperator.ports.iter() {
-            if let (PortName::FanSpeed, PortType::Output) = (&port.name, &port.r#type) {
-                self.client
-                    .send_message(UpdateStateMessage::new(false, id, &port.name, &value))
-                    .await?;
+        if let Some((id, port)) = find_output_port(&recuperator, PortName::FanSpeed) {
+            self.client
+                .send_message(UpdateStateMessage::new(false, id, &port.name, &value))
+                .await?;
 
-                return Ok(());
-            } else {
-                continue;
-            }
+            return Ok(());
         }
 
-        panic!("set_fan_speed_on_recuperator")
+        Err(Error::MissingPort(
+            "FanSpeed",
+            DeviceType::Recuperator,
+            transport::Room::LivingRoom,
+        )
+        .into())
     }
 }
 
@@ -394,6 +388,16 @@ fn prepare_capability(name: &PortName, value: &str) -> Option<Capability> {
         }
         PortName::Mode => None,
     }
+}
+
+fn find_output_port<'a>(device: &'a Device, port_name: PortName) -> Option<(&'a str, &'a Port)> {
+    device
+        .ports
+        .iter()
+        .find_map(|(id, port)| match (&port.name, &port.r#type) {
+            (name, PortType::Output) if *name == port_name => Some((id.as_str(), port)),
+            _ => None,
+        })
 }
 
 fn from_inspinia_room(room: inspinia::Room) -> transport::Room {
@@ -435,6 +439,29 @@ fn token_as_uuid(mut token: String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    fn device_with_port(port_name: PortName, port_type: PortType) -> Device {
+        let mut ports = HashMap::new();
+        ports.insert(
+            "port-1".to_string(),
+            Port {
+                name: port_name,
+                r#type: port_type,
+            },
+        );
+
+        Device {
+            id: "device-1".to_string(),
+            room: inspinia::Room::LivingRoom,
+            properties: inspinia::Properties {
+                controls: vec![],
+                min_temp: 0,
+                max_temp: 0,
+                step: 1.0,
+            },
+            ports,
+        }
+    }
 
     #[test]
     fn test_token_as_uuid() {
@@ -442,5 +469,26 @@ mod tests {
             token_as_uuid("4cfdc2e157eefe6facb983b1d557b3a1".to_string()),
             "4cfdc2e1-57ee-fe6f-acb9-83b1d557b3a1".to_string()
         );
+    }
+
+    #[test]
+    fn find_output_port_matches_by_name() {
+        let device = device_with_port(PortName::OnOff, PortType::Output);
+        let (id, port) = find_output_port(&device, PortName::OnOff).expect("missing port");
+
+        assert_eq!(id, "port-1");
+        assert_eq!(port.name, PortName::OnOff);
+    }
+
+    #[test]
+    fn find_output_port_requires_output() {
+        let device = device_with_port(PortName::OnOff, PortType::Input);
+        assert!(find_output_port(&device, PortName::OnOff).is_none());
+    }
+
+    #[test]
+    fn find_output_port_returns_none_for_missing_port() {
+        let device = device_with_port(PortName::OnOff, PortType::Output);
+        assert!(find_output_port(&device, PortName::FanSpeed).is_none());
     }
 }

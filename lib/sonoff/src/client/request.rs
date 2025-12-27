@@ -30,7 +30,7 @@ struct Switch {
 }
 
 impl RequestBody<'_> {
-    pub fn new(is_enabled: bool, device_id: &str, key: Token<16>) -> RequestBody {
+    pub fn new(is_enabled: bool, device_id: &str, key: Token<16>) -> RequestBody<'_> {
         let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let timestamp = timestamp.as_millis().to_string();
 

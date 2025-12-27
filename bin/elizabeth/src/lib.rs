@@ -65,7 +65,7 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, inspinia: 
     }
 }
 
-fn try_updating_state(action: Action, inspinia: &mut Client) -> BoxFuture<Result<()>> {
+fn try_updating_state(action: Action, inspinia: &mut Client) -> BoxFuture<'_, Result<()>> {
     async move {
         match update_state(action, inspinia).await {
             Ok(()) => Ok(()),

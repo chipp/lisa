@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
 }
 
 async fn subscribe_state(mqtt: MqClient, db_path: &str) -> Result<()> {
-    let mut scanner = Scanner::new();
+    let mut scanner = Scanner::new()?;
 
     fn match_addr_to_room(addr: MacAddr) -> Option<Room> {
         match addr.octets {
@@ -48,7 +48,7 @@ async fn subscribe_state(mqtt: MqClient, db_path: &str) -> Result<()> {
         }
     }
 
-    let mut rx = scanner.start_scan();
+    let mut rx = scanner.start_scan()?;
     let db = Db::new(&db_path);
 
     while let Some((addr, event)) = rx.recv().await {

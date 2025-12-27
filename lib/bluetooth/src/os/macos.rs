@@ -6,15 +6,16 @@ use log::{debug, trace};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
 use crate::{event::parse_event, Event, MacAddr};
+use super::Result;
 
 pub struct Scanner;
 
 impl super::ScannerTrait for Scanner {
-    fn new() -> Scanner {
-        Scanner
+    fn new() -> Result<Scanner> {
+        Ok(Scanner)
     }
 
-    fn start_scan(&mut self) -> Receiver<(MacAddr, Event)> {
+    fn start_scan(&mut self) -> Result<Receiver<(MacAddr, Event)>> {
         let (tx, rx) = mpsc::channel(1);
 
         std::thread::spawn(move || {
@@ -26,7 +27,7 @@ impl super::ScannerTrait for Scanner {
             }
         });
 
-        rx
+        Ok(rx)
     }
 }
 

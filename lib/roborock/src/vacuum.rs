@@ -376,11 +376,10 @@ impl Vacuum {
 
 fn state_from_code(code: i64) -> State {
     match code {
-        1 | 2 => State::Idle,
-        3 | 6 => State::Cleaning,
-        4 => State::Returning,
-        5 => State::Docked,
-        8 => State::Docked,
+        1 | 4 | 5 | 7 | 11 | 16 | 17 | 18 | 22 | 23 | 25 | 29 | 6301..=6309 => State::Cleaning,
+        2 | 3 => State::Idle,
+        6 | 15 | 26 => State::Returning,
+        8 | 9 | 100 => State::Docked,
         10 => State::Paused,
         _ => State::Unknown,
     }
@@ -429,6 +428,14 @@ fn cleanup_mode_to_water_box_mode(mode: CleanupMode) -> WaterBoxMode {
 }
 
 fn state_from_status(status: &serde_json::Value) -> State {
+    let state_code = status.get("state").and_then(|value| value.as_i64());
+    if let Some(code) = state_code {
+        let mapped = state_from_code(code);
+        if mapped != State::Unknown {
+            return mapped;
+        }
+    }
+
     let in_cleaning = status.get("in_cleaning").and_then(|value| value.as_i64());
     if in_cleaning == Some(1) {
         return State::Cleaning;
@@ -441,11 +448,7 @@ fn state_from_status(status: &serde_json::Value) -> State {
     if charge_status == Some(1) {
         return State::Docked;
     }
-    let state_code = status
-        .get("state")
-        .and_then(|value| value.as_i64())
-        .unwrap_or(-1);
-    state_from_code(state_code)
+    State::Unknown
 }
 
 fn fan_from_code(code: i64) -> FanSpeed {

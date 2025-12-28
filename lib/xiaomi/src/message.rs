@@ -1,9 +1,7 @@
 mod encryption;
-use std::fmt;
-
 use md5::{Digest, Md5};
 
-use crate::Result;
+use crate::{Error, Result};
 use crypto::{cbc::decrypt, cbc::encrypt, Token};
 
 #[derive(Debug)]
@@ -13,23 +11,14 @@ pub struct Message {
     data: Vec<u8>,
 }
 
-#[derive(Debug)]
-struct InvalidChecksum;
-
-impl fmt::Display for InvalidChecksum {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid data checksum")
-    }
-}
-
-impl std::error::Error for InvalidChecksum {}
-
 impl Message {
     pub fn encode(data: Vec<u8>, token: Token<16>, id: u32, send_ts: u32) -> Result<Message> {
         let mut data = data;
         let (key, iv) = encryption::key_iv_from_token(token);
 
-        let data = encrypt(&mut data, key, iv)?.to_vec();
+        let data = encrypt(&mut data, key, iv)
+            .map_err(Error::CryptoEncrypt)?
+            .to_vec();
 
         let header = Header {
             id,
@@ -50,13 +39,15 @@ impl Message {
         let checksum = Self::checksum(&self.header, &token, &self.data);
 
         if checksum != self.checksum {
-            return Err(InvalidChecksum.into());
+            return Err(Error::InvalidChecksum);
         }
 
         let mut data = self.data;
 
         let (key, iv) = encryption::key_iv_from_token(token);
-        let mut data = decrypt(&mut data, key, iv)?.to_vec();
+        let mut data = decrypt(&mut data, key, iv)
+            .map_err(Error::CryptoDecrypt)?
+            .to_vec();
         while data.ends_with(&[0x0]) {
             data.pop();
         }
@@ -252,6 +243,6 @@ mod tests {
         };
 
         let error = message.decode(CHECKSUM).unwrap_err();
-        error.downcast::<InvalidChecksum>().unwrap();
+        assert!(matches!(error, Error::InvalidChecksum));
     }
 }

@@ -25,6 +25,7 @@
 - Run `cargo fmt` after each change.
 - After implementing a task or fixing a bug, run `cargo test` to ensure no regressions.
 - Do not commit until `cargo fmt`, `cargo check`, and `cargo test` have been run successfully.
+- Before marking a todo list step complete, run `cargo fmt`, `cargo check`, and `cargo test`, then stop for review and commit the changes to the branch.
 - Run all tests with `cargo test`; for Docker build validation use `make test`.
 - Add tests alongside the module you are changing to keep coverage close to the code.
 - Manual `elisa` MQTT checks: publish to `action/request` and `state/request` with MQTT v5 `ResponseTopic` set; responses arrive on `action/response/<uuid>` or `state/response/<uuid>`.
@@ -38,9 +39,13 @@
 - Only commit after `cargo fmt`, `cargo check`, and `cargo test` have completed successfully.
 - PRs should explain the change, link related issues, and include notes on config/env changes.
 - If the change affects runtime behavior, add a brief manual test note or log snippet.
+- Testing sections should include only manual test commands that were actually run; omit `cargo fmt/check/test`.
+- If no manual testing was performed, omit the Testing section entirely.
+- Example testing section:
+  - `Testing: mosquitto_pub -h localhost -p 1883 -u elisa -P 123mqtt -t action/request -V mqttv5 -D publish response-topic action/response/TEST-UUID -m '{"actions":[{"elisa":[{"set_cleanup_mode":"dry_cleaning"},"ID-1"]}]}'`
 - Use `gt` (Graphite) for managing PRs in this project.
 - For multi-step plans, create a draft PR when starting implementation and update the PR after each completed step.
-- After plan completion let's update the PR description (you can use `gh` for that) and publish it.
+- After plan completion update the PR description using `gh`, then publish it.
 
 ## Security & Configuration Tips
 - Several run targets expect secrets from 1Password (`op read ...`) and MQTT credentials; avoid hard-coding secrets.

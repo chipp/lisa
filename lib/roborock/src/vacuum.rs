@@ -4,9 +4,8 @@ use std::time::Duration;
 use log::{info, warn};
 
 use crate::local::TcpLocalConnection;
-use crate::protocol::DecodeError;
 use crate::util::Counter;
-use crate::Result;
+use crate::{Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FanSpeed {
@@ -500,7 +499,7 @@ impl Vacuum {
             {
                 Ok(result) => return Ok(result),
                 Err(err) => {
-                    if attempt >= 1 || !should_retry(err.as_ref()) {
+                    if attempt >= 1 || !should_retry(&err) {
                         return Err(err);
                     }
                     let next_attempt = attempt + 1;
@@ -639,24 +638,22 @@ fn fan_to_code(speed: FanSpeed) -> i64 {
     }
 }
 
-fn should_retry(err: &(dyn std::error::Error + 'static)) -> bool {
-    if err.downcast_ref::<DecodeError>().is_some() {
-        return true;
+fn should_retry(err: &Error) -> bool {
+    match err {
+        Error::Decode(_) => true,
+        Error::Io(io_err) => {
+            use std::io::ErrorKind;
+            matches!(
+                io_err.kind(),
+                ErrorKind::BrokenPipe
+                    | ErrorKind::ConnectionReset
+                    | ErrorKind::ConnectionAborted
+                    | ErrorKind::NotConnected
+                    | ErrorKind::UnexpectedEof
+                    | ErrorKind::TimedOut
+            )
+        }
+        Error::Timeout(_) | Error::ConnectionClosed => true,
+        _ => false,
     }
-    if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
-        use std::io::ErrorKind;
-        return matches!(
-            io_err.kind(),
-            ErrorKind::BrokenPipe
-                | ErrorKind::ConnectionReset
-                | ErrorKind::ConnectionAborted
-                | ErrorKind::NotConnected
-                | ErrorKind::UnexpectedEof
-                | ErrorKind::TimedOut
-        );
-    }
-    let message = err.to_string();
-    message.contains("connection closed")
-        || message.contains("Broken pipe")
-        || message.contains("deadline has elapsed")
 }

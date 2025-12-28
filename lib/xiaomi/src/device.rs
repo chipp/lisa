@@ -3,7 +3,7 @@ use response::Response;
 
 use crate::discover::discover;
 use crate::message::{Header, Message};
-use crate::Result;
+use crate::{Error, Result};
 use crypto::Token;
 
 use std::{
@@ -17,7 +17,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::{
     net::UdpSocket,
-    time::{error::Elapsed, timeout, Duration},
+    time::{timeout, Duration},
 };
 
 pub struct Device {
@@ -81,16 +81,16 @@ impl Device {
                         Response::Ok { id: _, result } => Ok(result),
                         Response::Err { id: _, error } => {
                             error!("{:?}", error);
-                            Err(Box::new(error))
+                            Err(Error::DeviceResponse(error.code))
                         }
                     };
                 }
-                Err(err) => match err.downcast::<Elapsed>() {
-                    Ok(_) => {
+                Err(err) => match err {
+                    Error::Timeout(_) => {
                         self.set_command_id(self.command_id + 50);
                         error!("retrying with command_id {}", self.command_id)
                     }
-                    Err(err) => return Err(err),
+                    err => return Err(err),
                 },
             };
         }

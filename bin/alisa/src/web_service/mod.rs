@@ -32,7 +32,9 @@ use axum::routing::{get, head, post};
 use axum::Router;
 use log::error;
 
-pub struct ServiceError(Box<dyn std::error::Error + Send + Sync>, uuid::Uuid);
+use crate::Error;
+
+pub struct ServiceError(Error, uuid::Uuid);
 
 impl IntoResponse for ServiceError {
     fn into_response(self) -> Response<Body> {
@@ -42,9 +44,21 @@ impl IntoResponse for ServiceError {
     }
 }
 
-impl<T: std::error::Error + Sync + Send + 'static> From<T> for ServiceError {
-    fn from(value: T) -> Self {
-        ServiceError(Box::new(value), uuid::Uuid::new_v4())
+impl From<Error> for ServiceError {
+    fn from(value: Error) -> Self {
+        ServiceError(value, uuid::Uuid::new_v4())
+    }
+}
+
+impl From<paho_mqtt::Error> for ServiceError {
+    fn from(value: paho_mqtt::Error) -> Self {
+        ServiceError(Error::Mqtt(value), uuid::Uuid::new_v4())
+    }
+}
+
+impl From<serde_json::Error> for ServiceError {
+    fn from(value: serde_json::Error) -> Self {
+        ServiceError(Error::Json(value), uuid::Uuid::new_v4())
     }
 }
 

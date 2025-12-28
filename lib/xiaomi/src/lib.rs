@@ -3,7 +3,9 @@ mod discover;
 mod message;
 mod vacuum;
 
+mod error;
+pub use error::Error;
+
 pub use vacuum::{FanSpeed, Status, Vacuum};
 
-pub type ErasedError = Box<dyn std::error::Error + Send + Sync>;
-pub type Result<T> = std::result::Result<T, ErasedError>;
+pub type Result<T> = std::result::Result<T, Error>;

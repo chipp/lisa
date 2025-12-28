@@ -23,6 +23,7 @@ This document provides a concise summary of project-specific guidelines for Gemi
    - Run `cargo fmt` before submitting.
    - Add/run unit tests using `cargo test`.
    - Do not commit until `cargo fmt`, `cargo check`, and `cargo test` have succeeded.
+   - Before completing a todo list step, run validations, stop for review, and commit the changes to the branch.
 4. **Hardware Specifics:** Refer to `AGENTS.md` for Roborock, Inspinia, or Sonoff specific protocol details.
 
 ## Testing
@@ -33,3 +34,10 @@ This document provides a concise summary of project-specific guidelines for Gemi
 - Use short, imperative sentences (e.g., "Add timeout to Roborock discovery").
 - Style should match existing commit history (`git log -n 3`).
 - Only commit after `cargo fmt`, `cargo check`, and `cargo test` have completed successfully.
+
+## Pull Requests
+- Update PR descriptions using `gh`.
+- Testing sections should include only manual test commands that were actually run; omit `cargo fmt/check/test`.
+- If no manual testing was performed, omit the Testing section entirely.
+- Example testing section:
+  - `Testing: mosquitto_pub -h localhost -p 1883 -u elisa -P 123mqtt -t action/request -V mqttv5 -D publish response-topic action/response/TEST-UUID -m '{"actions":[{"elisa":[{"set_cleanup_mode":"dry_cleaning"},"ID-1"]}]}'`

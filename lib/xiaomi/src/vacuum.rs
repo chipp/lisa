@@ -4,33 +4,20 @@ mod status;
 
 use std::net::Ipv4Addr;
 
-pub use status::{FanSpeed, Status, WaterGrade};
+pub use status::{BinType, FanSpeed, Status, WaterGrade};
 
 use command::Command::{self, *};
 use command::Mode::*;
 use command_executor::{CommandExecutor, CommandExecutorTrait};
 
-use status::{BinType, CleanMode};
+use status::CleanMode;
 
 use crate::device::Device;
-use crate::Result;
+use crate::{Error, Result};
 use crypto::Token;
 
 use log::info;
 use serde_json::from_value;
-
-#[derive(Debug)]
-struct StartError {
-    bin_type: BinType,
-}
-
-impl std::fmt::Display for StartError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "unsupported bin type for start: {}", self.bin_type)
-    }
-}
-
-impl std::error::Error for StartError {}
 
 pub struct Vacuum {
     executor: Box<dyn CommandExecutorTrait + Send>,
@@ -100,10 +87,7 @@ impl Vacuum {
 
         match (status.bin_type, status.clean_mode) {
             (BinType::NoBin | BinType::Water, _) => {
-                return Err(StartError {
-                    bin_type: status.bin_type,
-                }
-                .into());
+                return Err(Error::UnsupportedBinType(status.bin_type));
             }
             (BinType::Vacuum, CleanMode::Vacuum)
             | (BinType::VacuumAndWater, CleanMode::VacuumAndMop) => {

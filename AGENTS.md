@@ -21,6 +21,9 @@
 
 ## Testing Guidelines
 - Tests are inline in modules (`mod tests`) under `bin/*` and `lib/*`.
+- After each change, run `cargo check`.
+- Run `cargo fmt` after each change.
+- After implementing a task or fixing a bug, run `cargo test` to ensure no regressions.
 - Run all tests with `cargo test`; for Docker build validation use `make test`.
 - Add tests alongside the module you are changing to keep coverage close to the code.
 
@@ -28,6 +31,7 @@
 - Commit messages are short, imperative sentences (e.g., “Increase refresh token expiration duration”).
 - PRs should explain the change, link related issues, and include notes on config/env changes.
 - If the change affects runtime behavior, add a brief manual test note or log snippet.
+- Use `gt` (Graphite) for managing PRs in this project.
 
 ## Security & Configuration Tips
 - Several run targets expect secrets from 1Password (`op read ...`) and MQTT credentials; avoid hard-coding secrets.

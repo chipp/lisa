@@ -22,6 +22,7 @@ This document provides a concise summary of project-specific guidelines for Gemi
    - Run `cargo check` after changes.
    - Run `cargo fmt` before submitting.
    - Add/run unit tests using `cargo test`.
+   - Do not commit until `cargo fmt`, `cargo check`, and `cargo test` have succeeded.
 4. **Hardware Specifics:** Refer to `AGENTS.md` for Roborock, Inspinia, or Sonoff specific protocol details.
 
 ## Testing
@@ -31,3 +32,4 @@ This document provides a concise summary of project-specific guidelines for Gemi
 ## Commits
 - Use short, imperative sentences (e.g., "Add timeout to Roborock discovery").
 - Style should match existing commit history (`git log -n 3`).
+- Only commit after `cargo fmt`, `cargo check`, and `cargo test` have completed successfully.

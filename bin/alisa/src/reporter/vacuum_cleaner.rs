@@ -60,6 +60,7 @@ fn vacuum_rooms() -> [transport::Room; 6] {
 
 fn map_work_speed(speed: transport::elisa::WorkSpeed) -> Mode {
     match speed {
+        transport::elisa::WorkSpeed::Min => Mode::Low,
         transport::elisa::WorkSpeed::Silent => Mode::Quiet,
         transport::elisa::WorkSpeed::Standard => Mode::Normal,
         transport::elisa::WorkSpeed::Medium => Mode::Medium,

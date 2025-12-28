@@ -53,6 +53,7 @@ pub struct State {
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum WorkSpeed {
+    Min,
     Silent,
     Standard,
     Medium,

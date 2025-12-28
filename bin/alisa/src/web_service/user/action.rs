@@ -322,12 +322,12 @@ fn map_mode_to_fan_speed(mode: alice::Mode) -> Option<transport::elizabeth::FanS
 
 fn map_mode_to_work_speed(mode: alice::Mode) -> Option<transport::elisa::WorkSpeed> {
     match mode {
+        alice::Mode::Low => Some(transport::elisa::WorkSpeed::Min),
         alice::Mode::Quiet => Some(transport::elisa::WorkSpeed::Silent),
         alice::Mode::Normal => Some(transport::elisa::WorkSpeed::Standard),
         alice::Mode::Medium => Some(transport::elisa::WorkSpeed::Medium),
         alice::Mode::Turbo => Some(transport::elisa::WorkSpeed::Turbo),
-        alice::Mode::Low
-        | alice::Mode::High
+        alice::Mode::High
         | alice::Mode::DryCleaning
         | alice::Mode::WetCleaning
         | alice::Mode::MixedCleaning => {
@@ -429,6 +429,10 @@ mod tests {
     #[test]
     fn map_work_speed() {
         assert_eq!(
+            map_mode_to_work_speed(Mode::Low).unwrap(),
+            transport::elisa::WorkSpeed::Min
+        );
+        assert_eq!(
             map_mode_to_work_speed(Mode::Quiet).unwrap(),
             transport::elisa::WorkSpeed::Silent
         );
@@ -444,7 +448,7 @@ mod tests {
             map_mode_to_work_speed(Mode::Turbo).unwrap(),
             transport::elisa::WorkSpeed::Turbo
         );
-        assert!(map_mode_to_work_speed(Mode::Low).is_none());
+        assert!(map_mode_to_work_speed(Mode::High).is_none());
     }
 
     #[test]

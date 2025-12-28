@@ -259,6 +259,7 @@ fn room_from_id(id: &u8) -> Option<transport::Room> {
 
 fn from_xiaomi_speed(speed: FanSpeed) -> WorkSpeed {
     match speed {
+        FanSpeed::Off => WorkSpeed::Min,
         FanSpeed::Silent => WorkSpeed::Silent,
         FanSpeed::Standard => WorkSpeed::Standard,
         FanSpeed::Medium => WorkSpeed::Medium,
@@ -270,6 +271,7 @@ fn from_xiaomi_speed(speed: FanSpeed) -> WorkSpeed {
 
 fn from_elisa_speed(speed: WorkSpeed) -> FanSpeed {
     match speed {
+        WorkSpeed::Min => FanSpeed::Off,
         WorkSpeed::Silent => FanSpeed::Silent,
         WorkSpeed::Standard => FanSpeed::Standard,
         WorkSpeed::Medium => FanSpeed::Medium,

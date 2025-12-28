@@ -25,7 +25,7 @@ pub enum DecodeError {
     MissingResponse,
     UnknownVersion,
     MissingAckNonce,
-    GcmDecryptFailed,
+    GcmDecryptFailed(aes_gcm::Error),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,7 +115,7 @@ impl fmt::Display for DecodeError {
             Self::MissingResponse => write!(f, "missing response"),
             Self::UnknownVersion => write!(f, "unknown version"),
             Self::MissingAckNonce => write!(f, "missing ack nonce"),
-            Self::GcmDecryptFailed => write!(f, "gcm decrypt failed"),
+            Self::GcmDecryptFailed(err) => write!(f, "gcm decrypt failed: {err}"),
         }
     }
 }

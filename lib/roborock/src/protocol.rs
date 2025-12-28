@@ -539,7 +539,7 @@ fn decrypt_gcm_l01(
                 aad: &aad,
             },
         )
-        .map_err(|_| DecodeError::GcmDecryptFailed)?;
+        .map_err(DecodeError::GcmDecryptFailed)?;
     Ok(decrypted)
 }
 

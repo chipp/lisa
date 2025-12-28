@@ -12,8 +12,8 @@ pub enum Error {
     Io(std::io::Error),
     Json(serde_json::Error),
     Timeout(tokio::time::error::Elapsed),
-    CryptoEncrypt,
-    CryptoDecrypt,
+    CryptoEncrypt(cipher::inout::PadError),
+    CryptoDecrypt(cipher::block_padding::UnpadError),
 }
 
 impl From<std::io::Error> for Error {
@@ -52,8 +52,8 @@ impl fmt::Display for Error {
             Self::Io(err) => write!(f, "io error: {err}"),
             Self::Json(err) => write!(f, "json error: {err}"),
             Self::Timeout(err) => write!(f, "timeout error: {err}"),
-            Self::CryptoEncrypt => write!(f, "crypto encrypt error"),
-            Self::CryptoDecrypt => write!(f, "crypto decrypt error"),
+            Self::CryptoEncrypt(err) => write!(f, "crypto encrypt error: {err}"),
+            Self::CryptoDecrypt(err) => write!(f, "crypto decrypt error: {err}"),
         }
     }
 }

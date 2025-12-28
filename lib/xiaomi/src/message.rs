@@ -17,7 +17,7 @@ impl Message {
         let (key, iv) = encryption::key_iv_from_token(token);
 
         let data = encrypt(&mut data, key, iv)
-            .map_err(|_| Error::CryptoEncrypt)?
+            .map_err(Error::CryptoEncrypt)?
             .to_vec();
 
         let header = Header {
@@ -46,7 +46,7 @@ impl Message {
 
         let (key, iv) = encryption::key_iv_from_token(token);
         let mut data = decrypt(&mut data, key, iv)
-            .map_err(|_| Error::CryptoDecrypt)?
+            .map_err(Error::CryptoDecrypt)?
             .to_vec();
         while data.ends_with(&[0x0]) {
             data.pop();

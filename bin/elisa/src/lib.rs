@@ -214,22 +214,9 @@ pub fn prepare_state(status: Status, rooms: &[u8]) -> State {
         battery_level: status.battery,
         is_enabled: status.state.is_enabled(),
         is_paused: status.state.is_paused(),
-        work_speed: from_xiaomi_speed(status.fan_speed),
+        work_speed: from_roborock_speed(status.fan_speed),
         cleanup_mode: from_roborock_cleanup(status.cleanup_mode),
         rooms: rooms.iter().filter_map(room_from_id).collect(),
-        error_code: Some(status.error_code),
-        dock_error_status: Some(status.dock_error_status),
-        dust_collection_status: Some(status.dust_collection_status),
-        auto_dust_collection: Some(status.auto_dust_collection),
-        water_box_status: Some(status.water_box_status),
-        water_box_mode: Some(status.water_box_mode.code()),
-        mop_mode: Some(status.mop_mode.code()),
-        wash_status: Some(status.wash_status.code()),
-        wash_phase: Some(status.wash_phase.code()),
-        water_shortage_status: Some(status.water_shortage_status),
-        clean_area: Some(status.clean_area),
-        clean_time: Some(status.clean_time),
-        clean_percent: Some(status.clean_percent),
     }
 }
 
@@ -257,7 +244,7 @@ fn room_from_id(id: &u8) -> Option<transport::Room> {
     }
 }
 
-fn from_xiaomi_speed(speed: FanSpeed) -> WorkSpeed {
+fn from_roborock_speed(speed: FanSpeed) -> WorkSpeed {
     match speed {
         FanSpeed::Off => WorkSpeed::Min,
         FanSpeed::Silent => WorkSpeed::Silent,

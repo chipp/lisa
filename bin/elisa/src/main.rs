@@ -114,8 +114,8 @@ async fn subscribe_state(mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Result<()>
         timer.tick().await;
         if let Ok((status, rooms)) = vacuum.get_status().await {
             info!(
-                "roborock modes: mop={:?}, water_box={:?}, wash_status={:?}, wash_phase={:?}",
-                status.mop_mode, status.water_box_mode, status.wash_status, status.wash_phase
+                "roborock modes: mop={:?}, water_box={:?}",
+                status.mop_mode, status.water_box_mode
             );
             let state = prepare_state(status, &rooms);
             info!("publishing state: {:?}", state);

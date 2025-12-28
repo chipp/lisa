@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
-use log::{error, info};
+use log::{error, info, warn};
 use paho_mqtt::AsyncClient as MqClient;
 use paho_mqtt::{MessageBuilder, QOS_1};
 use tokio::{task, time};
@@ -113,10 +113,18 @@ async fn subscribe_state(mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Result<()>
     loop {
         timer.tick().await;
         if let Ok((status, rooms)) = vacuum.get_status().await {
-            info!(
-                "roborock modes: mop={:?}, water_box={:?}",
-                status.mop_mode, status.water_box_mode
-            );
+            let mut issues = Vec::new();
+
+            if !status.error_code.is_ok() {
+                issues.push(format!("error={:?}", status.error_code));
+            }
+            if !status.dock_error_status.is_ok() {
+                issues.push(format!("dock_error={:?}", status.dock_error_status));
+            }
+
+            if !issues.is_empty() {
+                warn!("roborock issues: {}", issues.join(", "));
+            }
             let state = prepare_state(status, &rooms);
             info!("publishing state: {:?}", state);
 

@@ -95,6 +95,162 @@ impl WaterBoxMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorCode {
+    None,
+    LidarBlocked,
+    BumperStuck,
+    WheelsSuspended,
+    CliffSensorError,
+    MainBrushJammed,
+    SideBrushJammed,
+    WheelsJammed,
+    RobotTrapped,
+    NoDustbin,
+    StrainerError,
+    CompassError,
+    LowBattery,
+    ChargingError,
+    BatteryError,
+    WallSensorDirty,
+    RobotTilted,
+    SideBrushError,
+    FanError,
+    Dock,
+    OpticalFlowSensorDirt,
+    VerticalBumperPressed,
+    DockLocatorError,
+    ReturnToDockFail,
+    NoGoZoneDetected,
+    VisualSensor,
+    LightTouch,
+    VibrariseJammed,
+    RobotOnCarpet,
+    FilterBlocked,
+    InvisibleWallDetected,
+    CannotCrossCarpet,
+    InternalError,
+    CollectDustError3,
+    CollectDustError4,
+    MoppingRoller1,
+    MoppingRollerError2,
+    ClearWaterBoxHoare,
+    DirtyWaterBoxHoare,
+    SinkStrainerHoare,
+    ClearWaterBoxException,
+    ClearBrushException,
+    ClearBrushException2,
+    FilterScreenException,
+    MoppingRoller2,
+    UpWaterException,
+    DrainWaterException,
+    TemperatureProtection,
+    CleanCarouselException,
+    CleanCarouselWaterFull,
+    WaterCarriageDrop,
+    CheckCleanCarouse,
+    AudioError,
+    Unknown(i64),
+}
+
+impl ErrorCode {
+    fn from_code(code: i64) -> Self {
+        match code {
+            0 => ErrorCode::None,
+            1 => ErrorCode::LidarBlocked,
+            2 => ErrorCode::BumperStuck,
+            3 => ErrorCode::WheelsSuspended,
+            4 => ErrorCode::CliffSensorError,
+            5 => ErrorCode::MainBrushJammed,
+            6 => ErrorCode::SideBrushJammed,
+            7 => ErrorCode::WheelsJammed,
+            8 => ErrorCode::RobotTrapped,
+            9 => ErrorCode::NoDustbin,
+            10 => ErrorCode::StrainerError,
+            11 => ErrorCode::CompassError,
+            12 => ErrorCode::LowBattery,
+            13 => ErrorCode::ChargingError,
+            14 => ErrorCode::BatteryError,
+            15 => ErrorCode::WallSensorDirty,
+            16 => ErrorCode::RobotTilted,
+            17 => ErrorCode::SideBrushError,
+            18 => ErrorCode::FanError,
+            19 => ErrorCode::Dock,
+            20 => ErrorCode::OpticalFlowSensorDirt,
+            21 => ErrorCode::VerticalBumperPressed,
+            22 => ErrorCode::DockLocatorError,
+            23 => ErrorCode::ReturnToDockFail,
+            24 => ErrorCode::NoGoZoneDetected,
+            25 => ErrorCode::VisualSensor,
+            26 => ErrorCode::LightTouch,
+            27 => ErrorCode::VibrariseJammed,
+            28 => ErrorCode::RobotOnCarpet,
+            29 => ErrorCode::FilterBlocked,
+            30 => ErrorCode::InvisibleWallDetected,
+            31 => ErrorCode::CannotCrossCarpet,
+            32 => ErrorCode::InternalError,
+            34 => ErrorCode::CollectDustError3,
+            35 => ErrorCode::CollectDustError4,
+            36 => ErrorCode::MoppingRoller1,
+            37 => ErrorCode::MoppingRollerError2,
+            38 => ErrorCode::ClearWaterBoxHoare,
+            39 => ErrorCode::DirtyWaterBoxHoare,
+            40 => ErrorCode::SinkStrainerHoare,
+            41 => ErrorCode::ClearWaterBoxException,
+            42 => ErrorCode::ClearBrushException,
+            43 => ErrorCode::ClearBrushException2,
+            44 => ErrorCode::FilterScreenException,
+            45 => ErrorCode::MoppingRoller2,
+            48 => ErrorCode::UpWaterException,
+            49 => ErrorCode::DrainWaterException,
+            51 => ErrorCode::TemperatureProtection,
+            52 => ErrorCode::CleanCarouselException,
+            53 => ErrorCode::CleanCarouselWaterFull,
+            54 => ErrorCode::WaterCarriageDrop,
+            55 => ErrorCode::CheckCleanCarouse,
+            56 => ErrorCode::AudioError,
+            _ => ErrorCode::Unknown(code),
+        }
+    }
+
+    pub fn is_ok(self) -> bool {
+        matches!(self, ErrorCode::None)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DockErrorCode {
+    Ok,
+    DuctBlockage,
+    WaterEmpty,
+    WasteWaterTankFull,
+    MaintenanceBrushJammed,
+    DirtyTankLatchOpen,
+    NoDustbin,
+    CleaningTankFullOrBlocked,
+    Unknown(i64),
+}
+
+impl DockErrorCode {
+    fn from_code(code: i64) -> Self {
+        match code {
+            0 => DockErrorCode::Ok,
+            34 => DockErrorCode::DuctBlockage,
+            38 => DockErrorCode::WaterEmpty,
+            39 => DockErrorCode::WasteWaterTankFull,
+            42 => DockErrorCode::MaintenanceBrushJammed,
+            44 => DockErrorCode::DirtyTankLatchOpen,
+            46 => DockErrorCode::NoDustbin,
+            53 => DockErrorCode::CleaningTankFullOrBlocked,
+            _ => DockErrorCode::Unknown(code),
+        }
+    }
+
+    pub fn is_ok(self) -> bool {
+        matches!(self, DockErrorCode::Ok)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WashStatus {
     Idle,
     Active(i64),
@@ -165,8 +321,8 @@ pub struct Status {
     pub state: State,
     pub fan_speed: FanSpeed,
     pub cleanup_mode: CleanupMode,
-    pub error_code: i64,
-    pub dock_error_status: i64,
+    pub error_code: ErrorCode,
+    pub dock_error_status: DockErrorCode,
     pub dust_collection_status: i64,
     pub auto_dust_collection: i64,
     pub water_box_status: i64,
@@ -238,8 +394,11 @@ impl Vacuum {
             state: state_from_status(&status_value),
             fan_speed: fan_from_code(fan_code),
             cleanup_mode: cleanup_mode_from_status(&status_value, fan_code),
-            error_code: get_i64(&status_value, "error_code"),
-            dock_error_status: get_i64(&status_value, "dock_error_status"),
+            error_code: ErrorCode::from_code(get_i64(&status_value, "error_code")),
+            dock_error_status: DockErrorCode::from_code(get_i64(
+                &status_value,
+                "dock_error_status",
+            )),
             dust_collection_status: get_i64(&status_value, "dust_collection_status"),
             auto_dust_collection: get_i64(&status_value, "auto_dust_collection"),
             water_box_status: get_i64(&status_value, "water_box_status"),

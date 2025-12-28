@@ -24,6 +24,7 @@
 - After each change, run `cargo check`.
 - Run `cargo fmt` after each change.
 - After implementing a task or fixing a bug, run `cargo test` to ensure no regressions.
+- Do not commit until `cargo fmt`, `cargo check`, and `cargo test` have been run successfully.
 - Run all tests with `cargo test`; for Docker build validation use `make test`.
 - Add tests alongside the module you are changing to keep coverage close to the code.
 - Manual `elisa` MQTT checks: publish to `action/request` and `state/request` with MQTT v5 `ResponseTopic` set; responses arrive on `action/response/<uuid>` or `state/response/<uuid>`.
@@ -34,6 +35,7 @@
 
 ## Commit & Pull Request Guidelines
 - Commit messages are short, imperative sentences (e.g., “Increase refresh token expiration duration”).
+- Only commit after `cargo fmt`, `cargo check`, and `cargo test` have completed successfully.
 - PRs should explain the change, link related issues, and include notes on config/env changes.
 - If the change affects runtime behavior, add a brief manual test note or log snippet.
 - Use `gt` (Graphite) for managing PRs in this project.

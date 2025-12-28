@@ -21,8 +21,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{event::parse_event, Event, MacAddr};
 use super::{Error, Result};
+use crate::{event::parse_event, Event, MacAddr};
 
 pub struct Scanner {
     dd: Arc<Mutex<c_int>>,
@@ -34,18 +34,27 @@ impl super::ScannerTrait for Scanner {
 
         let dd = unsafe { hci_open_dev(dev_id) };
         if dd < 0 {
-            return Err(Error::new("could not open device", IoError::last_os_error()));
+            return Err(Error::new(
+                "could not open device",
+                IoError::last_os_error(),
+            ));
         }
 
         unsafe {
             if libc::ioctl(dd, HCIDEVDOWN, dev_id) < 0 {
                 hci_close_dev(dd);
-                return Err(Error::new("could not down hci device", IoError::last_os_error()));
+                return Err(Error::new(
+                    "could not down hci device",
+                    IoError::last_os_error(),
+                ));
             }
 
             if libc::ioctl(dd, HCIDEVUP, dev_id) < 0 {
                 hci_close_dev(dd);
-                return Err(Error::new("could not up hci device", IoError::last_os_error()));
+                return Err(Error::new(
+                    "could not up hci device",
+                    IoError::last_os_error(),
+                ));
             }
         }
 

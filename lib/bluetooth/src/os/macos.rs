@@ -5,8 +5,8 @@ use core_bluetooth::ManagerState;
 use log::{debug, trace};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
-use crate::{event::parse_event, Event, MacAddr};
 use super::Result;
+use crate::{event::parse_event, Event, MacAddr};
 
 pub struct Scanner;
 

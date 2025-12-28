@@ -6,6 +6,25 @@ on:
       - main
 
 jobs:
+  fmt:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify rust versions match
+        run: |
+          TOOLCHAIN_VERSION=$(sed -n 's/^channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' rust-toolchain.toml)
+          FILE_VERSION=$(cut -d_ -f1 .rust-version)
+
+          if [ "$TOOLCHAIN_VERSION" != "$FILE_VERSION" ]; then
+            echo "Version mismatch: rust-toolchain.toml=$TOOLCHAIN_VERSION .rust-version=$FILE_VERSION"
+            exit 1
+          fi
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
   test:
     runs-on: ubuntu-24.04-arm
 
@@ -30,16 +49,6 @@ jobs:
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v1
-
-      - name: Verify rust versions match
-        run: |
-          TOOLCHAIN_VERSION=$(sed -n 's/^channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' rust-toolchain.toml)
-          FILE_VERSION=$(cut -d_ -f1 .rust-version)
-
-          if [ "$TOOLCHAIN_VERSION" != "$FILE_VERSION" ]; then
-            echo "Version mismatch: rust-toolchain.toml=$TOOLCHAIN_VERSION .rust-version=$FILE_VERSION"
-            exit 1
-          fi
 
       - name: Test
         run: |

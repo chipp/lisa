@@ -5,8 +5,8 @@ use rusqlite::{
     Connection, ToSql,
 };
 
-use transport::Room;
 use bluetooth::Event;
+use transport::Room;
 
 pub struct Db {
     conn: Connection,

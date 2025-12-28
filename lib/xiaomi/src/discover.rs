@@ -1,4 +1,3 @@
-use std::fmt;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use log::{debug, trace};
@@ -8,9 +7,7 @@ use tokio::{
 };
 
 use crate::message::Header;
-
-type ErasedError = Box<dyn std::error::Error + Send + Sync>;
-type Result<T> = std::result::Result<T, ErasedError>;
+use crate::{Error, Result};
 
 const fn hello_bytes() -> [u8; 32] {
     let mut bytes = [0xff; 32];
@@ -24,21 +21,6 @@ const fn hello_bytes() -> [u8; 32] {
 }
 
 const HELLO_BYTES: [u8; 32] = hello_bytes();
-
-#[derive(Debug)]
-struct DevicesNotFound(Ipv4Addr);
-
-impl fmt::Display for DevicesNotFound {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.is_broadcast() {
-            write!(f, "devices not found")
-        } else {
-            write!(f, "device {} not found", self.0)
-        }
-    }
-}
-
-impl std::error::Error for DevicesNotFound {}
 
 pub async fn discover(ip: Option<Ipv4Addr>) -> Result<Header> {
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
@@ -67,7 +49,7 @@ pub async fn discover(ip: Option<Ipv4Addr>) -> Result<Header> {
                     return Ok(header);
                 }
             }
-            Err(_) => return Err(DevicesNotFound(ip).into()),
+            Err(_) => return Err(Error::DevicesNotFound(ip)),
         };
     }
 }

@@ -1,4 +1,4 @@
-mod error;
+pub(crate) mod error;
 use error::Error;
 
 use std::collections::HashMap;
@@ -80,7 +80,7 @@ impl DeviceManager {
             });
         }
 
-        Err(Box::new(Error::NoThermostatInRoom(room)))
+        Err(Error::NoThermostatInRoom(room).into())
     }
 
     pub fn get_recuperator_in_room(&self, room: Room) -> Result<Device> {
@@ -115,7 +115,7 @@ impl DeviceManager {
             });
         }
 
-        Err(Box::new(Error::NoRecuperatorInRoom(room)))
+        Err(Error::NoRecuperatorInRoom(room).into())
     }
 }
 

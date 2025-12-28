@@ -16,5 +16,4 @@ members = [
   "lib/str_derive",
   "lib/transport", # MQTT topics and payloads
   "lib/roborock", # Roborock Vacuum Cleaner communication protocol
-  "lib/xiaomi", # Xiaomi Vacuum Cleaner communication protocol (deprecated)
 ]

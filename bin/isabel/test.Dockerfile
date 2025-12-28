@@ -15,7 +15,6 @@ RUN USER=rust \
   cargo new --lib /home/rust/src/lib/str_derive && \
   cargo new --lib /home/rust/src/lib/sonoff && \
   cargo new --lib /home/rust/src/lib/transport && \
-  cargo new --lib /home/rust/src/lib/xiaomi && \
   cargo new --lib /home/rust/src/lib/roborock && \
   cargo new --bin /home/rust/src/bin/alisa && \
   cargo new --bin /home/rust/src/bin/elisa && \
@@ -54,5 +53,5 @@ COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 COPY ./bin/isabel/src ./bin/isabel/src
 
-RUN cargo test -p elisa -p str_derive -p transport -p xiaomi && \
+RUN cargo test -p elisa -p str_derive -p transport && \
   rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

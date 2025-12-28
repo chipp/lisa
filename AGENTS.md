@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - `bin/` contains the executable services (e.g., `alisa`, `elisa`, `elizabeth`, `isabel`, `elisheba`), each with its own `src/` and Dockerfiles.
-- `lib/` hosts shared crates (e.g., `transport`, `alice`, `xiaomi`, `crypto`) used by the binaries.
+- `lib/` hosts shared crates (e.g., `transport`, `alice`, `crypto`) used by the binaries.
 - `conf/` holds Docker and deployment configuration (for example, `conf/arm64.Dockerfile`).
 - `build/` stores built artifacts copied from Docker images; `target/` is the Cargo build output.
 

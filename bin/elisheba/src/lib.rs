@@ -11,7 +11,10 @@ use transport::{
 use log::{debug, error, info};
 use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 
-pub type ErasedError = Box<dyn std::error::Error + Send + Sync + 'static>;
+mod error;
+pub use error::Error;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Default)]
 pub struct Storage {
@@ -98,12 +101,12 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, sonoff: &m
     }
 }
 
-async fn update_state(action: Action, sonoff: &mut Client) -> Result<(), ErasedError> {
+async fn update_state(action: Action, sonoff: &mut Client) -> Result<()> {
     let state = if action.is_enabled { "on" } else { "off" };
 
     info!("wants to toggle {state} lights at {}", action.room);
 
-    let device_id = map_room_to_id(action.room).ok_or("Unknown device")?;
+    let device_id = map_room_to_id(action.room).ok_or(Error::UnknownDevice)?;
     sonoff.update_state(device_id, action.is_enabled).await?;
 
     info!("successfully toggled {state} at {}", action.room);
@@ -164,10 +167,10 @@ pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, sonoff: &mu
     }
 }
 
-async fn get_state(room: Room, sonoff: &mut Client) -> Result<State, ErasedError> {
-    let device_id = map_room_to_id(room).ok_or("Unknown device")?;
+async fn get_state(room: Room, sonoff: &mut Client) -> Result<State> {
+    let device_id = map_room_to_id(room).ok_or(Error::UnknownDevice)?;
     let device = sonoff.get_state(device_id).await?;
-    let state = map_device_to_state(&device).ok_or("Unknown device")?;
+    let state = map_device_to_state(&device).ok_or(Error::UnknownDevice)?;
     Ok(state)
 }
 

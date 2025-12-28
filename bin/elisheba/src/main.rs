@@ -3,8 +3,8 @@ use std::ops::ControlFlow;
 use std::time::Duration;
 
 use crypto::Token;
-use elisheba::{handle_action_request, handle_state_request, ErasedError, Storage};
-use sonoff::{Client, Error, SonoffDevice};
+use elisheba::{handle_action_request, handle_state_request, Result, Storage};
+use sonoff::{Client, SonoffDevice};
 use transport::elisheba::State;
 use transport::state::StateUpdate;
 use transport::{connect_mqtt, Topic};
@@ -18,7 +18,7 @@ use tokio::{task, time};
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
-async fn main() -> Result<(), ErasedError> {
+async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
 
     info!("elisheba version {VERSION}");
@@ -55,9 +55,9 @@ async fn main() -> Result<(), ErasedError> {
 }
 
 async fn try_join(
-    left: task::JoinHandle<Result<(), ErasedError>>,
-    right: task::JoinHandle<Result<(), ErasedError>>,
-) -> Result<(), ErasedError> {
+    left: task::JoinHandle<Result<()>>,
+    right: task::JoinHandle<Result<()>>,
+) -> Result<()> {
     let (left, right) = tokio::try_join!(left, right)?;
 
     left?;
@@ -66,7 +66,7 @@ async fn try_join(
     Ok(())
 }
 
-async fn subscribe_action(mut mqtt: MqClient, mut sonoff: Client) -> Result<(), ErasedError> {
+async fn subscribe_action(mut mqtt: MqClient, mut sonoff: Client) -> Result<()> {
     let mut stream = mqtt.get_stream(None);
 
     let topics = [
@@ -131,7 +131,7 @@ async fn send_initial_state(
     devices: Vec<SonoffDevice>,
     storage: &mut Storage,
     mqtt: MqClient,
-) -> Result<(), ErasedError> {
+) -> Result<()> {
     for device in devices {
         let state = if let Some(state) = storage.apply(&device) {
             state
@@ -147,11 +147,7 @@ async fn send_initial_state(
     Ok(())
 }
 
-async fn subscribe_state(
-    mqtt: MqClient,
-    mut storage: Storage,
-    mut sonoff: Client,
-) -> Result<(), ErasedError> {
+async fn subscribe_state(mqtt: MqClient, mut storage: Storage, mut sonoff: Client) -> Result<()> {
     loop {
         match sonoff.read().await {
             Ok(device) => {
@@ -165,7 +161,7 @@ async fn subscribe_state(
                     continue;
                 }
             }
-            Err(Error::Disconnected) => {
+            Err(sonoff::Error::Disconnected) => {
                 error!("Lost mDNS connection. Attempting reconnect.");
 
                 while let Err(err) = sonoff.reconnect().await {

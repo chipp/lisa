@@ -6,7 +6,6 @@ pub enum Error {
     Json(serde_json::Error),
     Io(std::io::Error),
     Join(tokio::task::JoinError),
-    WebServe,
     Http(chipp_http::Error),
 }
 
@@ -47,7 +46,6 @@ impl fmt::Display for Error {
             Self::Json(err) => write!(f, "json error: {err}"),
             Self::Io(err) => write!(f, "io error: {err}"),
             Self::Join(err) => write!(f, "join error: {err}"),
-            Self::WebServe => write!(f, "web server error"),
             Self::Http(err) => write!(f, "http error: {err}"),
         }
     }

@@ -3,10 +3,10 @@ use crc32fast::Hasher as Crc32;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::{ErasedError, Result};
+use crate::error::{DecodeError, EncodeError, RpcError};
+use crate::{Error, Result};
 
 const SALT: &[u8] = b"TXdfu$jyZ#TZHsg4";
 
@@ -64,28 +64,6 @@ impl RoborockMessage {
         }
     }
 }
-
-#[derive(Debug)]
-pub struct DecodeError(pub &'static str);
-
-impl fmt::Display for DecodeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::error::Error for DecodeError {}
-
-#[derive(Debug)]
-pub struct EncodeError(pub &'static str);
-
-impl fmt::Display for EncodeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::error::Error for EncodeError {}
 
 #[derive(Clone)]
 pub struct LocalCodec {
@@ -189,7 +167,7 @@ impl LocalCodec {
             buffer.drain(0..4 + frame_len);
 
             if frame.len() < 17 {
-                return Err(Box::new(DecodeError("frame too short")));
+                return Err(DecodeError::FrameTooShort.into());
             }
 
             let version = parse_version(&frame[0..3])?;
@@ -207,13 +185,13 @@ impl LocalCodec {
                 let payload_len = u16::from_be_bytes(frame[17..19].try_into().unwrap()) as usize;
                 let message_len = 17 + 2 + payload_len;
                 if frame.len() < message_len {
-                    return Err(Box::new(DecodeError("payload length mismatch")));
+                    return Err(DecodeError::PayloadLengthMismatch.into());
                 }
 
                 let crc_present = frame.len() >= message_len + 4;
                 if payload_len > 0 {
                     if !crc_present {
-                        return Err(Box::new(DecodeError("payload crc missing")));
+                        return Err(DecodeError::PayloadCrcMissing.into());
                     }
                     let expected_crc =
                         u32::from_be_bytes(frame[message_len..message_len + 4].try_into().unwrap());
@@ -230,7 +208,7 @@ impl LocalCodec {
                             computed_crc,
                             hex_bytes(&frame),
                         );
-                        return Err(Box::new(DecodeError("crc mismatch")));
+                        return Err(DecodeError::CrcMismatch.into());
                     }
                 }
 
@@ -248,7 +226,7 @@ impl LocalCodec {
                     )?);
                 }
             } else {
-                return Err(Box::new(DecodeError("payload length missing")));
+                return Err(DecodeError::PayloadLengthMissing.into());
             }
 
             let protocol = match protocol {
@@ -260,7 +238,7 @@ impl LocalCodec {
                 5 => MessageProtocol::GeneralResponse,
                 101 => MessageProtocol::RpcRequest,
                 102 => MessageProtocol::RpcResponse,
-                _ => return Err(Box::new(DecodeError("unknown protocol"))),
+                _ => return Err(DecodeError::UnknownProtocol.into()),
             };
 
             messages.push(RoborockMessage {
@@ -313,7 +291,7 @@ impl RpcRequest {
 pub struct RpcResponse {
     pub id: Option<u32>,
     pub result: serde_json::Value,
-    pub error: Option<String>,
+    pub error: Option<RpcError>,
 }
 
 pub fn decode_rpc_response(payload: &[u8]) -> Result<RpcResponse> {
@@ -321,21 +299,23 @@ pub fn decode_rpc_response(payload: &[u8]) -> Result<RpcResponse> {
     let dps = payload
         .get("dps")
         .and_then(|value| value.as_object())
-        .ok_or_else(|| Box::new(DecodeError("missing dps")) as ErasedError)?;
+        .ok_or_else(|| DecodeError::MissingDps)?;
     let data_point = dps
         .get("102")
         .and_then(|value| value.as_str())
-        .ok_or_else(|| Box::new(DecodeError("missing response")) as ErasedError)?;
+        .ok_or_else(|| DecodeError::MissingResponse)?;
     let response: serde_json::Value = serde_json::from_str(data_point)?;
 
     let id = response
         .get("id")
         .and_then(|value| value.as_u64())
         .map(|id| id as u32);
-    let mut error = response
-        .get("error")
-        .and_then(|value| value.as_str())
-        .map(|value| value.to_string());
+    let mut error = response.get("error").and_then(|value| {
+        value.as_str().map(|value| match value {
+            "unknown_method" => RpcError::UnknownMethod,
+            _ => RpcError::DeviceError,
+        })
+    });
     let result_value = response.get("result").cloned();
     let result = match result_value {
         Some(serde_json::Value::String(result)) => {
@@ -344,9 +324,9 @@ pub fn decode_rpc_response(payload: &[u8]) -> Result<RpcResponse> {
             } else {
                 if error.is_none() {
                     if result == "unknown_method" {
-                        error = Some(result);
+                        error = Some(RpcError::UnknownMethod);
                     } else {
-                        error = Some(format!("Unexpected API Result: {}", result));
+                        error = Some(RpcError::UnexpectedResult);
                     }
                 }
                 serde_json::json!({})
@@ -357,13 +337,13 @@ pub fn decode_rpc_response(payload: &[u8]) -> Result<RpcResponse> {
         | Some(serde_json::Value::Number(_)) => result_value.unwrap(),
         Some(_) => {
             if error.is_none() {
-                error = Some("Invalid result type".to_string());
+                error = Some(RpcError::InvalidResultType);
             }
             serde_json::json!({})
         }
         None => {
             if error.is_none() {
-                error = Some("Missing result".to_string());
+                error = Some(RpcError::MissingResult);
             }
             serde_json::json!({})
         }
@@ -375,7 +355,7 @@ pub fn decode_rpc_response(payload: &[u8]) -> Result<RpcResponse> {
 fn parse_version(bytes: &[u8]) -> Result<LocalProtocolVersion> {
     match bytes {
         b"L01" => Ok(LocalProtocolVersion::L01),
-        _ => Err(Box::new(DecodeError("unknown version"))),
+        _ => Err(DecodeError::UnknownVersion.into()),
     }
 }
 
@@ -521,7 +501,7 @@ fn encrypt_gcm_l01(
     let iv = l01_iv(timestamp, nonce, sequence);
     let aad = l01_aad(timestamp, nonce, sequence, connect_nonce, ack_nonce);
 
-    let cipher = Aes256Gcm::new_from_slice(&key)?;
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| Error::CryptoKeyLength)?;
     let nonce = Nonce::from_slice(&iv);
     let encrypted = cipher
         .encrypt(
@@ -531,7 +511,7 @@ fn encrypt_gcm_l01(
                 aad: &aad,
             },
         )
-        .map_err(|_| Box::new(EncodeError("gcm encrypt failed")) as ErasedError)?;
+        .map_err(|_| EncodeError::GcmEncryptFailed)?;
     Ok(encrypted)
 }
 
@@ -544,13 +524,12 @@ fn decrypt_gcm_l01(
     ack_nonce: Option<u32>,
     payload: &[u8],
 ) -> Result<Vec<u8>> {
-    let ack_nonce =
-        ack_nonce.ok_or_else(|| Box::new(DecodeError("missing ack nonce")) as ErasedError)?;
+    let ack_nonce = ack_nonce.ok_or_else(|| DecodeError::MissingAckNonce)?;
     let key = l01_key(local_key, timestamp);
     let iv = l01_iv(timestamp, nonce, sequence);
     let aad = l01_aad(timestamp, nonce, sequence, connect_nonce, Some(ack_nonce));
 
-    let cipher = Aes256Gcm::new_from_slice(&key)?;
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| Error::CryptoKeyLength)?;
     let nonce = Nonce::from_slice(&iv);
     let decrypted = cipher
         .decrypt(
@@ -560,7 +539,7 @@ fn decrypt_gcm_l01(
                 aad: &aad,
             },
         )
-        .map_err(|_| Box::new(DecodeError("gcm decrypt failed")) as ErasedError)?;
+        .map_err(|_| DecodeError::GcmDecryptFailed)?;
     Ok(decrypted)
 }
 
@@ -687,7 +666,7 @@ mod tests {
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
         let response = decode_rpc_response(&payload_bytes).unwrap();
         assert_eq!(response.id, Some(321));
-        assert_eq!(response.error.as_deref(), Some("unknown_method"));
+        assert_eq!(response.error, Some(RpcError::UnknownMethod));
     }
 
     #[test]
@@ -701,7 +680,7 @@ mod tests {
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
         let response = decode_rpc_response(&payload_bytes).unwrap();
         assert_eq!(response.id, Some(555));
-        assert_eq!(response.error.as_deref(), Some("unknown_method"));
+        assert_eq!(response.error, Some(RpcError::UnknownMethod));
         assert_eq!(response.result, serde_json::json!({}));
     }
 }

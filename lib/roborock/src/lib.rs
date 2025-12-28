@@ -3,9 +3,11 @@ mod protocol;
 mod util;
 mod vacuum;
 
+mod error;
+pub use error::Error;
+
 pub use vacuum::{
     CleanupMode, DockErrorCode, ErrorCode, FanSpeed, State, Status, Vacuum, WashPhase, WashStatus,
 };
 
-pub type ErasedError = Box<dyn std::error::Error + Send + Sync>;
-pub type Result<T> = std::result::Result<T, ErasedError>;
+pub type Result<T> = std::result::Result<T, Error>;

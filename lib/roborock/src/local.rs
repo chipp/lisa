@@ -11,7 +11,7 @@ use crate::protocol::{
     decode_rpc_response, LocalCodec, LocalProtocolVersion, MessageProtocol, RoborockMessage,
     RpcRequest,
 };
-use crate::Result;
+use crate::{Error, Result};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const DEFAULT_PORT: u16 = 58867;
@@ -129,7 +129,7 @@ where
                 debug!("roborock rpc match: request_id={}", request_id);
                 debug!("roborock rpc result: {}", rpc_response.result);
                 if let Some(error) = rpc_response.error {
-                    return Err(Box::<dyn std::error::Error + Send + Sync>::from(error));
+                    return Err(error.into());
                 }
                 return Ok(rpc_response.result);
             }
@@ -221,9 +221,7 @@ where
             let mut chunk = [0u8; 1024];
             let read = timeout(READ_TIMEOUT, self.stream.read(&mut chunk)).await??;
             if read == 0 {
-                return Err(Box::<dyn std::error::Error + Send + Sync>::from(
-                    "connection closed",
-                ));
+                return Err(Error::ConnectionClosed);
             }
 
             self.buffer.extend_from_slice(&chunk[..read]);

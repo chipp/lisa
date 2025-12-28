@@ -1,4 +1,4 @@
-mod error;
+pub(crate) mod error;
 use error::Error;
 
 mod storage;

@@ -12,8 +12,10 @@ use transport::{
 use log::{debug, error, info};
 use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 
-pub type ErasedError = Box<dyn std::error::Error + Send + Sync>;
-pub type Result<T> = std::result::Result<T, ErasedError>;
+mod error;
+pub use error::Error;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 enum VacuumRequest {
     Action(Action, oneshot::Sender<Result<()>>),
@@ -39,7 +41,8 @@ impl VacuumQueue {
                         let result = vacuum
                             .status()
                             .await
-                            .map(|status| (status, vacuum.last_cleaning_rooms().to_vec()));
+                            .map(|status| (status, vacuum.last_cleaning_rooms().to_vec()))
+                            .map_err(Error::from);
                         let _ = responder.send(result);
                     }
                 }
@@ -54,8 +57,8 @@ impl VacuumQueue {
         self.tx
             .send(VacuumRequest::Action(action, tx))
             .await
-            .map_err(|_| queue_closed())?;
-        rx.await.map_err(|_| queue_closed())?
+            .map_err(|_| Error::QueueClosed)?;
+        rx.await.map_err(|_| Error::QueueClosed)?
     }
 
     pub async fn get_status(&self) -> Result<(Status, Vec<u8>)> {
@@ -63,13 +66,9 @@ impl VacuumQueue {
         self.tx
             .send(VacuumRequest::Status(tx))
             .await
-            .map_err(|_| queue_closed())?;
-        rx.await.map_err(|_| queue_closed())?
+            .map_err(|_| Error::QueueClosed)?;
+        rx.await.map_err(|_| Error::QueueClosed)?
     }
-}
-
-fn queue_closed() -> ErasedError {
-    "vacuum queue closed".into()
 }
 
 pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc<VacuumQueue>) {
@@ -179,32 +178,38 @@ async fn perform_action(action: Action, vacuum: &mut Vacuum) -> Result<()> {
             let room_ids = rooms.iter().filter_map(room_id_for_room).collect();
 
             info!("wants to start cleaning in rooms: {:?}", rooms);
-            vacuum.start(room_ids).await
+            vacuum.start(room_ids).await?;
+            Ok(())
         }
         Action::Stop => {
             info!("wants to stop cleaning");
             vacuum.stop().await?;
-            vacuum.go_home().await
+            vacuum.go_home().await?;
+            Ok(())
         }
         Action::SetWorkSpeed(work_speed) => {
             let mode = from_elisa_speed(work_speed);
 
             info!("wants to set mode {:?}", mode);
-            vacuum.set_fan_speed(mode).await
+            vacuum.set_fan_speed(mode).await?;
+            Ok(())
         }
         Action::SetCleanupMode(cleanup_mode) => {
             let mode = from_elisa_cleanup(cleanup_mode);
 
             info!("wants to set cleanup mode {:?}", mode);
-            vacuum.set_cleanup_mode(mode).await
+            vacuum.set_cleanup_mode(mode).await?;
+            Ok(())
         }
         Action::Pause => {
             info!("wants to pause");
-            vacuum.pause().await
+            vacuum.pause().await?;
+            Ok(())
         }
         Action::Resume => {
             info!("wants to resume");
-            vacuum.resume().await
+            vacuum.resume().await?;
+            Ok(())
         }
     }
 }

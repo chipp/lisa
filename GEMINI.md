@@ -23,6 +23,7 @@ This document provides a concise summary of project-specific guidelines for Gemi
    - Run `cargo fmt` before submitting.
    - Add/run unit tests using `cargo test`.
    - Do not commit until `cargo fmt`, `cargo check`, and `cargo test` have succeeded.
+   - Before completing a todo list step, run validations, stop for review, and commit the changes to the branch.
 4. **Hardware Specifics:** Refer to `AGENTS.md` for Roborock, Inspinia, or Sonoff specific protocol details.
 
 ## Testing

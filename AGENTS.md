@@ -25,6 +25,7 @@
 - Run `cargo fmt` after each change.
 - After implementing a task or fixing a bug, run `cargo test` to ensure no regressions.
 - Do not commit until `cargo fmt`, `cargo check`, and `cargo test` have been run successfully.
+- Before marking a todo list step complete, run `cargo fmt`, `cargo check`, and `cargo test`, then stop for review and commit the changes to the branch.
 - Run all tests with `cargo test`; for Docker build validation use `make test`.
 - Add tests alongside the module you are changing to keep coverage close to the code.
 - Manual `elisa` MQTT checks: publish to `action/request` and `state/request` with MQTT v5 `ResponseTopic` set; responses arrive on `action/response/<uuid>` or `state/response/<uuid>`.

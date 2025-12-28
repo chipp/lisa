@@ -39,14 +39,7 @@ impl LocalConnection<TcpStream> {
     ) -> Result<Self> {
         let addr = (ip, DEFAULT_PORT);
         let stream = TcpStream::connect(addr).await?;
-        Self::connect_with_stream(
-            stream,
-            local_key,
-            connect_nonce,
-            hello_seq,
-            hello_random,
-        )
-        .await
+        Self::connect_with_stream(stream, local_key, connect_nonce, hello_seq, hello_random).await
     }
 }
 
@@ -168,7 +161,11 @@ where
     }
 
     #[allow(dead_code)]
-    pub async fn keep_alive_loop(&mut self, mut seq_counter: impl FnMut() -> u32, mut random_counter: impl FnMut() -> u32) -> Result<()> {
+    pub async fn keep_alive_loop(
+        &mut self,
+        mut seq_counter: impl FnMut() -> u32,
+        mut random_counter: impl FnMut() -> u32,
+    ) -> Result<()> {
         loop {
             tokio::time::sleep(PING_INTERVAL).await;
             if let Err(err) = self.ping(seq_counter(), random_counter()).await {

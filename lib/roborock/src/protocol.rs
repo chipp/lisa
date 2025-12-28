@@ -293,7 +293,6 @@ impl RpcRequest {
         }
     }
 
-
     pub fn to_payload(&self) -> Result<Vec<u8>> {
         let inner = serde_json::json!({
             "id": self.id,

@@ -193,14 +193,9 @@ impl Vacuum {
         let random_counter = Counter::new(10_000, 99_999);
 
         let nonce = id_counter.next();
-        let connection = TcpLocalConnection::connect(
-            ip,
-            local_key.clone(),
-            nonce,
-            seq_counter.next(),
-            nonce,
-        )
-        .await?;
+        let connection =
+            TcpLocalConnection::connect(ip, local_key.clone(), nonce, seq_counter.next(), nonce)
+                .await?;
         info!(
             "roborock connected (duid={}, protocol={:?})",
             duid,

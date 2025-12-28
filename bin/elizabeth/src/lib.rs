@@ -1,9 +1,11 @@
 mod client;
 pub use client::Client;
 
+mod error;
+pub use error::Error;
+
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;
-use inspinia::WsError;
 use log::{debug, error, info};
 
 use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
@@ -13,8 +15,7 @@ use transport::elizabeth::{Action, ActionType, CurrentState};
 use transport::state::{StateRequest, StateResponse};
 use transport::DeviceType;
 
-pub type ErasedError = Box<dyn std::error::Error + Send + Sync>;
-pub type Result<T> = std::result::Result<T, ErasedError>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, inspinia: &mut Client) {
     let request: ActionRequest = match serde_json::from_slice(msg.payload()) {
@@ -69,21 +70,19 @@ fn try_updating_state(action: Action, inspinia: &mut Client) -> BoxFuture<'_, Re
     async move {
         match update_state(action, inspinia).await {
             Ok(()) => Ok(()),
-            Err(err) => match err.downcast::<WsError>() {
-                Ok(err) => match *err {
-                    WsError::StreamClosed | WsError::WebSocketError(_) => {
-                        error!("Lost Inspinia connection. Attempting reconnect.");
-                        inspinia.reconnect().await?;
+            Err(Error::Inspinia(err)) => match err {
+                inspinia::Error::StreamClosed | inspinia::Error::WebSocketError(_) => {
+                    error!("Lost Inspinia connection. Attempting reconnect.");
+                    inspinia.reconnect().await?;
 
-                        info!("Reconnected to Inspinia!");
-                        update_state(action, inspinia).await?;
+                    info!("Reconnected to Inspinia!");
+                    update_state(action, inspinia).await?;
 
-                        Ok(())
-                    }
-                    err => Err(err.into()),
-                },
-                Err(err) => Err(err),
+                    Ok(())
+                }
+                err => Err(err.into()),
             },
+            Err(err) => Err(err),
         }
     }
     .boxed()

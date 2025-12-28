@@ -1,4 +1,4 @@
-mod error;
+pub(crate) mod error;
 use error::Error;
 
 mod storage;
@@ -16,7 +16,7 @@ use tokio::time::timeout;
 use crate::Result;
 use inspinia::{
     download_template, Device, DeviceManager, Port, PortName, PortState, PortType, ReceivedMessage,
-    RegisterMessage, UpdateMessageContent, UpdateStateMessage, WsClient, WsError,
+    RegisterMessage, UpdateMessageContent, UpdateStateMessage, WsClient,
 };
 use transport::elizabeth::{self, Capability, State};
 use transport::DeviceType;
@@ -159,11 +159,11 @@ impl Client {
                         )
                     }
                     "404" => {
-                        return Err(WsError::StreamClosed.into());
+                        return Err(inspinia::Error::StreamClosed.into());
                     }
                     _ => info!("unsupported message: {:?}", payload),
                 },
-                Err(WsError::Pong) => (),
+                Err(inspinia::Error::Pong) => (),
                 Err(error) => {
                     error!("error reading Inspinia {:?}", error);
                     return Err(error.into());
@@ -234,7 +234,7 @@ impl Client {
 
     fn get_recuperator(db_path: &Path) -> Result<Device> {
         let device_manager = DeviceManager::new(db_path)?;
-        device_manager.get_recuperator_in_room(inspinia::Room::LivingRoom)
+        Ok(device_manager.get_recuperator_in_room(inspinia::Room::LivingRoom)?)
     }
 }
 

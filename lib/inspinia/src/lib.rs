@@ -1,6 +1,9 @@
 mod device;
 pub use device::{Device, FanSpeed, Port, PortName, PortType, Properties, Room};
 
+mod error;
+pub use error::Error;
+
 mod template;
 pub use template::download_template;
 
@@ -12,15 +15,14 @@ pub use messages::outgoing::{
 
 mod ws_client;
 use ws_client::OutgoingMessage;
-pub use ws_client::{WsClient, WsError};
+pub use ws_client::WsClient;
 
 mod device_manager;
 pub use device_manager::DeviceManager;
 
 use serde::Deserialize;
 
-pub type ErasedError = Box<dyn std::error::Error + Send + Sync>;
-pub type Result<T> = std::result::Result<T, ErasedError>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PortState {

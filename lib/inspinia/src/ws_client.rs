@@ -1,5 +1,4 @@
 use std::ffi::OsStr;
-use std::fmt;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -10,7 +9,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
-use crate::{ReceivedMessage, Result};
+use crate::{Error, ReceivedMessage, Result};
 use chrono::{DateTime, Local, TimeDelta};
 use chrono_humanize::{Accuracy, HumanTime, Tense};
 use futures_util::stream::{SplitSink, SplitStream};
@@ -19,45 +18,6 @@ use log::{debug, info};
 use serde::Serialize;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 use zip::write::SimpleFileOptions;
-
-#[derive(Debug)]
-pub enum WsError {
-    StreamClosed,
-    CannotParse(serde_json::Error),
-    WebSocketError(tokio_tungstenite::tungstenite::error::Error),
-    UnexpectedMessage(Message),
-    Pong,
-}
-
-impl fmt::Display for WsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WsError::StreamClosed => write!(f, "stream closed"),
-            WsError::CannotParse(error) => write!(f, "cannot parse: {}", error),
-            WsError::WebSocketError(error) => write!(f, "websocket error: {}", error),
-            WsError::UnexpectedMessage(message) => write!(f, "unexpected message: {:?}", message),
-            WsError::Pong => write!(f, "pong"),
-        }
-    }
-}
-
-impl std::error::Error for WsError {}
-
-impl From<serde_json::Error> for WsError {
-    fn from(value: serde_json::Error) -> Self {
-        WsError::CannotParse(value)
-    }
-}
-
-impl From<tokio_tungstenite::tungstenite::error::Error> for WsError {
-    fn from(value: tokio_tungstenite::tungstenite::error::Error) -> Self {
-        if let tokio_tungstenite::tungstenite::error::Error::AlreadyClosed = value {
-            WsError::StreamClosed
-        } else {
-            WsError::WebSocketError(value)
-        }
-    }
-}
 
 pub trait OutgoingMessage {
     fn code(&self) -> &'static str;
@@ -143,10 +103,10 @@ impl WsClient {
         Ok(())
     }
 
-    pub async fn read_message(&mut self) -> std::result::Result<ReceivedMessage, WsError> {
+    pub async fn read_message(&mut self) -> Result<ReceivedMessage> {
         let mut read = self.read.lock().await;
 
-        match read.next().await.ok_or(WsError::StreamClosed)? {
+        match read.next().await.ok_or(Error::StreamClosed)? {
             Ok(message) => {
                 self.log_socket_message(&message).await;
 
@@ -159,12 +119,12 @@ impl WsClient {
                         let mut write = self.write.lock().await;
                         write.send(Message::Pong(payload)).await?;
 
-                        Err(WsError::Pong)
+                        Err(Error::Pong)
                     }
-                    message => Err(WsError::UnexpectedMessage(message)),
+                    message => Err(Error::UnexpectedMessage(message)),
                 }
             }
-            Err(error) => Err(error)?,
+            Err(error) => Err(map_tungstenite_error(error)),
         }
     }
 
@@ -321,4 +281,12 @@ fn bytes_as_hex_string(bytes: &[u8]) -> String {
     }
 
     result
+}
+
+fn map_tungstenite_error(error: tokio_tungstenite::tungstenite::error::Error) -> Error {
+    if let tokio_tungstenite::tungstenite::error::Error::AlreadyClosed = error {
+        Error::StreamClosed
+    } else {
+        Error::WebSocketError(error)
+    }
 }

@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crypto = { path = "../../lib/crypto" }
-xiaomi = { path = "../../lib/xiaomi" }
+roborock = { path = "../../lib/roborock" }
 transport = { path = "../../lib/transport" }
 
 futures-util = "0.3"

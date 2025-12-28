@@ -7,6 +7,7 @@ use serde::{de::value, de::IntoDeserializer, Deserialize, Serialize};
 pub enum ModeFunction {
     WorkSpeed,
     FanSpeed,
+    CleanupMode,
 }
 
 impl std::str::FromStr for ModeFunction {
@@ -28,6 +29,9 @@ pub enum Mode {
     Medium,
     High,
     Turbo,
+    DryCleaning,
+    WetCleaning,
+    MixedCleaning,
 }
 
 impl std::str::FromStr for Mode {

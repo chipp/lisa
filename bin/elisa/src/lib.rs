@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use tokio::sync::Mutex;
+use roborock::{CleanupMode as RoborockCleanupMode, FanSpeed, Status, Vacuum};
+use tokio::sync::{mpsc, oneshot};
 use transport::{
     action::{ActionRequest, ActionResponse, ActionResult},
-    elisa::{Action, State, WorkSpeed},
+    elisa::{Action, CleanupMode, State, WorkSpeed},
     state::{StateRequest, StateResponse},
     DeviceType,
 };
-use xiaomi::{FanSpeed, Status, Vacuum};
 
 use log::{debug, error, info};
 use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
@@ -15,7 +15,64 @@ use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 pub type ErasedError = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, ErasedError>;
 
-pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc<Mutex<Vacuum>>) {
+enum VacuumRequest {
+    Action(Action, oneshot::Sender<Result<()>>),
+    Status(oneshot::Sender<Result<(Status, Vec<u8>)>>),
+}
+
+#[derive(Clone)]
+pub struct VacuumQueue {
+    tx: mpsc::Sender<VacuumRequest>,
+}
+
+impl VacuumQueue {
+    pub fn new(mut vacuum: Vacuum) -> Self {
+        let (tx, mut rx) = mpsc::channel(16);
+
+        tokio::spawn(async move {
+            while let Some(request) = rx.recv().await {
+                match request {
+                    VacuumRequest::Action(action, responder) => {
+                        let _ = responder.send(perform_action(action, &mut vacuum).await);
+                    }
+                    VacuumRequest::Status(responder) => {
+                        let result = vacuum
+                            .status()
+                            .await
+                            .map(|status| (status, vacuum.last_cleaning_rooms().to_vec()));
+                        let _ = responder.send(result);
+                    }
+                }
+            }
+        });
+
+        Self { tx }
+    }
+
+    pub async fn run_action(&self, action: Action) -> Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(VacuumRequest::Action(action, tx))
+            .await
+            .map_err(|_| queue_closed())?;
+        rx.await.map_err(|_| queue_closed())?
+    }
+
+    pub async fn get_status(&self) -> Result<(Status, Vec<u8>)> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(VacuumRequest::Status(tx))
+            .await
+            .map_err(|_| queue_closed())?;
+        rx.await.map_err(|_| queue_closed())?
+    }
+}
+
+fn queue_closed() -> ErasedError {
+    "vacuum queue closed".into()
+}
+
+pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc<VacuumQueue>) {
     let request: ActionRequest = match serde_json::from_slice(msg.payload()) {
         Ok(ids) => ids,
         Err(err) => {
@@ -35,8 +92,7 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, vacuum: Ar
 
     for action in request.actions {
         if let transport::action::Action::Elisa(action, action_id) = action {
-            let vacuum = &mut vacuum.lock().await;
-            let result = match perform_action(action, vacuum).await {
+            let result = match vacuum.run_action(action).await {
                 Ok(_) => ActionResult::Success,
                 Err(err) => {
                     error!("Error updating state: {}", err);
@@ -65,7 +121,7 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, vacuum: Ar
     }
 }
 
-pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc<Mutex<Vacuum>>) {
+pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc<VacuumQueue>) {
     let request: StateRequest = match serde_json::from_slice(msg.payload()) {
         Ok(ids) => ids,
         Err(err) => {
@@ -89,26 +145,29 @@ pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc
         .any(|id| id.device_type == DeviceType::VacuumCleaner);
 
     if should_respond {
-        let mut vacuum = vacuum.lock().await;
+        match vacuum.get_status().await {
+            Ok((status, rooms)) => {
+                let state = prepare_state(status, &rooms);
+                debug!("publish to {}: {:?}", response_topic, state);
 
-        if let Ok(status) = vacuum.status().await {
-            let state = prepare_state(status, vacuum.last_cleaning_rooms());
-            debug!("publish to {}: {:?}", response_topic, state);
+                let response = StateResponse::Elisa(state);
 
-            let response = StateResponse::Elisa(state);
+                let payload = serde_json::to_vec(&response).unwrap();
 
-            let payload = serde_json::to_vec(&response).unwrap();
+                let message = MessageBuilder::new()
+                    .topic(&response_topic)
+                    .payload(payload)
+                    .finalize();
 
-            let message = MessageBuilder::new()
-                .topic(&response_topic)
-                .payload(payload)
-                .finalize();
-
-            match mqtt.publish(message).await {
-                Ok(()) => (),
-                Err(err) => {
-                    error!("Error sending response to {}: {}", response_topic, err);
+                match mqtt.publish(message).await {
+                    Ok(()) => (),
+                    Err(err) => {
+                        error!("Error sending response to {}: {}", response_topic, err);
+                    }
                 }
+            }
+            Err(err) => {
+                error!("Error fetching vacuum status: {}", err);
             }
         }
     }
@@ -117,7 +176,7 @@ pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, vacuum: Arc
 async fn perform_action(action: Action, vacuum: &mut Vacuum) -> Result<()> {
     match action {
         Action::Start(rooms) => {
-            let room_ids = rooms.iter().map(room_id_for_room).collect();
+            let room_ids = rooms.iter().filter_map(room_id_for_room).collect();
 
             info!("wants to start cleaning in rooms: {:?}", rooms);
             vacuum.start(room_ids).await
@@ -130,8 +189,14 @@ async fn perform_action(action: Action, vacuum: &mut Vacuum) -> Result<()> {
         Action::SetWorkSpeed(work_speed) => {
             let mode = from_elisa_speed(work_speed);
 
-            info!("wants to set mode {}", mode);
+            info!("wants to set mode {:?}", mode);
             vacuum.set_fan_speed(mode).await
+        }
+        Action::SetCleanupMode(cleanup_mode) => {
+            let mode = from_elisa_cleanup(cleanup_mode);
+
+            info!("wants to set cleanup mode {:?}", mode);
+            vacuum.set_cleanup_mode(mode).await
         }
         Action::Pause => {
             info!("wants to pause");
@@ -149,55 +214,70 @@ pub fn prepare_state(status: Status, rooms: &[u8]) -> State {
         battery_level: status.battery,
         is_enabled: status.state.is_enabled(),
         is_paused: status.state.is_paused(),
-        work_speed: from_xiaomi_speed(status.fan_speed),
+        work_speed: from_roborock_speed(status.fan_speed),
+        cleanup_mode: from_roborock_cleanup(status.cleanup_mode),
         rooms: rooms.iter().filter_map(room_from_id).collect(),
     }
 }
 
-fn room_id_for_room(room: &transport::Room) -> u8 {
+fn room_id_for_room(room: &transport::Room) -> Option<u8> {
     match room {
-        // TODO: read configuration to config file
-        transport::Room::Bathroom => 11,
-        transport::Room::Bedroom => 13,
-        transport::Room::Corridor => 15,
-        transport::Room::Hallway => 12,
-        transport::Room::HomeOffice => 17,
-        transport::Room::Kitchen => 16,
-        transport::Room::LivingRoom => 18,
-        transport::Room::Nursery => 14,
-        transport::Room::Toilet => 10,
+        transport::Room::Bedroom => Some(17),
+        transport::Room::Corridor => Some(16),
+        transport::Room::Hallway => Some(20),
+        transport::Room::HomeOffice => Some(21),
+        transport::Room::Kitchen => Some(19),
+        transport::Room::LivingRoom => Some(18),
+        _ => None,
     }
 }
 
 fn room_from_id(id: &u8) -> Option<transport::Room> {
     match id {
-        11 => Some(transport::Room::Bathroom),
-        13 => Some(transport::Room::Bedroom),
-        15 => Some(transport::Room::Corridor),
-        12 => Some(transport::Room::Hallway),
-        17 => Some(transport::Room::HomeOffice),
-        16 => Some(transport::Room::Kitchen),
+        16 => Some(transport::Room::Corridor),
+        17 => Some(transport::Room::Bedroom),
         18 => Some(transport::Room::LivingRoom),
-        14 => Some(transport::Room::Nursery),
-        10 => Some(transport::Room::Toilet),
+        19 => Some(transport::Room::Kitchen),
+        20 => Some(transport::Room::Hallway),
+        21 => Some(transport::Room::HomeOffice),
         _ => None,
     }
 }
 
-fn from_xiaomi_speed(speed: FanSpeed) -> WorkSpeed {
+fn from_roborock_speed(speed: FanSpeed) -> WorkSpeed {
     match speed {
+        FanSpeed::Off => WorkSpeed::Min,
         FanSpeed::Silent => WorkSpeed::Silent,
         FanSpeed::Standard => WorkSpeed::Standard,
         FanSpeed::Medium => WorkSpeed::Medium,
         FanSpeed::Turbo => WorkSpeed::Turbo,
+        FanSpeed::Max => WorkSpeed::Turbo,
+        FanSpeed::SmartMode => WorkSpeed::Standard,
     }
 }
 
 fn from_elisa_speed(speed: WorkSpeed) -> FanSpeed {
     match speed {
+        WorkSpeed::Min => FanSpeed::Off,
         WorkSpeed::Silent => FanSpeed::Silent,
         WorkSpeed::Standard => FanSpeed::Standard,
         WorkSpeed::Medium => FanSpeed::Medium,
         WorkSpeed::Turbo => FanSpeed::Turbo,
+    }
+}
+
+fn from_roborock_cleanup(mode: RoborockCleanupMode) -> CleanupMode {
+    match mode {
+        RoborockCleanupMode::DryCleaning => CleanupMode::DryCleaning,
+        RoborockCleanupMode::WetCleaning => CleanupMode::WetCleaning,
+        RoborockCleanupMode::MixedCleaning => CleanupMode::MixedCleaning,
+    }
+}
+
+fn from_elisa_cleanup(mode: CleanupMode) -> RoborockCleanupMode {
+    match mode {
+        CleanupMode::DryCleaning => RoborockCleanupMode::DryCleaning,
+        CleanupMode::WetCleaning => RoborockCleanupMode::WetCleaning,
+        CleanupMode::MixedCleaning => RoborockCleanupMode::MixedCleaning,
     }
 }

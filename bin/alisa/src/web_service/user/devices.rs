@@ -25,15 +25,12 @@ pub async fn devices(headers: HeaderMap) -> Result<impl IntoResponse> {
                 sensor_device(Room::HomeOffice),
                 sensor_device(Room::Kitchen),
                 sensor_device(Room::Nursery),
-                vacuum_cleaner_device(Room::Bathroom),
                 vacuum_cleaner_device(Room::Bedroom),
                 vacuum_cleaner_device(Room::Corridor),
                 vacuum_cleaner_device(Room::Hallway),
                 vacuum_cleaner_device(Room::HomeOffice),
                 vacuum_cleaner_device(Room::Kitchen),
                 vacuum_cleaner_device(Room::LivingRoom),
-                vacuum_cleaner_device(Room::Nursery),
-                vacuum_cleaner_device(Room::Toilet),
                 thermostat_device(Room::Bedroom),
                 thermostat_device(Room::HomeOffice),
                 thermostat_device(Room::LivingRoom),
@@ -95,6 +92,12 @@ fn vacuum_cleaner_device(room: Room) -> Device {
             DeviceCapability::mode(
                 ModeFunction::WorkSpeed,
                 vec![Mode::Quiet, Mode::Normal, Mode::Medium, Mode::Turbo],
+            )
+            .retrievable()
+            .reportable(),
+            DeviceCapability::mode(
+                ModeFunction::CleanupMode,
+                vec![Mode::DryCleaning, Mode::MixedCleaning, Mode::WetCleaning],
             )
             .retrievable()
             .reportable(),

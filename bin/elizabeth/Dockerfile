@@ -12,6 +12,7 @@ RUN USER=rust \
   cargo new --lib /home/rust/src/lib/sonoff && \
   cargo new --lib /home/rust/src/lib/transport && \
   cargo new --lib /home/rust/src/lib/xiaomi && \
+  cargo new --lib /home/rust/src/lib/roborock && \
   cargo new --bin /home/rust/src/bin/alisa && \
   cargo new --bin /home/rust/src/bin/elisa && \
   cargo new --bin /home/rust/src/bin/elisheba && \

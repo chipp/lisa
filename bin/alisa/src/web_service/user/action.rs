@@ -279,6 +279,10 @@ fn map_elisa_action(state_capability: &StateCapability, room: Room) -> Option<El
             function: ModeFunction::WorkSpeed,
             mode,
         } => map_mode_to_work_speed(*mode).map(ElisaAction::SetWorkSpeed),
+        StateCapability::Mode {
+            function: ModeFunction::CleanupMode,
+            mode,
+        } => map_mode_to_cleanup_mode(*mode).map(ElisaAction::SetCleanupMode),
         StateCapability::Toggle {
             function: ToggleFunction::Pause,
             value,
@@ -304,7 +308,12 @@ fn map_mode_to_fan_speed(mode: alice::Mode) -> Option<transport::elizabeth::FanS
         alice::Mode::Low => Some(transport::elizabeth::FanSpeed::Low),
         alice::Mode::Medium => Some(transport::elizabeth::FanSpeed::Medium),
         alice::Mode::High => Some(transport::elizabeth::FanSpeed::High),
-        alice::Mode::Quiet | alice::Mode::Normal | alice::Mode::Turbo => {
+        alice::Mode::Quiet
+        | alice::Mode::Normal
+        | alice::Mode::Turbo
+        | alice::Mode::DryCleaning
+        | alice::Mode::WetCleaning
+        | alice::Mode::MixedCleaning => {
             error!("Unsupported mode {} for recuperator", mode);
             None
         }
@@ -313,12 +322,28 @@ fn map_mode_to_fan_speed(mode: alice::Mode) -> Option<transport::elizabeth::FanS
 
 fn map_mode_to_work_speed(mode: alice::Mode) -> Option<transport::elisa::WorkSpeed> {
     match mode {
+        alice::Mode::Low => Some(transport::elisa::WorkSpeed::Min),
         alice::Mode::Quiet => Some(transport::elisa::WorkSpeed::Silent),
         alice::Mode::Normal => Some(transport::elisa::WorkSpeed::Standard),
         alice::Mode::Medium => Some(transport::elisa::WorkSpeed::Medium),
         alice::Mode::Turbo => Some(transport::elisa::WorkSpeed::Turbo),
-        alice::Mode::Low | alice::Mode::High => {
+        alice::Mode::High
+        | alice::Mode::DryCleaning
+        | alice::Mode::WetCleaning
+        | alice::Mode::MixedCleaning => {
             error!("Unsupported mode {} for vacuum cleaner", mode);
+            None
+        }
+    }
+}
+
+fn map_mode_to_cleanup_mode(mode: alice::Mode) -> Option<transport::elisa::CleanupMode> {
+    match mode {
+        alice::Mode::DryCleaning => Some(transport::elisa::CleanupMode::DryCleaning),
+        alice::Mode::WetCleaning => Some(transport::elisa::CleanupMode::WetCleaning),
+        alice::Mode::MixedCleaning => Some(transport::elisa::CleanupMode::MixedCleaning),
+        _ => {
+            error!("Unsupported mode {} for vacuum cleaner cleanup", mode);
             None
         }
     }
@@ -368,6 +393,10 @@ fn prepare_response_capability(capability: &StateCapability) -> UpdateStateCapab
             function: ModeFunction::WorkSpeed,
             mode: _,
         } => UpdateStateCapability::mode(ModeFunction::WorkSpeed, result),
+        StateCapability::Mode {
+            function: ModeFunction::CleanupMode,
+            mode: _,
+        } => UpdateStateCapability::mode(ModeFunction::CleanupMode, result),
         StateCapability::Toggle {
             function: ToggleFunction::Pause,
             value: _,
@@ -400,6 +429,10 @@ mod tests {
     #[test]
     fn map_work_speed() {
         assert_eq!(
+            map_mode_to_work_speed(Mode::Low).unwrap(),
+            transport::elisa::WorkSpeed::Min
+        );
+        assert_eq!(
             map_mode_to_work_speed(Mode::Quiet).unwrap(),
             transport::elisa::WorkSpeed::Silent
         );
@@ -415,7 +448,24 @@ mod tests {
             map_mode_to_work_speed(Mode::Turbo).unwrap(),
             transport::elisa::WorkSpeed::Turbo
         );
-        assert!(map_mode_to_work_speed(Mode::Low).is_none());
+        assert!(map_mode_to_work_speed(Mode::High).is_none());
+    }
+
+    #[test]
+    fn map_cleanup_mode() {
+        assert_eq!(
+            map_mode_to_cleanup_mode(Mode::DryCleaning).unwrap(),
+            transport::elisa::CleanupMode::DryCleaning
+        );
+        assert_eq!(
+            map_mode_to_cleanup_mode(Mode::WetCleaning).unwrap(),
+            transport::elisa::CleanupMode::WetCleaning
+        );
+        assert_eq!(
+            map_mode_to_cleanup_mode(Mode::MixedCleaning).unwrap(),
+            transport::elisa::CleanupMode::MixedCleaning
+        );
+        assert!(map_mode_to_cleanup_mode(Mode::Turbo).is_none());
     }
 
     #[test]
@@ -535,6 +585,22 @@ mod tests {
             map_elisa_action(&state_capability, room),
             Some(ElisaAction::SetWorkSpeed(
                 transport::elisa::WorkSpeed::Silent
+            ))
+        );
+    }
+
+    #[test]
+    fn set_vacuum_cleaner_cleanup_mode() {
+        let state_capability = StateCapability::Mode {
+            function: ModeFunction::CleanupMode,
+            mode: Mode::DryCleaning,
+        };
+        let room = Room::LivingRoom;
+
+        assert_eq!(
+            map_elisa_action(&state_capability, room),
+            Some(ElisaAction::SetCleanupMode(
+                transport::elisa::CleanupMode::DryCleaning
             ))
         );
     }

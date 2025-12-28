@@ -97,7 +97,7 @@ fn vacuum_cleaner_device(room: Room) -> Device {
             .reportable(),
             DeviceCapability::mode(
                 ModeFunction::CleanupMode,
-                vec![Mode::DryCleaning, Mode::MixedCleaning],
+                vec![Mode::DryCleaning, Mode::MixedCleaning, Mode::WetCleaning],
             )
             .retrievable()
             .reportable(),

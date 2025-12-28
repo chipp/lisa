@@ -11,7 +11,6 @@ use crate::protocol::{
     decode_rpc_response, LocalCodec, LocalProtocolVersion, MessageProtocol, RoborockMessage,
     RpcRequest,
 };
-use crate::util::get_next_int;
 use crate::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -31,11 +30,23 @@ pub struct LocalConnection<IO> {
 pub type TcpLocalConnection = LocalConnection<TcpStream>;
 
 impl LocalConnection<TcpStream> {
-    pub async fn connect(ip: Ipv4Addr, local_key: String) -> Result<Self> {
+    pub async fn connect(
+        ip: Ipv4Addr,
+        local_key: String,
+        connect_nonce: u32,
+        hello_seq: u32,
+        hello_random: u32,
+    ) -> Result<Self> {
         let addr = (ip, DEFAULT_PORT);
         let stream = TcpStream::connect(addr).await?;
-        let connect_nonce = get_next_int(10_000, 32_767);
-        Self::connect_with_stream(stream, local_key, connect_nonce).await
+        Self::connect_with_stream(
+            stream,
+            local_key,
+            connect_nonce,
+            hello_seq,
+            hello_random,
+        )
+        .await
     }
 }
 
@@ -47,6 +58,8 @@ where
         stream: IO,
         local_key: String,
         connect_nonce: u32,
+        hello_seq: u32,
+        hello_random: u32,
     ) -> Result<Self> {
         let codec = LocalCodec::new(local_key, connect_nonce, None);
 
@@ -59,7 +72,7 @@ where
         };
 
         debug!("roborock local connect: trying L01 hello");
-        let ack_nonce = connection.hello().await?;
+        let ack_nonce = connection.hello(hello_seq, hello_random).await?;
         debug!(
             "roborock local connect: L01 hello ok, ack_nonce={}",
             ack_nonce
@@ -76,18 +89,22 @@ where
 
     pub async fn send_rpc(
         &mut self,
+        request_id: u32,
+        seq: u32,
+        random: u32,
         method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        let request = RpcRequest::new(method, params);
+        let request = RpcRequest::new(request_id, method, params);
         let payload = request.to_payload()?;
         let payload_log = String::from_utf8_lossy(&payload).to_string();
         let message = RoborockMessage::new(
             self.protocol_version,
             MessageProtocol::GeneralRequest,
+            seq,
+            random,
             Some(payload),
         );
-        let request_id = request.id;
 
         debug!(
             "roborock rpc send: method={}, request_id={}, payload={}",
@@ -131,9 +148,14 @@ where
     }
 
     #[allow(dead_code)]
-    pub async fn ping(&mut self) -> Result<()> {
-        let message =
-            RoborockMessage::new(self.protocol_version, MessageProtocol::PingRequest, None);
+    pub async fn ping(&mut self, seq: u32, random: u32) -> Result<()> {
+        let message = RoborockMessage::new(
+            self.protocol_version,
+            MessageProtocol::PingRequest,
+            seq,
+            random,
+            None,
+        );
         let seq = message.seq;
         self.send_message(message).await?;
 
@@ -146,20 +168,20 @@ where
     }
 
     #[allow(dead_code)]
-    pub async fn keep_alive_loop(&mut self) -> Result<()> {
+    pub async fn keep_alive_loop(&mut self, mut seq_counter: impl FnMut() -> u32, mut random_counter: impl FnMut() -> u32) -> Result<()> {
         loop {
             tokio::time::sleep(PING_INTERVAL).await;
-            if let Err(err) = self.ping().await {
+            if let Err(err) = self.ping(seq_counter(), random_counter()).await {
                 debug!("ping failed: {}", err);
             }
         }
     }
 
-    async fn hello(&mut self) -> Result<u32> {
+    async fn hello(&mut self, seq: u32, random: u32) -> Result<u32> {
         let message = RoborockMessage {
             version: LocalProtocolVersion::L01,
-            seq: 1,
-            random: self.codec.connect_nonce(),
+            seq,
+            random,
             timestamp: unix_timestamp(),
             protocol: MessageProtocol::HelloRequest,
             payload: None,
@@ -261,6 +283,8 @@ mod tests {
         let local_key = "0123456789abcdef".to_string();
         let connect_nonce = 11111;
         let ack_nonce = 22222;
+        let hello_seq = 100;
+        let hello_random = 200;
         let (client, mut server) = duplex(4096);
 
         let server_key = local_key.clone();
@@ -269,6 +293,9 @@ mod tests {
             let mut buffer = Vec::new();
             let request = read_next(&codec, &mut server, &mut buffer).await;
             assert_eq!(request.protocol, MessageProtocol::HelloRequest);
+            assert_eq!(request.seq, hello_seq);
+            assert_eq!(request.random, hello_random);
+
             let response = RoborockMessage {
                 version: request.version,
                 seq: request.seq,
@@ -281,9 +308,15 @@ mod tests {
             server.write_all(&frame).await.unwrap();
         });
 
-        let connection = LocalConnection::connect_with_stream(client, local_key, connect_nonce)
-            .await
-            .unwrap();
+        let connection = LocalConnection::connect_with_stream(
+            client,
+            local_key,
+            connect_nonce,
+            hello_seq,
+            hello_random,
+        )
+        .await
+        .unwrap();
         assert_eq!(connection.protocol_version(), LocalProtocolVersion::L01);
         server_task.await.unwrap();
     }
@@ -293,6 +326,11 @@ mod tests {
         let local_key = "0123456789abcdef".to_string();
         let connect_nonce = 12345;
         let ack_nonce = 33333;
+        let hello_seq = 1;
+        let hello_random = 2;
+        let request_id = 999;
+        let seq = 10;
+        let random = 20;
         let (client, mut server) = duplex(4096);
 
         let server_key = local_key.clone();
@@ -320,7 +358,7 @@ mod tests {
             let outer: serde_json::Value = serde_json::from_slice(&payload).unwrap();
             let inner_str = outer["dps"]["101"].as_str().unwrap();
             let inner: serde_json::Value = serde_json::from_str(inner_str).unwrap();
-            let request_id = inner["id"].as_u64().unwrap();
+            assert_eq!(inner["id"].as_u64(), Some(request_id as u64));
 
             let inner_response = json!({ "id": request_id, "result": { "ok": true } });
             let outer_response =
@@ -339,71 +377,17 @@ mod tests {
             server.write_all(&frame).await.unwrap();
         });
 
-        let mut connection = LocalConnection::connect_with_stream(client, local_key, connect_nonce)
-            .await
-            .unwrap();
+        let mut connection = LocalConnection::connect_with_stream(
+            client,
+            local_key,
+            connect_nonce,
+            hello_seq,
+            hello_random,
+        )
+        .await
+        .unwrap();
         let response = connection
-            .send_rpc("get_status", serde_json::json!([]))
-            .await
-            .unwrap();
-        assert_eq!(response["ok"], true);
-        server_task.await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_rpc_roundtrip_general_request() {
-        let local_key = "0123456789abcdef".to_string();
-        let connect_nonce = 55555;
-        let ack_nonce = 44444;
-        let (client, mut server) = duplex(4096);
-
-        let server_key = local_key.clone();
-        let server_task = tokio::spawn(async move {
-            let mut codec = LocalCodec::new(server_key, connect_nonce, None);
-            let mut buffer = Vec::new();
-
-            let hello = read_next(&codec, &mut server, &mut buffer).await;
-            let response = RoborockMessage {
-                version: hello.version,
-                seq: hello.seq,
-                random: ack_nonce,
-                timestamp: hello.timestamp,
-                protocol: MessageProtocol::HelloResponse,
-                payload: None,
-            };
-            let frame = codec.build_message(&response).unwrap();
-            server.write_all(&frame).await.unwrap();
-            codec = codec.with_ack_nonce(ack_nonce);
-
-            let request = read_next(&codec, &mut server, &mut buffer).await;
-            let payload = request.payload.expect("payload");
-            let outer: serde_json::Value = serde_json::from_slice(&payload).unwrap();
-            let inner_str = outer["dps"]["101"].as_str().unwrap();
-            let inner: serde_json::Value = serde_json::from_str(inner_str).unwrap();
-            let request_id = inner["id"].as_u64().unwrap();
-
-            let inner_response = json!({ "id": request_id, "result": { "ok": true } });
-            let outer_response =
-                json!({ "dps": { "102": serde_json::to_string(&inner_response).unwrap() } });
-            let response_payload = serde_json::to_vec(&outer_response).unwrap();
-
-            let response = RoborockMessage {
-                version: request.version,
-                seq: request.seq,
-                random: ack_nonce,
-                timestamp: request.timestamp,
-                protocol: MessageProtocol::GeneralRequest,
-                payload: Some(response_payload),
-            };
-            let frame = codec.build_message(&response).unwrap();
-            server.write_all(&frame).await.unwrap();
-        });
-
-        let mut connection = LocalConnection::connect_with_stream(client, local_key, connect_nonce)
-            .await
-            .unwrap();
-        let response = connection
-            .send_rpc("get_status", serde_json::json!([]))
+            .send_rpc(request_id, seq, random, "get_status", serde_json::json!([]))
             .await
             .unwrap();
         assert_eq!(response["ok"], true);

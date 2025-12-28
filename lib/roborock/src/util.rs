@@ -1,12 +1,22 @@
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+#[derive(Debug, Clone)]
+pub struct Counter {
+    min: u32,
+    max: u32,
+    current: u32,
+}
 
-static COUNTERS: OnceLock<Mutex<HashMap<(u32, u32), u32>>> = OnceLock::new();
+impl Counter {
+    pub fn new(min: u32, max: u32) -> Self {
+        Self {
+            min,
+            max,
+            current: min,
+        }
+    }
 
-pub fn get_next_int(min_val: u32, max_val: u32) -> u32 {
-    let counters = COUNTERS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut counters = counters.lock().expect("counter lock poisoned");
-    let entry = counters.entry((min_val, max_val)).or_insert(min_val);
-    *entry = entry.wrapping_add(1);
-    (*entry % max_val) + min_val
+    pub fn next(&mut self) -> u32 {
+        let range = self.max - self.min + 1;
+        self.current = self.min + ((self.current - self.min + 1) % range);
+        self.current
+    }
 }

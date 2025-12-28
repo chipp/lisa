@@ -4,6 +4,7 @@ use std::time::Duration;
 use log::{info, warn};
 
 use crate::local::TcpLocalConnection;
+use crate::util::Counter;
 use crate::Result;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180,11 +181,26 @@ pub struct Vacuum {
     local_key: String,
     connection: TcpLocalConnection,
     last_cleaning_rooms: Vec<u8>,
+    id_counter: Counter,
+    seq_counter: Counter,
+    random_counter: Counter,
 }
 
 impl Vacuum {
     pub async fn new(ip: Ipv4Addr, duid: String, local_key: String) -> Result<Vacuum> {
-        let connection = TcpLocalConnection::connect(ip, local_key.clone()).await?;
+        let mut id_counter = Counter::new(10_000, 32_767);
+        let mut seq_counter = Counter::new(100_000, 999_999);
+        let random_counter = Counter::new(10_000, 99_999);
+
+        let nonce = id_counter.next();
+        let connection = TcpLocalConnection::connect(
+            ip,
+            local_key.clone(),
+            nonce,
+            seq_counter.next(),
+            nonce,
+        )
+        .await?;
         info!(
             "roborock connected (duid={}, protocol={:?})",
             duid,
@@ -196,6 +212,9 @@ impl Vacuum {
             local_key,
             connection,
             last_cleaning_rooms: vec![],
+            id_counter,
+            seq_counter,
+            random_counter,
         })
     }
 
@@ -250,6 +269,8 @@ impl Vacuum {
         if cleanup_mode == CleanupMode::WetCleaning {
             self.send_rpc_with_retry("set_custom_mode", serde_json::json!([105]))
                 .await?;
+        } else {
+            self.set_fan_speed(FanSpeed::Standard).await?;
         }
         Ok(())
     }
@@ -297,9 +318,20 @@ impl Vacuum {
         params: serde_json::Value,
     ) -> Result<serde_json::Value> {
         const RETRY_DELAY: Duration = Duration::from_millis(300);
+        let request_id = self.id_counter.next();
         let mut attempt = 0;
         loop {
-            match self.connection.send_rpc(method, params.clone()).await {
+            match self
+                .connection
+                .send_rpc(
+                    request_id,
+                    self.seq_counter.next(),
+                    self.random_counter.next(),
+                    method,
+                    params.clone(),
+                )
+                .await
+            {
                 Ok(result) => return Ok(result),
                 Err(err) => {
                     if attempt >= 1 || !should_retry(err.as_ref()) {
@@ -318,7 +350,15 @@ impl Vacuum {
     }
 
     async fn reconnect(&mut self) -> Result<()> {
-        let connection = TcpLocalConnection::connect(self.ip, self.local_key.clone()).await?;
+        let nonce = self.id_counter.next();
+        let connection = TcpLocalConnection::connect(
+            self.ip,
+            self.local_key.clone(),
+            nonce,
+            self.seq_counter.next(),
+            nonce,
+        )
+        .await?;
         info!(
             "roborock reconnected (duid={}, protocol={:?})",
             self.duid,

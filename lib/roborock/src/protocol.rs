@@ -6,7 +6,6 @@ use sha2::{Digest, Sha256};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::util::get_next_int;
 use crate::{ErasedError, Result};
 
 const SALT: &[u8] = b"TXdfu$jyZ#TZHsg4";
@@ -51,12 +50,14 @@ impl RoborockMessage {
     pub fn new(
         version: LocalProtocolVersion,
         protocol: MessageProtocol,
+        seq: u32,
+        random: u32,
         payload: Option<Vec<u8>>,
     ) -> Self {
         Self {
             version,
-            seq: get_next_int(100_000, 999_999),
-            random: get_next_int(10_000, 99_999),
+            seq,
+            random,
             timestamp: unix_timestamp(),
             protocol,
             payload,
@@ -100,10 +101,6 @@ impl LocalCodec {
             connect_nonce,
             ack_nonce,
         }
-    }
-
-    pub fn connect_nonce(&self) -> u32 {
-        self.connect_nonce
     }
 
     pub fn with_ack_nonce(&self, ack_nonce: u32) -> Self {
@@ -288,13 +285,14 @@ pub struct RpcRequest {
 }
 
 impl RpcRequest {
-    pub fn new(method: impl Into<String>, params: serde_json::Value) -> Self {
+    pub fn new(id: u32, method: impl Into<String>, params: serde_json::Value) -> Self {
         Self {
-            id: get_next_int(10_000, 32_767),
+            id,
             method: method.into(),
             params,
         }
     }
+
 
     pub fn to_payload(&self) -> Result<Vec<u8>> {
         let inner = serde_json::json!({

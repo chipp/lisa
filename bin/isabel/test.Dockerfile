@@ -53,5 +53,5 @@ COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
 COPY ./bin/isabel/src ./bin/isabel/src
 
-RUN cargo test -p elisa -p str_derive -p transport && \
+RUN cargo test -p isabel -p bluetooth -p str_derive -p transport && \
   rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

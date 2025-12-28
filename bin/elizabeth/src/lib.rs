@@ -70,21 +70,19 @@ fn try_updating_state(action: Action, inspinia: &mut Client) -> BoxFuture<'_, Re
     async move {
         match update_state(action, inspinia).await {
             Ok(()) => Ok(()),
-            Err(err) => match err.downcast::<WsError>() {
-                Ok(err) => match *err {
-                    WsError::StreamClosed | WsError::WebSocketError(_) => {
-                        error!("Lost Inspinia connection. Attempting reconnect.");
-                        inspinia.reconnect().await?;
+            Err(Error::Inspinia(err)) => match err {
+                inspinia::Error::StreamClosed | inspinia::Error::WebSocketError(_) => {
+                    error!("Lost Inspinia connection. Attempting reconnect.");
+                    inspinia.reconnect().await?;
 
-                        info!("Reconnected to Inspinia!");
-                        update_state(action, inspinia).await?;
+                    info!("Reconnected to Inspinia!");
+                    update_state(action, inspinia).await?;
 
-                        Ok(())
-                    }
-                    err => Err(err.into()),
-                },
-                Err(err) => Err(err),
+                    Ok(())
+                }
+                err => Err(err.into()),
             },
+            Err(err) => Err(err),
         }
     }
     .boxed()

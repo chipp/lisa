@@ -27,7 +27,7 @@ pub async fn query(
 
     let mut mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "alisa_query")
         .await
-        .expect("failed to connect mqtt");
+        .map_err(ServiceError::from)?;
 
     let request_id = headers.get("X-Request-Id").unwrap().to_str().unwrap();
 

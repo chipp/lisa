@@ -1,4 +1,4 @@
-use alisa::{router, Reporter, Result};
+use alisa::{router, Error, Reporter, Result};
 use transport::state::StateUpdate;
 use transport::{connect_mqtt, Topic};
 
@@ -58,7 +58,9 @@ async fn listen_web() -> Result<()> {
     let router = router();
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
-    axum::serve(listener, router).await?;
+    axum::serve(listener, router)
+        .await
+        .map_err(|_| Error::WebServe)?;
 
     Ok(())
 }

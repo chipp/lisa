@@ -3,6 +3,7 @@ mod event;
 mod os;
 
 pub use event::{Event, MacAddr};
+pub use os::Error;
 pub use os::ScannerTrait;
 
 #[cfg(target_os = "linux")]

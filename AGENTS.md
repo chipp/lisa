@@ -40,7 +40,7 @@
 - If the change affects runtime behavior, add a brief manual test note or log snippet.
 - Use `gt` (Graphite) for managing PRs in this project.
 - For multi-step plans, create a draft PR when starting implementation and update the PR after each completed step.
-- After plan completion let's update the PR description (you can use `gh` for that) and publish it.
+- After plan completion update the PR description using `gh`, then publish it.
 
 ## Security & Configuration Tips
 - Several run targets expect secrets from 1Password (`op read ...`) and MQTT credentials; avoid hard-coding secrets.

@@ -33,3 +33,6 @@ This document provides a concise summary of project-specific guidelines for Gemi
 - Use short, imperative sentences (e.g., "Add timeout to Roborock discovery").
 - Style should match existing commit history (`git log -n 3`).
 - Only commit after `cargo fmt`, `cargo check`, and `cargo test` have completed successfully.
+
+## Pull Requests
+- Update PR descriptions using `gh`.

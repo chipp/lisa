@@ -52,7 +52,6 @@
 - `set_water_box_custom_mode` uses params object: `{"water_box_mode": <code>}`.
 - `app_segment_clean` uses params list: `[{ "segments": [<segment_id>], "repeat": 1 }]`.
 - When stopping `elisa` locally, prefer `pkill -f target/debug/elisa` over `pgrep`.
-- Set `ELISA_DISABLE_POLLING=1` to disable status polling during manual command tests.
 
 ## Rust Toolchain & Base Builder Tags
 - `rust-toolchain.toml` pins the local Rust toolchain (e.g., `channel = "1.92.0"`).

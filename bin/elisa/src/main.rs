@@ -37,11 +37,9 @@ async fn main() -> Result<()> {
     let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "elisa").await?;
     info!("connected mqtt");
 
-    let disable_polling =
-        std::env::var("ELISA_DISABLE_POLLING").map_or(false, |value| value == "1");
     let (set_handle, state_handle) = tokio::try_join!(
         task::spawn(subscribe_actions(mqtt_client.clone(), vacuum_queue.clone())),
-        task::spawn(subscribe_state(mqtt_client, vacuum_queue, disable_polling))
+        task::spawn(subscribe_state(mqtt_client, vacuum_queue))
     )?;
 
     set_handle?;
@@ -109,19 +107,11 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Resu
     Ok(())
 }
 
-async fn subscribe_state(
-    mqtt: MqClient,
-    vacuum: Arc<VacuumQueue>,
-    disable_polling: bool,
-) -> Result<()> {
+async fn subscribe_state(mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Result<()> {
     let mut timer = time::interval(Duration::from_secs(10));
 
     loop {
         timer.tick().await;
-        if disable_polling {
-            continue;
-        }
-
         if let Ok((status, rooms)) = vacuum.get_status().await {
             info!(
                 "roborock modes: mop={:?}, water_box={:?}, wash_status={:?}, wash_phase={:?}",

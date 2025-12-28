@@ -11,7 +11,6 @@ RUN USER=rust \
   cargo new --lib /home/rust/src/lib/str_derive && \
   cargo new --lib /home/rust/src/lib/sonoff && \
   cargo new --lib /home/rust/src/lib/transport && \
-  cargo new --lib /home/rust/src/lib/xiaomi && \
   cargo new --lib /home/rust/src/lib/roborock && \
   cargo new --bin /home/rust/src/bin/alisa && \
   cargo new --bin /home/rust/src/bin/elisa && \
@@ -24,7 +23,6 @@ COPY ./lib/crypto/Cargo.toml ./lib/crypto/Cargo.toml
 COPY ./lib/str_derive/Cargo.toml ./lib/str_derive/Cargo.toml
 COPY ./lib/str_derive/fake_macro.rs ./lib/str_derive/src/lib.rs
 COPY ./lib/transport/Cargo.toml ./lib/transport/Cargo.toml
-COPY ./lib/xiaomi/Cargo.toml ./lib/xiaomi/Cargo.toml
 COPY ./lib/roborock/Cargo.toml ./lib/roborock/Cargo.toml
 
 COPY ./Cargo.lock ./Cargo.lock
@@ -35,29 +33,25 @@ RUN cargo build \
   -p crypto \
   -p str_derive \
   -p transport \
-  -p xiaomi \
   -p roborock && \
   cargo clean \
   -p elisa \
   -p crypto \
   -p str_derive \
   -p transport \
-  -p xiaomi \
   -p roborock \
   --target aarch64-unknown-linux-musl && \
   rm ./bin/elisa/src/*.rs \
   ./lib/crypto/src/*.rs \
   ./lib/str_derive/src/*.rs \
   ./lib/transport/src/*.rs \
-  ./lib/xiaomi/src/*.rs \
   ./lib/roborock/src/*.rs
 
 COPY ./lib/crypto/src ./lib/crypto/src
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
-COPY ./lib/xiaomi/src ./lib/xiaomi/src
 COPY ./lib/roborock/src ./lib/roborock/src
 COPY ./bin/elisa/src ./bin/elisa/src
 
-RUN cargo test -p elisa -p crypto -p str_derive -p transport -p xiaomi -p roborock && \
+RUN cargo test -p elisa -p crypto -p str_derive -p transport -p roborock && \
   rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

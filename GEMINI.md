@@ -4,7 +4,7 @@ This document provides a concise summary of project-specific guidelines for Gemi
 
 ## Project Overview
 - `bin/`: Executable services (e.g., `alisa`, `elisa`, `elizabeth`, `isabel`, `elisheba`).
-- `lib/`: Shared crates (e.g., `transport`, `alice`, `xiaomi`, `crypto`).
+- `lib/`: Shared crates (e.g., `transport`, `alice`, `crypto`).
 - `conf/`: Configuration files (Docker, MQTT).
 
 ## Common Commands

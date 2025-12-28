@@ -60,6 +60,7 @@ pub enum WaterBoxMode {
     Low,
     Medium,
     High,
+    Max,
     Custom,
     SmartMode,
     Unknown(i64),
@@ -72,6 +73,7 @@ impl WaterBoxMode {
             201 => WaterBoxMode::Low,
             202 => WaterBoxMode::Medium,
             203 => WaterBoxMode::High,
+            208 => WaterBoxMode::Max,
             204 => WaterBoxMode::Custom,
             209 => WaterBoxMode::SmartMode,
             _ => WaterBoxMode::Unknown(code),
@@ -84,6 +86,7 @@ impl WaterBoxMode {
             WaterBoxMode::Low => 201,
             WaterBoxMode::Medium => 202,
             WaterBoxMode::High => 203,
+            WaterBoxMode::Max => 208,
             WaterBoxMode::Custom => 204,
             WaterBoxMode::SmartMode => 209,
             WaterBoxMode::Unknown(code) => code,
@@ -422,7 +425,7 @@ fn cleanup_mode_from_status(status: &serde_json::Value, fan_code: i64) -> Cleanu
 fn cleanup_mode_to_water_box_mode(mode: CleanupMode) -> WaterBoxMode {
     match mode {
         CleanupMode::DryCleaning => WaterBoxMode::Off,
-        CleanupMode::WetCleaning => WaterBoxMode::Medium,
+        CleanupMode::WetCleaning => WaterBoxMode::Max,
         CleanupMode::MixedCleaning => WaterBoxMode::Medium,
     }
 }

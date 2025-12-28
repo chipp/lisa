@@ -37,3 +37,7 @@ This document provides a concise summary of project-specific guidelines for Gemi
 
 ## Pull Requests
 - Update PR descriptions using `gh`.
+- Testing sections should include only manual test commands that were actually run; omit `cargo fmt/check/test`.
+- If no manual testing was performed, omit the Testing section entirely.
+- Example testing section:
+  - `Testing: mosquitto_pub -h localhost -p 1883 -u elisa -P 123mqtt -t action/request -V mqttv5 -D publish response-topic action/response/TEST-UUID -m '{"actions":[{"elisa":[{"set_cleanup_mode":"dry_cleaning"},"ID-1"]}]}'`

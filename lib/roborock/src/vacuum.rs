@@ -4,11 +4,13 @@ use std::time::Duration;
 use log::{info, warn};
 
 use crate::local::TcpLocalConnection;
+use crate::protocol::DecodeError;
 use crate::util::Counter;
 use crate::Result;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FanSpeed {
+    Off,
     Silent,
     Standard,
     Medium,
@@ -265,7 +267,14 @@ impl Vacuum {
             self.send_rpc_with_retry("set_custom_mode", serde_json::json!([105]))
                 .await?;
         } else {
-            self.set_fan_speed(FanSpeed::Standard).await?;
+            let result = self
+                .send_rpc_with_retry("get_status", serde_json::json!([]))
+                .await?;
+            let status_value = status_from_result(result);
+            let fan_code = get_i64(&status_value, "fan_power");
+            if fan_code == 105 {
+                self.set_fan_speed(FanSpeed::Standard).await?;
+            }
         }
         Ok(())
     }
@@ -332,13 +341,14 @@ impl Vacuum {
                     if attempt >= 1 || !should_retry(err.as_ref()) {
                         return Err(err);
                     }
-                    attempt += 1;
+                    let next_attempt = attempt + 1;
                     warn!(
                         "roborock rpc failed (method={}, attempt={}): {}, reconnecting",
-                        method, attempt, err
+                        method, next_attempt, err
                     );
                     self.reconnect().await?;
                     tokio::time::sleep(RETRY_DELAY).await;
+                    attempt = next_attempt;
                 }
             }
         }
@@ -444,7 +454,7 @@ fn fan_from_code(code: i64) -> FanSpeed {
         60 | 68 | 75 | 77 | 102 | 1 => FanSpeed::Standard,
         90 | 100 | 103 | 2 => FanSpeed::Medium,
         104 | 3 => FanSpeed::Max,
-        105 => FanSpeed::Silent,
+        105 => FanSpeed::Off,
         106 => FanSpeed::Standard,
         108 => FanSpeed::Max,
         110 => FanSpeed::SmartMode,
@@ -454,6 +464,7 @@ fn fan_from_code(code: i64) -> FanSpeed {
 
 fn fan_to_code(speed: FanSpeed) -> i64 {
     match speed {
+        FanSpeed::Off => 105,
         FanSpeed::Silent => 101,
         FanSpeed::Standard => 102,
         FanSpeed::Medium => 103,
@@ -464,6 +475,9 @@ fn fan_to_code(speed: FanSpeed) -> i64 {
 }
 
 fn should_retry(err: &(dyn std::error::Error + 'static)) -> bool {
+    if err.downcast_ref::<DecodeError>().is_some() {
+        return true;
+    }
     if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
         use std::io::ErrorKind;
         return matches!(

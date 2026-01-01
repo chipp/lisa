@@ -142,7 +142,7 @@ fn recuperator_device() -> Device {
         name: "Рекуператор".to_string(),
         description: format!("в {}", room_name),
         room: room_name,
-        device_type: DeviceType::ThermostatAc,
+        device_type: DeviceType::Ventilation,
         properties: vec![],
         capabilities: vec![
             DeviceCapability::on_off(false).reportable(),

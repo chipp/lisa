@@ -82,7 +82,7 @@ fn vacuum_cleaner_device(room: Room) -> Device {
 
     Device {
         id: DeviceId::vacuum_cleaner_at_room(room),
-        name: "Джордан".to_string(),
+        name: "Ева".to_string(),
         description: format!("в {}", room_name),
         room: room_name,
         device_type: DeviceType::VacuumCleaner,

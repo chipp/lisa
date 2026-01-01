@@ -36,6 +36,8 @@ pub enum DeviceType {
     ThermostatAc,
     #[serde(rename = "devices.types.light")]
     Light,
+    #[serde(rename = "devices.types.ventilation")]
+    Ventilation,
 }
 
 #[cfg(test)]
@@ -67,6 +69,10 @@ mod tests {
             to_value(&DeviceType::Light).unwrap(),
             json!("devices.types.light")
         );
+        assert_eq!(
+            to_value(&DeviceType::Ventilation).unwrap(),
+            json!("devices.types.ventilation")
+        );
 
         assert_eq!(
             from_value::<DeviceType>(json!("devices.types.sensor")).unwrap(),
@@ -87,6 +93,10 @@ mod tests {
         assert_eq!(
             from_value::<DeviceType>(json!("devices.types.light")).unwrap(),
             DeviceType::Light
+        );
+        assert_eq!(
+            from_value::<DeviceType>(json!("devices.types.ventilation")).unwrap(),
+            DeviceType::Ventilation
         );
     }
 

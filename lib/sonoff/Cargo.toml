@@ -8,7 +8,7 @@ crypto = { path = "../crypto" }
 
 log = "0.4"
 futures-util = { version = "0.3.31", features = ["sink"] }
-tokio-util = { version = "0.7.14", features = ["full", "codec"] }
+tokio-util = { version = "0.7.14", features = ["codec", "net"] }
 
 base64 = "0.22"
 chipp_http = "1.2"
@@ -22,10 +22,6 @@ serde_json = "1.0"
 [dependencies.tokio]
 version = "1.44"
 features = [
-    "io-util",
-    "macros",
     "net",
-    "rt-multi-thread",
     "sync",
-    "time",
 ]

@@ -11,7 +11,7 @@ sonoff = { path = "../../lib/sonoff" }
 transport = { path = "../../lib/transport" }
 
 futures-util = "0.3"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
 paho-mqtt = "0.13.2"
 
@@ -20,5 +20,4 @@ log = "0.4"
 
 md5 = "*"
 
-serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

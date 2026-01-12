@@ -12,7 +12,6 @@ use transport::{connect_mqtt, Topic};
 use futures_util::StreamExt;
 use log::{error, info, trace};
 use paho_mqtt::{AsyncClient as MqClient, MessageBuilder, QOS_1};
-use tokio::signal::unix::{signal, SignalKind};
 use tokio::{task, time};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -43,13 +42,7 @@ async fn main() -> Result<()> {
     let set_handle = task::spawn(subscribe_action(mqtt_client.clone(), client.clone()));
     let state_handle = task::spawn(subscribe_state(mqtt_client, storage, client));
 
-    tokio::select! {
-        _ = try_join(set_handle, state_handle) => {},
-        _ = tokio::spawn(async move {
-            let mut sig = signal(SignalKind::terminate()).unwrap();
-            sig.recv().await
-        }) => { info!("got SIGTERM, exiting...") },
-    };
+    try_join(set_handle, state_handle).await?;
 
     Ok(())
 }

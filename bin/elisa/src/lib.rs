@@ -227,24 +227,28 @@ pub fn prepare_state(status: Status, rooms: &[u8]) -> State {
 
 fn room_id_for_room(room: &transport::Room) -> Option<u8> {
     match room {
+        transport::Room::Bathroom => Some(16),
         transport::Room::Bedroom => Some(17),
-        transport::Room::Corridor => Some(16),
-        transport::Room::Hallway => Some(20),
+        transport::Room::Corridor => Some(23),
+        transport::Room::Hallway => Some(24),
         transport::Room::HomeOffice => Some(21),
         transport::Room::Kitchen => Some(19),
         transport::Room::LivingRoom => Some(18),
+        transport::Room::Toilet => Some(22),
         _ => None,
     }
 }
 
 fn room_from_id(id: &u8) -> Option<transport::Room> {
     match id {
-        16 => Some(transport::Room::Corridor),
+        16 => Some(transport::Room::Bathroom),
         17 => Some(transport::Room::Bedroom),
-        18 => Some(transport::Room::LivingRoom),
-        19 => Some(transport::Room::Kitchen),
-        20 => Some(transport::Room::Hallway),
+        23 => Some(transport::Room::Corridor),
+        24 => Some(transport::Room::Hallway),
         21 => Some(transport::Room::HomeOffice),
+        19 => Some(transport::Room::Kitchen),
+        18 => Some(transport::Room::LivingRoom),
+        22 => Some(transport::Room::Toilet),
         _ => None,
     }
 }

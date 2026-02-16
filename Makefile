@@ -23,8 +23,7 @@ build_alisa:
 		--tag ${IMAGE_ID}:test \
 		--build-arg RUST_VERSION="${RUST_VERSION}" \
 		--load \
-		--label "org.opencontainers.image.source=https://github.com/chipp/lisa" \
-		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+		--label "org.opencontainers.image.source=https://github.com/chipp/lisa"
 
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
@@ -92,8 +91,7 @@ build_elisa:
 		--file bin/elisa/Dockerfile \
 		--tag ${IMAGE_ID}:test \
 		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load \
-		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+		--load
 
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
@@ -115,8 +113,7 @@ build_isabel:
 		--file bin/isabel/Dockerfile \
 		--tag ${IMAGE_ID}:test \
 		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load \
-		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+		--load
 
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \
@@ -138,8 +135,7 @@ build_elisheba:
 		--file bin/elisheba/Dockerfile \
 		--tag ${IMAGE_ID}:test \
 		--build-arg RUST_VERSION="${RUST_VERSION}" \
-		--load \
-		--cache-from=type=registry,ref=${IMAGE_ID}:cache
+		--load
 
 	docker run --rm -v "${PWD}/build:/build" \
 		${IMAGE_ID}:test \

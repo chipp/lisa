@@ -45,7 +45,7 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
 
     context.consume(&response[16..]);
 
-    let result_hash = context.compute();
+    let result_hash = context.finalize();
 
     if expected_hash[..] != result_hash[..] {
         panic!("invalid hash");

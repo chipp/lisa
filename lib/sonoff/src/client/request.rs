@@ -58,6 +58,6 @@ impl RequestBody<'_> {
 
 fn generate_iv() -> Token<16> {
     let mut iv = [0u8; 16];
-    rand::rng().fill(&mut iv);
+    rand::rng().fill_bytes(&mut iv);
     iv
 }

@@ -18,46 +18,90 @@ impl fmt::Display for TokenType {
 }
 
 pub fn is_valid_token<T: AsRef<str>>(token: T, token_type: TokenType) -> bool {
+    let secret = extract_secret_from_env();
+    is_valid_token_with_secret(token, token_type, &secret)
+}
+
+fn is_valid_token_with_secret<T: AsRef<str>>(
+    token: T,
+    token_type: TokenType,
+    secret: &str,
+) -> bool {
+    is_valid_token_with_secret_at(token, token_type, secret, current_timestamp())
+}
+
+fn is_valid_token_with_secret_at<T: AsRef<str>>(
+    token: T,
+    token_type: TokenType,
+    secret: &str,
+    now_timestamp: u64,
+) -> bool {
     use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
     let mut validation = Validation::new(Algorithm::HS512);
+    // We validate `exp` ourselves to make tests deterministic with an injected clock.
+    validation.validate_exp = false;
+    validation.leeway = 0;
     validation.sub = Some("yandex".to_owned());
     validation.set_audience(&[token_type.to_string()]);
 
-    let secret = extract_secret_from_env();
-    let decoded = decode::<Claims>(
+    let decoded = match decode::<Claims>(
         token.as_ref(),
         &DecodingKey::from_secret(secret.as_bytes()),
         &validation,
-    );
+    ) {
+        Ok(decoded) => decoded,
+        Err(_) => return false,
+    };
 
-    decoded.is_ok()
+    decoded.claims.exp >= now_timestamp
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     sub: String,
-    exp: usize,
+    exp: u64,
     aud: Vec<String>,
 }
 
 pub fn create_token_with_expiration_in(expiration: Duration, token_type: TokenType) -> String {
-    use chrono::Utc;
+    let secret = extract_secret_from_env();
+    create_token_with_expiration_in_with_secret(expiration, token_type, &secret)
+}
+
+fn create_token_with_expiration_in_with_secret(
+    expiration: Duration,
+    token_type: TokenType,
+    secret: &str,
+) -> String {
+    create_token_with_expiration_in_with_secret_at(
+        expiration,
+        token_type,
+        secret,
+        current_timestamp() as i64,
+    )
+}
+
+fn create_token_with_expiration_in_with_secret_at(
+    expiration: Duration,
+    token_type: TokenType,
+    secret: &str,
+    now_timestamp: i64,
+) -> String {
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
-    let expiration = Utc::now()
-        .checked_add_signed(expiration)
-        .expect("valid timestamp")
-        .timestamp();
+    let expiration = now_timestamp
+        .checked_add(expiration.num_seconds())
+        .expect("valid timestamp");
+    let expiration = u64::try_from(expiration).expect("non-negative timestamp");
 
     let claims = Claims {
         sub: "yandex".to_owned(),
-        exp: expiration as usize,
+        exp: expiration,
         aud: vec![token_type.to_string()],
     };
 
     let header = Header::new(Algorithm::HS512);
-    let secret = extract_secret_from_env();
 
     encode(
         &header,
@@ -69,4 +113,113 @@ pub fn create_token_with_expiration_in(expiration: Duration, token_type: TokenTy
 
 fn extract_secret_from_env() -> String {
     std::env::var("JWT_SECRET").expect("Set JWT_SECRET env variable")
+}
+
+fn current_timestamp() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("time went backwards")
+        .as_secs()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        create_token_with_expiration_in_with_secret_at, is_valid_token_with_secret_at, TokenType,
+    };
+    use chrono::Duration;
+
+    const SECRET: &str = "test-secret";
+    const NOW: i64 = 1_700_000_000;
+
+    #[test]
+    fn access_token_roundtrip_is_valid() {
+        let token = create_token_with_expiration_in_with_secret_at(
+            Duration::minutes(1),
+            TokenType::Access,
+            SECRET,
+            NOW,
+        );
+
+        assert!(is_valid_token_with_secret_at(
+            token,
+            TokenType::Access,
+            SECRET,
+            NOW as u64
+        ));
+    }
+
+    #[test]
+    fn token_type_mismatch_is_invalid() {
+        let token = create_token_with_expiration_in_with_secret_at(
+            Duration::minutes(1),
+            TokenType::Access,
+            SECRET,
+            NOW,
+        );
+
+        assert!(!is_valid_token_with_secret_at(
+            token,
+            TokenType::Refresh,
+            SECRET,
+            NOW as u64
+        ));
+    }
+
+    #[test]
+    fn expired_token_is_invalid() {
+        let token = create_token_with_expiration_in_with_secret_at(
+            Duration::minutes(-1),
+            TokenType::Access,
+            SECRET,
+            NOW,
+        );
+
+        assert!(!is_valid_token_with_secret_at(
+            token,
+            TokenType::Access,
+            SECRET,
+            NOW as u64
+        ));
+    }
+
+    #[test]
+    fn token_signed_with_different_secret_is_invalid() {
+        let token = create_token_with_expiration_in_with_secret_at(
+            Duration::minutes(1),
+            TokenType::Access,
+            "secret-a",
+            NOW,
+        );
+
+        assert!(!is_valid_token_with_secret_at(
+            token,
+            TokenType::Access,
+            "secret-b",
+            NOW as u64
+        ));
+    }
+
+    #[test]
+    fn token_expires_exactly_at_expected_time() {
+        let token = create_token_with_expiration_in_with_secret_at(
+            Duration::seconds(30),
+            TokenType::Access,
+            SECRET,
+            NOW,
+        );
+
+        assert!(is_valid_token_with_secret_at(
+            &token,
+            TokenType::Access,
+            SECRET,
+            (NOW + 30) as u64
+        ));
+        assert!(!is_valid_token_with_secret_at(
+            token,
+            TokenType::Access,
+            SECRET,
+            (NOW + 31) as u64
+        ));
+    }
 }

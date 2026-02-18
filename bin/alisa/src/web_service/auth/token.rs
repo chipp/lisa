@@ -17,6 +17,23 @@ impl fmt::Display for TokenType {
     }
 }
 
+#[derive(Debug)]
+pub enum TokenError {
+    InvalidExpiration,
+    Encoding(jsonwebtoken::errors::Error),
+}
+
+impl fmt::Display for TokenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidExpiration => write!(f, "invalid token expiration"),
+            Self::Encoding(err) => write!(f, "token encoding failed: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for TokenError {}
+
 pub fn is_valid_token<T: AsRef<str>>(token: T, token_type: TokenType) -> bool {
     let secret = extract_secret_from_env();
     is_valid_token_with_secret(token, token_type, &secret)
@@ -51,10 +68,13 @@ fn is_valid_token_with_secret_at<T: AsRef<str>>(
         &validation,
     ) {
         Ok(decoded) => decoded,
-        Err(_) => return false,
+        Err(err) => {
+            log::debug!("token decoding failed: {}", err);
+            return false;
+        }
     };
 
-    decoded.claims.exp >= now_timestamp
+    decoded.claims.exp > now_timestamp
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,7 +84,10 @@ struct Claims {
     aud: Vec<String>,
 }
 
-pub fn create_token_with_expiration_in(expiration: Duration, token_type: TokenType) -> String {
+pub fn create_token_with_expiration_in(
+    expiration: Duration,
+    token_type: TokenType,
+) -> Result<String, TokenError> {
     let secret = extract_secret_from_env();
     create_token_with_expiration_in_with_secret(expiration, token_type, &secret)
 }
@@ -73,7 +96,7 @@ fn create_token_with_expiration_in_with_secret(
     expiration: Duration,
     token_type: TokenType,
     secret: &str,
-) -> String {
+) -> Result<String, TokenError> {
     create_token_with_expiration_in_with_secret_at(
         expiration,
         token_type,
@@ -87,13 +110,13 @@ fn create_token_with_expiration_in_with_secret_at(
     token_type: TokenType,
     secret: &str,
     now_timestamp: i64,
-) -> String {
+) -> Result<String, TokenError> {
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
     let expiration = now_timestamp
         .checked_add(expiration.num_seconds())
-        .expect("valid timestamp");
-    let expiration = u64::try_from(expiration).expect("non-negative timestamp");
+        .ok_or(TokenError::InvalidExpiration)?;
+    let expiration = u64::try_from(expiration).map_err(|_| TokenError::InvalidExpiration)?;
 
     let claims = Claims {
         sub: "yandex".to_owned(),
@@ -108,7 +131,7 @@ fn create_token_with_expiration_in_with_secret_at(
         &claims,
         &EncodingKey::from_secret(secret.as_bytes()),
     )
-    .unwrap()
+    .map_err(TokenError::Encoding)
 }
 
 fn extract_secret_from_env() -> String {
@@ -139,7 +162,8 @@ mod tests {
             TokenType::Access,
             SECRET,
             NOW,
-        );
+        )
+        .unwrap();
 
         assert!(is_valid_token_with_secret_at(
             token,
@@ -156,7 +180,8 @@ mod tests {
             TokenType::Access,
             SECRET,
             NOW,
-        );
+        )
+        .unwrap();
 
         assert!(!is_valid_token_with_secret_at(
             token,
@@ -173,7 +198,8 @@ mod tests {
             TokenType::Access,
             SECRET,
             NOW,
-        );
+        )
+        .unwrap();
 
         assert!(!is_valid_token_with_secret_at(
             token,
@@ -190,7 +216,8 @@ mod tests {
             TokenType::Access,
             "secret-a",
             NOW,
-        );
+        )
+        .unwrap();
 
         assert!(!is_valid_token_with_secret_at(
             token,
@@ -207,19 +234,32 @@ mod tests {
             TokenType::Access,
             SECRET,
             NOW,
-        );
+        )
+        .unwrap();
 
         assert!(is_valid_token_with_secret_at(
             &token,
             TokenType::Access,
             SECRET,
-            (NOW + 30) as u64
+            (NOW + 29) as u64
         ));
         assert!(!is_valid_token_with_secret_at(
             token,
             TokenType::Access,
             SECRET,
-            (NOW + 31) as u64
+            (NOW + 30) as u64
         ));
+    }
+
+    #[test]
+    fn invalid_expiration_returns_error() {
+        let result = create_token_with_expiration_in_with_secret_at(
+            Duration::seconds(1),
+            TokenType::Access,
+            SECRET,
+            i64::MAX,
+        );
+
+        assert!(matches!(result, Err(super::TokenError::InvalidExpiration)));
     }
 }

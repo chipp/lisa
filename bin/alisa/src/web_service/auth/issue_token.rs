@@ -2,10 +2,10 @@ use std::borrow::Cow;
 
 use axum::{http::StatusCode, response::IntoResponse, Form, Json};
 use chrono::Duration;
-use log::debug;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 
-use super::token::{create_token_with_expiration_in, is_valid_token, TokenType};
+use super::token::{create_token_with_expiration_in, is_valid_token, TokenError, TokenType};
 
 pub async fn issue_token(Form(client_creds): Form<Creds<'_>>) -> impl IntoResponse {
     if !validate_client_creds(&client_creds) {
@@ -21,7 +21,16 @@ pub async fn issue_token(Form(client_creds): Form<Creds<'_>>) -> impl IntoRespon
                 // TODO: save token version
 
                 debug!("received a valid authorization code, generating access and refresh tokens");
-                (StatusCode::OK, Json(Response::success()))
+                match Response::success() {
+                    Ok(response) => (StatusCode::OK, Json(response)),
+                    Err(err) => {
+                        error!("failed to issue tokens from auth code: {}", err);
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(Response::failure("internal server error".to_string())),
+                        )
+                    }
+                }
             } else {
                 debug!("received an invalid authorization code");
 
@@ -37,7 +46,16 @@ pub async fn issue_token(Form(client_creds): Form<Creds<'_>>) -> impl IntoRespon
 
                 debug!("received a valid refresh token, generating new access and refresh tokens");
 
-                (StatusCode::OK, Json(Response::success()))
+                match Response::success() {
+                    Ok(response) => (StatusCode::OK, Json(response)),
+                    Err(err) => {
+                        error!("failed to issue tokens from refresh token: {}", err);
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(Response::failure("internal server error".to_string())),
+                        )
+                    }
+                }
             } else {
                 debug!("received an invalid refresh token");
 
@@ -118,19 +136,19 @@ pub enum Response {
 }
 
 impl Response {
-    fn success() -> Response {
-        Response::Success {
+    fn success() -> Result<Response, TokenError> {
+        Ok(Response::Success {
             access_token: create_token_with_expiration_in(
                 ACCESS_TOKEN_EXPIRATION,
                 TokenType::Access,
-            ),
+            )?,
             refresh_token: create_token_with_expiration_in(
                 REFRESH_TOKEN_EXPIRATION,
                 TokenType::Refresh,
-            ),
+            )?,
             token_type: "Bearer".to_string(),
             expires_in: ACCESS_TOKEN_EXPIRATION,
-        }
+        })
     }
 
     fn failure(error: String) -> Response {

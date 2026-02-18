@@ -6,15 +6,22 @@ use axum::{
     Form,
 };
 use chrono::Duration;
-use log::info;
+use log::{error, info};
 use serde::Deserialize;
 use url::Url;
 
-use super::token::{create_token_with_expiration_in, TokenType};
+use super::token::{create_token_with_expiration_in, TokenError, TokenType};
 
 pub async fn authorize(Form(credentials): Form<Credentials<'_>>) -> impl IntoResponse {
     if verify_credentials(&credentials) {
-        let redirect_url = get_redirect_url_from_params(credentials).unwrap();
+        let redirect_url = match get_redirect_url_from_params(credentials) {
+            Ok(Some(redirect_url)) => redirect_url,
+            Ok(None) => return (StatusCode::BAD_REQUEST, HeaderMap::new()),
+            Err(err) => {
+                error!("failed to create authorization code: {}", err);
+                return (StatusCode::INTERNAL_SERVER_ERROR, HeaderMap::new());
+            }
+        };
 
         info!("received credentials, generating an authorization code");
 
@@ -27,15 +34,18 @@ pub async fn authorize(Form(credentials): Form<Credentials<'_>>) -> impl IntoRes
     }
 }
 
-fn get_redirect_url_from_params(auth: Credentials) -> Option<Url> {
-    let mut url = Url::parse(auth.redirect_uri.as_ref()).ok()?;
+fn get_redirect_url_from_params(auth: Credentials) -> Result<Option<Url>, TokenError> {
+    let mut url = match Url::parse(auth.redirect_uri.as_ref()) {
+        Ok(url) => url,
+        Err(_) => return Ok(None),
+    };
 
-    let code = create_token_with_expiration_in(Duration::seconds(30), TokenType::Code);
+    let code = create_token_with_expiration_in(Duration::seconds(30), TokenType::Code)?;
     url.query_pairs_mut()
         .append_pair("state", &auth.state)
         .append_pair("code", &code);
 
-    Some(url)
+    Ok(Some(url))
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,0 +1,17 @@
+[Unit]
+Description=Lisa Roborock gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/lisa/elisa.env
+ExecStart=/usr/bin/elisa
+WorkingDirectory=/var/lib/lisa/elisa
+Restart=always
+RestartSec=5
+User=elisa
+Group=elisa
+
+[Install]
+WantedBy=multi-user.target

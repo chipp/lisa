@@ -61,8 +61,10 @@ jobs:
 
           docker images -a
 
+          mkdir -p build
           docker run --rm -v "$PWD/build:/build" ghcr.io/chipp/${{ matrix.binary }}:latest \
             cp /root/${{ matrix.binary }} /build/${{ matrix.binary }}
+          sudo chown -R "$USER":"$USER" build
 
           docker buildx build . --file conf/arm64.Dockerfile \
              --push \
@@ -79,8 +81,10 @@ jobs:
         run: |
           docker images -a
 
+          mkdir -p build
           docker run --rm -v "$PWD/build:/build" ghcr.io/chipp/${{ matrix.binary }}:latest \
             cp /root/${{ matrix.binary }} /build/${{ matrix.binary }}
+          sudo chown -R "$USER":"$USER" build
 
       - name: Build deb package
         if: matrix.mode == 'binary'

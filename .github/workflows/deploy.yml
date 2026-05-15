@@ -82,12 +82,24 @@ jobs:
           docker run --rm -v "$PWD/build:/build" ghcr.io/chipp/${{ matrix.binary }}:latest \
             cp /root/${{ matrix.binary }} /build/${{ matrix.binary }}
 
-      - name: Archive arm64 artifact
+      - name: Build deb package
+        if: matrix.mode == 'binary'
+        run: |
+          scripts/package_deb.sh \
+            ${{ matrix.binary }} \
+            0.1.${{ github.run_number }} \
+            build/${{ matrix.binary }} \
+            build
+
+          dpkg-deb --info build/${{ matrix.binary }}_0.1.${{ github.run_number }}_arm64.deb
+          dpkg-deb --contents build/${{ matrix.binary }}_0.1.${{ github.run_number }}_arm64.deb
+
+      - name: Archive arm64 deb artifact
         if: matrix.mode == 'binary'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.binary }}
-          path: build/${{ matrix.binary }}
+          path: build/${{ matrix.binary }}_*.deb
           retention-days: 1
 
   deploy:
@@ -150,12 +162,13 @@ jobs:
           export TUNNEL_SERVICE_TOKEN_ID=${{ secrets.TUNNEL_SERVICE_TOKEN_ID }}
           export TUNNEL_SERVICE_TOKEN_SECRET=${{ secrets.TUNNEL_SERVICE_TOKEN_SECRET }}
 
-          ssh chipp@pi4.chipp.dev "sudo service elisa stop"
-          ssh chipp@pi4.chipp.dev "sudo service elisheba stop"
-          ssh chipp@pi4.chipp.dev "sudo service isabel stop"
+          mkdir -p lisa-deploy
+          cp ./*.deb lisa-deploy/
 
-          scp elisa elisheba isabel chipp@pi4.chipp.dev:/usr/local/bin
+          ssh chipp@pi4.chipp.dev "mkdir -p /tmp/lisa-deploy"
+          rsync -av --delete lisa-deploy/ chipp@pi4.chipp.dev:/tmp/lisa-deploy/
 
-          ssh chipp@pi4.chipp.dev "sudo service elisa start"
-          ssh chipp@pi4.chipp.dev "sudo service elisheba start"
-          ssh chipp@pi4.chipp.dev "sudo service isabel start"
+          ssh chipp@pi4.chipp.dev "sudo systemctl stop elisa elisheba isabel || true"
+          ssh chipp@pi4.chipp.dev "sudo dpkg -i /tmp/lisa-deploy/*.deb"
+
+          ssh chipp@pi4.chipp.dev "sudo systemctl start elisa elisheba isabel"

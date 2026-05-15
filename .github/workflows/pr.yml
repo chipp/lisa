@@ -25,6 +25,67 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+  deb:
+    runs-on: ubuntu-24.04-arm
+
+    strategy:
+      matrix:
+        binary:
+          - elisa
+          - elisheba
+          - isabel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify packaging script syntax
+        run: bash -n scripts/package_deb.sh
+
+      - name: Build deb package
+        run: |
+          mkdir -p target/deb-check build
+          printf '#!/bin/sh\nexit 0\n' > target/deb-check/${{ matrix.binary }}
+          chmod 755 target/deb-check/${{ matrix.binary }}
+
+          scripts/package_deb.sh \
+             ${{ matrix.binary }} \
+             0.1.0 \
+             target/deb-check/${{ matrix.binary }} \
+             build
+
+      - name: Verify deb package contents
+        run: |
+          package=build/${{ matrix.binary }}_0.1.0_arm64.deb
+
+          dpkg-deb --info "$package"
+          dpkg-deb --contents "$package"
+
+          dpkg-deb --field "$package" Package | grep -Fx ${{ matrix.binary }}
+          dpkg-deb --field "$package" Version | grep -Fx 0.1.0
+          dpkg-deb --field "$package" Architecture | grep -Fx arm64
+          dpkg-deb --contents "$package" | grep -F ./usr/bin/${{ matrix.binary }}
+          dpkg-deb --contents "$package" | grep -F ./lib/systemd/system/${{ matrix.binary }}.service
+          dpkg-deb --contents "$package" | grep -F ./etc/lisa/${{ matrix.binary }}.env.example
+
+          rm -rf target/deb-extract
+          mkdir -p target/deb-extract
+          dpkg-deb --extract "$package" target/deb-extract
+          grep -Fx User=${{ matrix.binary }} target/deb-extract/lib/systemd/system/${{ matrix.binary }}.service
+          grep -Fx Group=${{ matrix.binary }} target/deb-extract/lib/systemd/system/${{ matrix.binary }}.service
+
+      - name: Verify architecture override
+        if: matrix.binary == 'elisa'
+        run: |
+          ARCH=amd64 scripts/package_deb.sh \
+             ${{ matrix.binary }} \
+             0.1.0 \
+             target/deb-check/${{ matrix.binary }} \
+             build
+
+          package=build/${{ matrix.binary }}_0.1.0_amd64.deb
+
+          dpkg-deb --field "$package" Architecture | grep -Fx amd64
+
   test:
     runs-on: ubuntu-24.04-arm
 

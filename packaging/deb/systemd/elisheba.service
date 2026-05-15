@@ -1,0 +1,17 @@
+[Unit]
+Description=Lisa Sonoff gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/lisa/elisheba.env
+ExecStart=/usr/bin/elisheba
+WorkingDirectory=/var/lib/lisa/elisheba
+Restart=always
+RestartSec=5
+User=elisheba
+Group=elisheba
+
+[Install]
+WantedBy=multi-user.target

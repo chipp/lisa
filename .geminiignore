@@ -1,0 +1,17 @@
+# Common build and temporary directories
+target/
+build/
+.tmp/
+logs/
+
+# System files
+.DS_Store
+
+# Large or irrelevant assets
+*.tar
+*.txt
+*.db
+requests.sql
+
+# Internal versioning
+.git/

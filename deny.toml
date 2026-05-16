@@ -8,7 +8,7 @@ targets = [
 all-features = true
 
 [advisories]
-unmaintained = "workspace"
+unmaintained = "all"
 unsound = "all"
 ignore = [
     # jsonwebtoken's rust_crypto backend depends on rsa 0.9.x. The project

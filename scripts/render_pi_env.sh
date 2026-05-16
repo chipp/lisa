@@ -12,7 +12,7 @@ fi
 install -d -m 700 "$output_dir"
 
 cat <<'EOF' | op inject --account "$op_account" --out-file "$output_dir/elisa.env"
-RUST_LOG=elisa=debug,roborock=debug,info
+RUST_LOG=info
 MQTT_ADDRESS=mqtts://mq.chipp.dev:8880
 MQTT_USER=elisa
 MQTT_PASS={{ op://Private/elisa mqtt/password }}

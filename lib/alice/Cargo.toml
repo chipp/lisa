@@ -3,6 +3,7 @@ name = "alice"
 version = "0.1.0"
 authors = ["Vladimir Burdukov <chippcheg@gmail.com>"]
 edition = "2021"
+license = "MIT"
 
 [dependencies]
 transport = { path = "../transport" }

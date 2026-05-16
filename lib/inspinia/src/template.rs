@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::Result;
-use chipp_http::{HttpClient, HttpMethod, NoInterceptor};
+use chipp_http::{HttpClient, HttpMethod, NoInterceptor, Request, Response};
 use log::info;
 use md5::Context;
 use serde::Deserialize;
@@ -29,13 +29,7 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
     request.body = Some(target_id.as_bytes().to_vec());
 
     let response = client
-        .perform_request(request, |req, res| {
-            if res.status_code == 200 {
-                Ok(res.body)
-            } else {
-                Err((req, res).into())
-            }
-        })
+        .perform_request(request, parse_template_download)
         .await?;
 
     let mut context = Context::new();
@@ -57,6 +51,18 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
     info!("downloaded template-v{template_version}.db");
 
     Ok(path)
+}
+
+#[allow(clippy::result_large_err)]
+fn parse_template_download(
+    req: Request,
+    res: Response,
+) -> std::result::Result<Vec<u8>, chipp_http::Error> {
+    if res.status_code == 200 {
+        Ok(res.body)
+    } else {
+        Err((req, res).into())
+    }
 }
 
 async fn get_template_version(client: &HttpClient<NoInterceptor>, target_id: &str) -> Result<u16> {

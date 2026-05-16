@@ -299,11 +299,11 @@ pub fn decode_rpc_response(payload: &[u8]) -> Result<RpcResponse> {
     let dps = payload
         .get("dps")
         .and_then(|value| value.as_object())
-        .ok_or_else(|| DecodeError::MissingDps)?;
+        .ok_or(DecodeError::MissingDps)?;
     let data_point = dps
         .get("102")
         .and_then(|value| value.as_str())
-        .ok_or_else(|| DecodeError::MissingResponse)?;
+        .ok_or(DecodeError::MissingResponse)?;
     let response: serde_json::Value = serde_json::from_str(data_point)?;
 
     let id = response
@@ -404,6 +404,7 @@ fn encode_timestamp(timestamp: u32) -> [u8; 8] {
     out
 }
 
+#[allow(clippy::too_many_arguments)]
 fn encrypt_payload(
     version: LocalProtocolVersion,
     local_key: &str,
@@ -427,6 +428,7 @@ fn encrypt_payload(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn decrypt_payload(
     version: LocalProtocolVersion,
     local_key: &str,
@@ -524,7 +526,7 @@ fn decrypt_gcm_l01(
     ack_nonce: Option<u32>,
     payload: &[u8],
 ) -> Result<Vec<u8>> {
-    let ack_nonce = ack_nonce.ok_or_else(|| DecodeError::MissingAckNonce)?;
+    let ack_nonce = ack_nonce.ok_or(DecodeError::MissingAckNonce)?;
     let key = l01_key(local_key, timestamp);
     let iv = l01_iv(timestamp, nonce, sequence);
     let aad = l01_aad(timestamp, nonce, sequence, connect_nonce, Some(ack_nonce));

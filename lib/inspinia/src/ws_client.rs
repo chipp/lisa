@@ -198,7 +198,7 @@ impl Log {
             .await?;
         file.write_all(string.as_bytes()).await?;
 
-        self.size += string.as_bytes().len();
+        self.size += string.len();
 
         Ok(())
     }

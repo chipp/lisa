@@ -81,19 +81,30 @@ pub async fn connect_mqtt(
     password: String,
     client_id: &str,
 ) -> Result<paho_mqtt::AsyncClient, paho_mqtt::Error> {
-    let create_opts = paho_mqtt::CreateOptionsBuilder::new()
-        .server_uri(address)
-        .client_id(client_id)
-        .finalize();
+    let client = {
+        let create_opts = paho_mqtt::CreateOptionsBuilder::new()
+            .server_uri(address)
+            .client_id(client_id)
+            .finalize();
 
-    let client = paho_mqtt::AsyncClient::new(create_opts)?;
+        paho_mqtt::AsyncClient::new(create_opts)?
+    };
 
-    let conn_opts = paho_mqtt::ConnectOptionsBuilder::new_v5()
-        .keep_alive_interval(Duration::from_secs(30))
-        .ssl_options(paho_mqtt::SslOptions::new())
-        .user_name(username)
-        .password(password)
-        .finalize();
+    let conn_opts = {
+        let mut ssl_opts = paho_mqtt::SslOptionsBuilder::new();
+
+        let probe = openssl_probe::probe();
+        if let Some(cert_file) = probe.cert_file {
+            let _ = ssl_opts.trust_store(cert_file);
+        }
+
+        paho_mqtt::ConnectOptionsBuilder::new_v5()
+            .keep_alive_interval(Duration::from_secs(30))
+            .ssl_options(ssl_opts.finalize())
+            .user_name(username)
+            .password(password)
+            .finalize()
+    };
 
     let response = client.connect(conn_opts).await?;
     let response = response.connect_response().unwrap();

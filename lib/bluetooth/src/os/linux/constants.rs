@@ -1,4 +1,6 @@
-use libc::{c_char, c_int, c_uint, c_ulong};
+#[cfg(not(target_env = "musl"))]
+use libc::c_ulong;
+use libc::{c_char, c_int, c_uint};
 use nix::request_code_write;
 
 pub const HCI_MAX_EVENT_SIZE: c_int = 260;

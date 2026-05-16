@@ -390,7 +390,7 @@ fn prepare_capability(name: &PortName, value: &str) -> Option<Capability> {
     }
 }
 
-fn find_output_port<'a>(device: &'a Device, port_name: PortName) -> Option<(&'a str, &'a Port)> {
+fn find_output_port(device: &Device, port_name: PortName) -> Option<(&str, &Port)> {
     device
         .ports
         .iter()

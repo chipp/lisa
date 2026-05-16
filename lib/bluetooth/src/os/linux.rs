@@ -147,9 +147,6 @@ impl Scanner {
         loop {
             trace!("reading bluetooh stream");
 
-            let meta: *const EvtLeMetaEvent;
-            let info: *const LeAdvertisingInfo;
-
             len = libc::read(
                 dd,
                 buf.as_mut_ptr() as *mut c_void,
@@ -167,7 +164,7 @@ impl Scanner {
             }
 
             let ptr: *const u8 = buf.as_ptr().offset(1 + HCI_EVENT_HDR_SIZE);
-            meta = ptr.cast();
+            let meta: *const EvtLeMetaEvent = ptr.cast();
 
             if (*meta).subevent != EVT_LE_ADVERTISING_REPORT {
                 trace!("got meta.subevent {:x}", (*meta).subevent);
@@ -175,7 +172,7 @@ impl Scanner {
             }
 
             let ptr: *const u8 = (*meta).data.as_ptr().offset(1);
-            info = ptr.cast();
+            let info: *const LeAdvertisingInfo = ptr.cast();
 
             let mut event = None;
             let mut offset = 0;
@@ -197,8 +194,8 @@ impl Scanner {
                 offset += eir_data_len + 1;
             }
 
-            if let Some(event) = event.as_ref().map(Vec::as_slice).and_then(parse_event) {
-                if let Err(_) = tx.blocking_send(event) {
+            if let Some(event) = event.as_deref().and_then(parse_event) {
+                if tx.blocking_send(event).is_err() {
                     debug!("scanner observer has been dropped, cancelling scanning");
                     break;
                 }

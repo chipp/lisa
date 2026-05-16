@@ -35,6 +35,7 @@ impl Encoder<Vec<u8>> for DnsCoder {
         item: Vec<u8>,
         dst: &mut tokio_util::bytes::BytesMut,
     ) -> Result<(), Self::Error> {
-        Ok(dst.extend(item))
+        dst.extend(item);
+        Ok(())
     }
 }

@@ -36,9 +36,9 @@ impl Scanner {
         trace!("{:?}", event);
 
         match event {
-            CentralEvent::ManagerStateChanged { new_state }
-                if new_state == ManagerState::PoweredOn =>
-            {
+            CentralEvent::ManagerStateChanged {
+                new_state: ManagerState::PoweredOn,
+            } => {
                 central.scan();
             }
             CentralEvent::PeripheralDiscovered {
@@ -51,7 +51,7 @@ impl Scanner {
                     .get(uuid)
                     .and_then(parse_event)
                 {
-                    if let Err(_) = tx.blocking_send(event) {
+                    if tx.blocking_send(event).is_err() {
                         debug!("scanner observer has been dropped, cancelling scanning");
                         central.cancel_scan();
                     }

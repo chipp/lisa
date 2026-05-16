@@ -9,7 +9,7 @@ const BLOCK_SIZE: usize = 16;
 
 pub fn encrypt(data: &mut Vec<u8>, key: Token<16>, iv: Token<16>) -> Result<&[u8], PadError> {
     let pos = data.len();
-    if pos % BLOCK_SIZE != 0 {
+    if !pos.is_multiple_of(BLOCK_SIZE) {
         data.append(&mut vec![0; BLOCK_SIZE - pos % BLOCK_SIZE]);
     }
 

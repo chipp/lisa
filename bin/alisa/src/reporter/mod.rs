@@ -62,13 +62,7 @@ impl Reporter {
 
         let result = self
             .inner
-            .perform_request(request, |req, res| {
-                if res.status_code == 202 {
-                    Ok(res)
-                } else {
-                    Err((req, res).into())
-                }
-            })
+            .perform_request(request, parse_state_report_response)
             .await;
 
         match result {
@@ -92,6 +86,18 @@ impl Reporter {
         }
 
         Ok(())
+    }
+}
+
+#[allow(clippy::result_large_err)]
+fn parse_state_report_response(
+    req: chipp_http::Request,
+    res: chipp_http::Response,
+) -> std::result::Result<chipp_http::Response, chipp_http::Error> {
+    if res.status_code == 202 {
+        Ok(res)
+    } else {
+        Err((req, res).into())
     }
 }
 

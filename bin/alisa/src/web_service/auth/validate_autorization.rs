@@ -41,7 +41,7 @@ pub fn validate_autorization(
     headers: &HeaderMap,
     request_name: &'static str,
 ) -> Result<(), ValidationError> {
-    match extract_token_from_headers(&headers) {
+    match extract_token_from_headers(headers) {
         Some(token) if is_valid_token(token, TokenType::Access) => {
             trace!(target: request_name, "received a valid access token");
             Ok(())

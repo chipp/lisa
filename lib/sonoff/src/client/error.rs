@@ -5,7 +5,7 @@ pub enum Error {
     Json(serde_json::Error),
     Io(std::io::Error),
     UrlParse(chipp_http::UrlParseError),
-    HttpError(chipp_http::Error),
+    HttpError(Box<chipp_http::Error>),
     UnknownDevice(String),
     MissingHostname,
     MissingService,
@@ -40,7 +40,7 @@ impl From<chipp_http::UrlParseError> for Error {
 
 impl From<chipp_http::Error> for Error {
     fn from(err: chipp_http::Error) -> Self {
-        Self::HttpError(err)
+        Self::HttpError(Box::new(err))
     }
 }
 

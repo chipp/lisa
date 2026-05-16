@@ -2,44 +2,38 @@
 set -euo pipefail
 
 output_dir="${1:-build/pi-env}"
-op_account="UKDQEQIPJVEARKGQPBMCLFP5MQ"
+op_account="tapitapka"
 
 if ! command -v op >/dev/null 2>&1; then
   echo "1Password CLI is required: op" >&2
   exit 69
 fi
 
-read_secret() {
-  local ref="$1"
-
-  op read --account "$op_account" "$ref"
-}
-
 install -d -m 700 "$output_dir"
 
-cat > "$output_dir/elisa.env" <<EOF
+cat <<'EOF' | op inject --account "$op_account" --out-file "$output_dir/elisa.env"
 RUST_LOG=elisa=debug,roborock=debug,info
-MQTT_ADDRESS=mqtts://lisa.chipp.dev:8880
+MQTT_ADDRESS=mqtts://mq.chipp.dev:8880
 MQTT_USER=elisa
-MQTT_PASS=$(read_secret "op://Private/elisa mqtt/password")
+MQTT_PASS={{ op://Private/elisa mqtt/password }}
 ROBOROCK_IP=10.0.1.150
-ROBOROCK_DUID=$(read_secret "op://Private/Vacuum Roborock/username")
-ROBOROCK_LOCAL_KEY=$(read_secret "op://Private/Vacuum Roborock/credential")
+ROBOROCK_DUID={{ op://Private/Vacuum Roborock/username }}
+ROBOROCK_LOCAL_KEY={{ op://Private/Vacuum Roborock/credential }}
 EOF
 
-cat > "$output_dir/elisheba.env" <<EOF
+cat <<'EOF' | op inject --account "$op_account" --out-file "$output_dir/elisheba.env"
 RUST_LOG=elisheba=debug,sonoff=debug,info
-MQTT_ADDRESS=mqtts://lisa.chipp.dev:8880
+MQTT_ADDRESS=mqtts://mq.chipp.dev:8880
 MQTT_USER=elisheba
-MQTT_PASS=$(read_secret "op://Private/elisheba mqtt/password")
-KEYS=$(read_secret "op://Private/elisheba devices/notesPlain")
+MQTT_PASS={{ op://Private/elisheba mqtt/password }}
+KEYS={{ op://Private/elisheba devices/notesPlain }}
 EOF
 
-cat > "$output_dir/isabel.env" <<EOF
+cat <<'EOF' | op inject --account "$op_account" --out-file "$output_dir/isabel.env"
 RUST_LOG=isabel=debug,info
-MQTT_ADDRESS=mqtts://lisa.chipp.dev:8880
+MQTT_ADDRESS=mqtts://mq.chipp.dev:8880
 MQTT_USER=isabel
-MQTT_PASS=$(read_secret "op://Private/isabel mqtt/password")
+MQTT_PASS={{ op://Private/isabel mqtt/password }}
 DB_PATH=/var/lib/lisa/isabel/isabel.db
 EOF
 

@@ -10,7 +10,7 @@ pub enum Error {
     Pong,
     WebSocketError(tokio_tungstenite::tungstenite::error::Error),
     DeviceManager(DeviceManagerError),
-    Http(chipp_http::Error),
+    Http(Box<chipp_http::Error>),
     Io(std::io::Error),
     Rusqlite(rusqlite::Error),
     SerdeJson(serde_json::Error),
@@ -25,7 +25,7 @@ impl From<DeviceManagerError> for Error {
 
 impl From<chipp_http::Error> for Error {
     fn from(err: chipp_http::Error) -> Self {
-        Self::Http(err)
+        Self::Http(Box::new(err))
     }
 }
 

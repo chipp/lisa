@@ -100,6 +100,7 @@ pub async fn query(
     Ok((StatusCode::OK, Json(response)))
 }
 
+#[allow(clippy::result_large_err)]
 fn handle_message(
     msg: Message,
     device_ids: &mut HashSet<DeviceId>,

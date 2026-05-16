@@ -182,10 +182,7 @@ impl Client {
         );
 
         self.http_client
-            .perform_request(request, |_, response| {
-                trace!("response: {}", String::from_utf8_lossy(&response.body));
-                Ok(())
-            })
+            .perform_request(request, parse_update_state_response)
             .await?;
 
         Ok(())
@@ -265,7 +262,7 @@ impl Client {
                 (Some(ipv4), Some(port)) => SocketAddrV4::new(ipv4, port),
                 (None, Some(port)) => SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port),
                 (Some(ipv4), None) => SocketAddrV4::new(ipv4, 0),
-                (None, None) => return Err(Error::MissingAddr).into(),
+                (None, None) => return Err(Error::MissingAddr),
             };
 
             let device_type = info.get("type").ok_or(Error::MissingInfoField("type"))?;
@@ -285,6 +282,15 @@ impl Client {
 
         Ok(result)
     }
+}
+
+#[allow(clippy::result_large_err)]
+fn parse_update_state_response(
+    _: chipp_http::Request,
+    response: chipp_http::Response,
+) -> std::result::Result<(), chipp_http::Error> {
+    trace!("response: {}", String::from_utf8_lossy(&response.body));
+    Ok(())
 }
 
 fn create_discovery_packet(service_name: &str) -> Vec<u8> {

@@ -85,7 +85,7 @@ impl MacAddr {
         let mut octets = [0; 6];
         let bytes = data.read_bytes(6)?;
 
-        octets.copy_from_slice(&bytes);
+        octets.copy_from_slice(bytes);
         octets.reverse();
 
         Some(MacAddr { octets })

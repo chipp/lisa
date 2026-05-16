@@ -66,7 +66,7 @@ pub fn parse_packet<'p>(packet: &Packet<'p>) -> Result<ParsedPacket<'p>, Error> 
 
 fn parse_txt_record(txt: &Txt<'_>) -> HashMap<String, String> {
     txt.iter()
-        .filter_map(|txt| parse_txt_field(txt))
+        .filter_map(parse_txt_field)
         .collect::<HashMap<_, _>>()
 }
 
@@ -96,7 +96,7 @@ pub fn parse_meta(
 
     let data = [Some(data1), data2, data3, data4]
         .into_iter()
-        .filter_map(|x| x)
+        .flatten()
         .collect::<String>();
 
     let data = if encrypt == "true" {

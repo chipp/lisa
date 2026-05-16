@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn error_includes_context_and_source() {
-        let err = Error::new("scan failed", io::Error::new(io::ErrorKind::Other, "boom"));
+        let err = Error::new("scan failed", io::Error::other("boom"));
         let message = err.to_string();
 
         assert!(message.contains("scan failed"));

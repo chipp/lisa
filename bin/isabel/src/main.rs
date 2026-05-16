@@ -49,7 +49,7 @@ async fn subscribe_state(mqtt: MqClient, db_path: &str) -> Result<()> {
     }
 
     let mut rx = scanner.start_scan()?;
-    let db = Db::new(&db_path);
+    let db = Db::new(db_path);
 
     while let Some((addr, event)) = rx.recv().await {
         if let Some(room) = match_addr_to_room(addr) {

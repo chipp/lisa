@@ -2,6 +2,7 @@
 name = "alisa"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,7 +21,7 @@ chipp_http = "1.2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time", "signal"] }
 futures-util = "0.3"
 
-jsonwebtoken = { version = "10.3", features = ["rust_crypto"] }
+jsonwebtoken = { version = "10.4", default-features = false, features = ["rust_crypto"] }
 chrono = { version = "0.4", features = ["std", "clock"], default-features = false }
 
 serde = { version = "1.0", features = ["derive"] }

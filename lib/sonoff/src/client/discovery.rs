@@ -76,7 +76,7 @@ impl Client {
                         for host in hosts.iter() {
                             debug!("query device again: {}", host);
 
-                            let query = create_query_packet(&host);
+                            let query = create_query_packet(host);
                             socket.send_to(&query, MDNS_ADDR).await?;
                         }
 

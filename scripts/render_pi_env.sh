@@ -2,7 +2,7 @@
 set -euo pipefail
 
 output_dir="${1:-build/pi-env}"
-op_account="tapitapka"
+op_account="${OP_ACCOUNT:-tapitapka}"
 
 if ! command -v op >/dev/null 2>&1; then
   echo "1Password CLI is required: op" >&2

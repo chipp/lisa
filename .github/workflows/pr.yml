@@ -88,12 +88,12 @@ jobs:
 
       - name: Verify deb package contents
         run: |
-          package=build/${{ matrix.binary }}_0.1.0_arm64.deb
+          package=build/lisa-${{ matrix.binary }}_0.1.0_arm64.deb
 
           dpkg-deb --info "$package"
           dpkg-deb --contents "$package"
 
-          dpkg-deb --field "$package" Package | grep -Fx ${{ matrix.binary }}
+          dpkg-deb --field "$package" Package | grep -Fx lisa-${{ matrix.binary }}
           dpkg-deb --field "$package" Version | grep -Fx 0.1.0
           dpkg-deb --field "$package" Architecture | grep -Fx arm64
           dpkg-deb --contents "$package" | grep -F ./usr/bin/${{ matrix.binary }}
@@ -115,9 +115,17 @@ jobs:
              target/deb-check/${{ matrix.binary }} \
              build
 
-          package=build/${{ matrix.binary }}_0.1.0_amd64.deb
+          package=build/lisa-${{ matrix.binary }}_0.1.0_amd64.deb
 
           dpkg-deb --field "$package" Architecture | grep -Fx amd64
+
+      - name: Verify distro package replacement
+        if: matrix.binary == 'elisa'
+        run: |
+          package=build/lisa-${{ matrix.binary }}_0.1.0_arm64.deb
+
+          dpkg-deb --field "$package" Conflicts | grep -Fx elisa
+          dpkg-deb --field "$package" Replaces | grep -Fx elisa
 
   test:
     runs-on: ubuntu-24.04-arm

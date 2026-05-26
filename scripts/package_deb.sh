@@ -11,6 +11,7 @@ version="$2"
 binary_path="$3"
 output_dir="$4"
 arch="${ARCH:-arm64}"
+package_name="lisa-$service"
 
 case "$service" in
   elisa|elisheba|isabel) ;;
@@ -44,13 +45,23 @@ install -d \
 installed_size="$(du -k "$binary_path" | awk '{ print $1 }')"
 
 cat > "$package_root/DEBIAN/control" <<EOF
-Package: $service
+Package: $package_name
 Version: $version
 Section: utils
 Priority: optional
 Architecture: $arch
 Maintainer: chipp
 Depends: $depends
+EOF
+
+if [ "$service" = "elisa" ]; then
+  cat >> "$package_root/DEBIAN/control" <<EOF
+Conflicts: elisa
+Replaces: elisa
+EOF
+fi
+
+cat >> "$package_root/DEBIAN/control" <<EOF
 Installed-Size: $installed_size
 Description: Lisa $service service
 EOF
@@ -117,4 +128,4 @@ install -m 644 "$repo_dir/packaging/deb/env/$service.env.example" \
 
 install -d "$output_dir"
 dpkg-deb --build --root-owner-group "$package_root" \
-  "$output_dir/${service}_${version}_${arch}.deb"
+  "$output_dir/${package_name}_${version}_${arch}.deb"

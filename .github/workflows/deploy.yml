@@ -95,15 +95,15 @@ jobs:
             build/${{ matrix.binary }} \
             build
 
-          dpkg-deb --info build/${{ matrix.binary }}_0.1.${{ github.run_number }}_arm64.deb
-          dpkg-deb --contents build/${{ matrix.binary }}_0.1.${{ github.run_number }}_arm64.deb
+          dpkg-deb --info build/lisa-${{ matrix.binary }}_0.1.${{ github.run_number }}_arm64.deb
+          dpkg-deb --contents build/lisa-${{ matrix.binary }}_0.1.${{ github.run_number }}_arm64.deb
 
       - name: Archive arm64 deb artifact
         if: matrix.mode == 'binary'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ${{ matrix.binary }}
-          path: build/${{ matrix.binary }}_*.deb
+          path: build/lisa-${{ matrix.binary }}_*.deb
           retention-days: 1
 
   deploy:

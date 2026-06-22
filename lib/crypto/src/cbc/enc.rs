@@ -1,5 +1,6 @@
-use aes::cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
+use aes::cipher::{block_padding::Pkcs7, KeyIvInit};
 use cipher::inout::PadError;
+use cipher::BlockModeEncrypt;
 
 use crate::Token;
 
@@ -13,7 +14,7 @@ pub fn encrypt(data: &mut Vec<u8>, key: Token<16>, iv: Token<16>) -> Result<&[u8
         data.append(&mut vec![0; BLOCK_SIZE - pos % BLOCK_SIZE]);
     }
 
-    let ct = Aes128CbcEnc::new(&key.into(), &iv.into()).encrypt_padded_mut::<Pkcs7>(data, pos)?;
+    let ct = Aes128CbcEnc::new(&key.into(), &iv.into()).encrypt_padded::<Pkcs7>(data, pos)?;
     Ok(ct)
 }
 

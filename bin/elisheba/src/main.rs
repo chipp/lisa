@@ -60,7 +60,8 @@ async fn try_join(
 }
 
 async fn subscribe_action(mut mqtt: MqClient, mut sonoff: Client) -> Result<()> {
-    let mut stream = mqtt.get_stream(None);
+    let stream = mqtt.get_stream(None);
+    futures_util::pin_mut!(stream);
 
     let topics = [
         Topic::ActionRequest.to_string(),
@@ -199,6 +200,6 @@ fn parse_keys_string(string: String) -> HashMap<String, Token<16>> {
     string
         .split(",")
         .filter_map(|s| s.split_once("="))
-        .map(|(id, key)| (id.to_string(), md5::compute(key).0))
+        .map(|(id, key)| (id.to_string(), crypto::md5::digest(key)))
         .collect()
 }

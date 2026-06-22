@@ -52,7 +52,8 @@ pub async fn query(
     let response_topic = Topic::StateResponse(request_id.to_string()).to_string();
 
     mqtt_client.subscribe(&response_topic, QOS_1);
-    let mut stream = mqtt_client.get_stream(1);
+    let stream = mqtt_client.get_stream(1);
+    futures_util::pin_mut!(stream);
 
     let mut props = Properties::new();
     props

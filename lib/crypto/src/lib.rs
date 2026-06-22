@@ -1,6 +1,8 @@
 mod token;
 pub use token::{parse_token, Token};
 
+pub mod md5;
+
 pub mod cbc {
     mod dec;
     mod enc;

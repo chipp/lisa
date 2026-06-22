@@ -65,7 +65,8 @@ async fn try_join(
 }
 
 async fn subscribe_action(mut mqtt: MqClient, mut inspinia: Client) -> Result<()> {
-    let mut stream = mqtt.get_stream(None);
+    let stream = mqtt.get_stream(None);
+    futures_util::pin_mut!(stream);
 
     let topics = [
         Topic::ActionRequest.to_string(),

@@ -64,7 +64,8 @@ async fn listen_web() -> Result<()> {
 }
 
 async fn subscribe_state(mut mqtt: MqClient, reporter: Reporter) -> Result<()> {
-    let mut stream = mqtt.get_stream(None);
+    let stream = mqtt.get_stream(None);
+    futures_util::pin_mut!(stream);
 
     let topic = Topic::StateUpdate.to_string();
     mqtt.subscribe(&topic, paho_mqtt::QOS_1).await?;

@@ -49,7 +49,8 @@ async fn main() -> Result<()> {
 }
 
 async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Result<()> {
-    let mut stream = mqtt.get_stream(None);
+    let stream = mqtt.get_stream(None);
+    futures_util::pin_mut!(stream);
 
     let topics = [
         Topic::ActionRequest.to_string(),

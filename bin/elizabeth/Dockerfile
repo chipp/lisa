@@ -19,6 +19,7 @@ RUN USER=rust \
   cargo new --bin /home/rust/src/bin/isabel
 
 COPY ./bin/elizabeth/Cargo.toml ./bin/elizabeth/Cargo.toml
+COPY ./lib/crypto/Cargo.toml ./lib/crypto/Cargo.toml
 COPY ./lib/inspinia/Cargo.toml ./lib/inspinia/Cargo.toml
 COPY ./lib/str_derive/Cargo.toml ./lib/str_derive/Cargo.toml
 COPY ./lib/str_derive/fake_macro.rs ./lib/str_derive/src/lib.rs
@@ -29,20 +30,24 @@ COPY ./Cargo.toml ./Cargo.toml
 
 RUN cargo build --release \
   -p elizabeth \
+  -p crypto \
   -p inspinia \
   -p str_derive \
   -p transport && \
   cargo clean --release \
   -p elizabeth \
+  -p crypto \
   -p inspinia \
   -p str_derive \
   -p transport \
   --target aarch64-unknown-linux-musl && \
   rm ./bin/elizabeth/src/*.rs \
+  ./lib/crypto/src/*.rs \
   ./lib/inspinia/src/*.rs \
   ./lib/str_derive/src/*.rs \
   ./lib/transport/src/*.rs
 
+COPY ./lib/crypto/src ./lib/crypto/src
 COPY ./lib/inspinia/src ./lib/inspinia/src
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src

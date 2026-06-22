@@ -5,8 +5,8 @@ use std::{
 
 use crate::Result;
 use chipp_http::{HttpClient, HttpMethod, NoInterceptor, Request, Response};
+use crypto::md5;
 use log::info;
-use md5::Context;
 use serde::Deserialize;
 
 pub async fn download_template(target_id: &str) -> Result<PathBuf> {
@@ -32,14 +32,10 @@ pub async fn download_template(target_id: &str) -> Result<PathBuf> {
         .perform_request(request, parse_template_download)
         .await?;
 
-    let mut context = Context::new();
-
     let mut expected_hash = [0u8; 16];
     expected_hash.copy_from_slice(&response[..16]);
 
-    context.consume(&response[16..]);
-
-    let result_hash = context.finalize();
+    let result_hash = md5::digest(&response[16..]);
 
     if expected_hash[..] != result_hash[..] {
         panic!("invalid hash");

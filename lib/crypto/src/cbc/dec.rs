@@ -1,12 +1,13 @@
-use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
-use cipher::block_padding::UnpadError;
+use aes::cipher::{block_padding::Pkcs7, KeyIvInit};
+use cipher::block_padding::Error as UnpadError;
+use cipher::BlockModeDecrypt;
 
 use crate::Token;
 
 type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 
 pub fn decrypt(data: &mut [u8], key: Token<16>, iv: Token<16>) -> Result<&[u8], UnpadError> {
-    Aes128CbcDec::new(&key.into(), &iv.into()).decrypt_padded_mut::<Pkcs7>(data)
+    Aes128CbcDec::new(&key.into(), &iv.into()).decrypt_padded::<Pkcs7>(data)
 }
 
 #[cfg(test)]

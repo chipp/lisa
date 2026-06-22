@@ -14,6 +14,7 @@ use tokio::sync::Mutex;
 use tokio::time::timeout;
 
 use crate::Result;
+use crypto::md5;
 use inspinia::{
     download_template, Device, DeviceManager, Port, PortName, PortState, PortType, ReceivedMessage,
     RegisterMessage, UpdateMessageContent, UpdateStateMessage, WsClient,
@@ -34,7 +35,7 @@ pub struct Client {
 
 impl Client {
     pub async fn new(client_id: String, token: String, logs_path: PathBuf) -> Result<Client> {
-        let target_id = token_as_uuid(format!("{:x}", md5::compute(token)));
+        let target_id = token_as_uuid(md5::hex(token));
         let db_path = download_template(&target_id).await?;
 
         let (client, initial_state) =

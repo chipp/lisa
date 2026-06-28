@@ -28,8 +28,13 @@ pub async fn send_json(
     let packet = pack(*seq, command, &payload);
     stream.write_all(&packet).await?;
 
-    let response = read_packet(stream).await?;
-    decrypt_payload(&response, key)
+    loop {
+        let (response_command, response_payload) = read_packet(stream).await?;
+        if response_command == command as u32 {
+            return decrypt_payload(&response_payload, key);
+        }
+        // Skip unsolicited packets (e.g. heartbeats) and keep reading.
+    }
 }
 
 fn encrypt_payload(value: &Value, key: Token<16>) -> Result<Vec<u8>> {
@@ -75,7 +80,7 @@ fn pack(seq: u32, command: Command, payload: &[u8]) -> Vec<u8> {
     packet
 }
 
-async fn read_packet(stream: &mut TcpStream) -> Result<Vec<u8>> {
+async fn read_packet(stream: &mut TcpStream) -> Result<(u32, Vec<u8>)> {
     let mut header = [0; 16];
     stream.read_exact(&mut header).await?;
 
@@ -83,8 +88,11 @@ async fn read_packet(stream: &mut TcpStream) -> Result<Vec<u8>> {
         return Err(Error::InvalidPacket);
     }
 
+    let command = u32::from_be_bytes(header[8..12].try_into().unwrap());
     let length = u32::from_be_bytes(header[12..16].try_into().unwrap()) as usize;
-    if length < 8 {
+
+    // Responses must have at least a 4-byte return code + 4-byte CRC + 4-byte suffix.
+    if length < 12 {
         return Err(Error::InvalidPacket);
     }
 
@@ -95,7 +103,10 @@ async fn read_packet(stream: &mut TcpStream) -> Result<Vec<u8>> {
         return Err(Error::InvalidPacket);
     }
 
-    Ok(rest[..length - 8].to_vec())
+    // Tuya v3.3 response packets include a 4-byte return code before the payload.
+    // Strip it (rest[0..4]) and the trailing CRC + SUFFIX (rest[length-8..length]).
+    let payload = rest[4..length - 8].to_vec();
+    Ok((command, payload))
 }
 
 fn crc32(bytes: &[u8]) -> u32 {

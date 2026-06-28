@@ -145,10 +145,7 @@ fn air_conditioner_device(room: Room) -> Device {
         description: format!("в {}", room_name),
         room: room_name,
         device_type: DeviceType::ThermostatAc,
-        properties: vec![
-            DeviceProperty::temperature().reportable(),
-            DeviceProperty::humidity().reportable(),
-        ],
+        properties: vec![DeviceProperty::temperature().reportable()],
         capabilities: vec![
             DeviceCapability::on_off(false).retrievable().reportable(),
             DeviceCapability::mode(

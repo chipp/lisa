@@ -13,6 +13,8 @@ pub mod cbc {
 
 pub mod ebc {
     mod dec;
+    mod enc;
 
     pub use dec::decrypt;
+    pub use enc::encrypt;
 }

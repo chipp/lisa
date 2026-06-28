@@ -151,6 +151,14 @@ fn handle_message(
                 devices.push(state);
             }
         }
+        StateResponse::Elzhbieta(state) => {
+            let state = reporter::prepare_air_conditioner_state(state);
+
+            if device_ids.contains(&state.id()) {
+                device_ids.remove(&state.id());
+                devices.push(state);
+            }
+        }
     }
 
     Ok(())

@@ -9,6 +9,9 @@ use alice::{
 use transport::elisa::Action as ElisaAction;
 use transport::elisheba::Action as ElishebaAction;
 use transport::elizabeth::{Action as ElizabethAction, ActionType as ElizabethActionType};
+use transport::elzhbieta::{
+    Action as ElzhbietaAction, ActionType as ElzhbietaActionType, Mode as ElzhbietaMode,
+};
 use transport::{connect_mqtt, DeviceId, DeviceType, Room, Topic};
 
 use axum::http::{HeaderMap, StatusCode};
@@ -67,6 +70,7 @@ pub async fn action(
                 );
 
                 for (action, capability) in result {
+                    action_ids.insert(action.id());
                     response_capabilities.insert(action.id(), (device.id, capability));
                     actions.push(action);
                 }
@@ -83,10 +87,20 @@ pub async fn action(
                 }
             }
             DeviceType::TemperatureSensor => (),
+            DeviceType::AirConditioner => {
+                let result = handle_elzhbieta_capabilities(device.id.room, &device.capabilities);
+
+                for (action, capability) in result {
+                    action_ids.insert(action.id());
+                    response_capabilities.insert(action.id(), (device.id, capability));
+                    actions.push(action);
+                }
+            }
             DeviceType::Light => {
                 let result = handle_elisheba_capabilities(device.id.room, &device.capabilities);
 
                 for (action, capability) in result {
+                    action_ids.insert(action.id());
                     response_capabilities.insert(action.id(), (device.id, capability));
                     actions.push(action);
                 }
@@ -245,6 +259,27 @@ fn handle_elisheba_capabilities(
         .collect()
 }
 
+fn handle_elzhbieta_capabilities(
+    room: Room,
+    capabilities: &[StateCapability],
+) -> Vec<(transport::action::Action, UpdateStateCapability)> {
+    capabilities
+        .iter()
+        .filter_map(|capability| {
+            map_elzhbieta_action(capability).map(|action_type| {
+                (
+                    transport::action::Action::Elzhbieta(
+                        ElzhbietaAction { room, action_type },
+                        Uuid::new_v4(),
+                    ),
+                    prepare_response_capability(capability),
+                )
+            })
+        })
+        .inspect(|(action, _)| trace!("elzhbieta action for {room}: {:?}", action))
+        .collect()
+}
+
 fn map_elizabeth_action(state_capability: &StateCapability) -> Option<ElizabethActionType> {
     match state_capability {
         StateCapability::OnOff { value } => Some(ElizabethActionType::SetIsEnabled(*value)),
@@ -260,6 +295,36 @@ fn map_elizabeth_action(state_capability: &StateCapability) -> Option<ElizabethA
         _ => {
             error!(
                 "Unsupported state capability for elizabeth: {:?}",
+                state_capability
+            );
+            None
+        }
+    }
+}
+
+fn map_elzhbieta_action(state_capability: &StateCapability) -> Option<ElzhbietaActionType> {
+    match state_capability {
+        StateCapability::OnOff { value } => Some(ElzhbietaActionType::SetIsEnabled(*value)),
+        StateCapability::Mode {
+            function: ModeFunction::Thermostat,
+            mode,
+        } => map_mode_to_ac_mode(*mode).map(ElzhbietaActionType::SetMode),
+        StateCapability::Range {
+            function: RangeFunction::Temperature,
+            value,
+            relative,
+        } if !relative => Some(ElzhbietaActionType::SetTargetTemperature(*value)),
+        StateCapability::Range {
+            function: RangeFunction::Temperature,
+            value: _,
+            relative: true,
+        } => {
+            error!("Relative temperature changes are not supported for elzhbieta");
+            None
+        }
+        _ => {
+            error!(
+                "Unsupported state capability for elzhbieta: {:?}",
                 state_capability
             );
             None
@@ -304,17 +369,26 @@ fn map_elisa_action(state_capability: &StateCapability, room: Room) -> Option<El
     }
 }
 
+fn map_mode_to_ac_mode(mode: alice::Mode) -> Option<ElzhbietaMode> {
+    match mode {
+        alice::Mode::Auto => Some(ElzhbietaMode::Auto),
+        alice::Mode::Cool => Some(ElzhbietaMode::Cool),
+        alice::Mode::Heat => Some(ElzhbietaMode::Heat),
+        alice::Mode::Dry => Some(ElzhbietaMode::Dry),
+        alice::Mode::FanOnly => Some(ElzhbietaMode::FanOnly),
+        _ => {
+            error!("Unsupported mode {} for air conditioner", mode);
+            None
+        }
+    }
+}
+
 fn map_mode_to_fan_speed(mode: alice::Mode) -> Option<transport::elizabeth::FanSpeed> {
     match mode {
         alice::Mode::Low => Some(transport::elizabeth::FanSpeed::Low),
         alice::Mode::Medium => Some(transport::elizabeth::FanSpeed::Medium),
         alice::Mode::High => Some(transport::elizabeth::FanSpeed::High),
-        alice::Mode::Quiet
-        | alice::Mode::Normal
-        | alice::Mode::Turbo
-        | alice::Mode::DryCleaning
-        | alice::Mode::WetCleaning
-        | alice::Mode::MixedCleaning => {
+        _ => {
             error!("Unsupported mode {} for recuperator", mode);
             None
         }
@@ -328,10 +402,7 @@ fn map_mode_to_work_speed(mode: alice::Mode) -> Option<transport::elisa::WorkSpe
         alice::Mode::Normal => Some(transport::elisa::WorkSpeed::Standard),
         alice::Mode::Medium => Some(transport::elisa::WorkSpeed::Medium),
         alice::Mode::Turbo => Some(transport::elisa::WorkSpeed::Turbo),
-        alice::Mode::High
-        | alice::Mode::DryCleaning
-        | alice::Mode::WetCleaning
-        | alice::Mode::MixedCleaning => {
+        _ => {
             error!("Unsupported mode {} for vacuum cleaner", mode);
             None
         }
@@ -398,6 +469,10 @@ fn prepare_response_capability(capability: &StateCapability) -> UpdateStateCapab
             function: ModeFunction::CleanupMode,
             mode: _,
         } => UpdateStateCapability::mode(ModeFunction::CleanupMode, result),
+        StateCapability::Mode {
+            function: ModeFunction::Thermostat,
+            mode: _,
+        } => UpdateStateCapability::mode(ModeFunction::Thermostat, result),
         StateCapability::Toggle {
             function: ToggleFunction::Pause,
             value: _,

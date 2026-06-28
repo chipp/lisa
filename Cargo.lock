@@ -754,6 +754,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "elzhbieta"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "log",
+ "paho-mqtt",
+ "pretty_env_logger",
+ "serde_json",
+ "tokio",
+ "transport",
+ "tuya",
+]
+
+[[package]]
 name = "enumflags2"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2690,6 +2704,18 @@ dependencies = [
  "rand 0.9.4",
  "sha1",
  "thiserror",
+]
+
+[[package]]
+name = "tuya"
+version = "0.1.0"
+dependencies = [
+ "crypto",
+ "log",
+ "serde",
+ "serde_json",
+ "tokio",
+ "transport",
 ]
 
 [[package]]

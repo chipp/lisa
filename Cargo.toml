@@ -5,6 +5,7 @@ members = [
   "bin/alisa", # gateway between MQTT and Yandex.Alisa
   "bin/elisa", # gateway between MQTT and Roborock Vacuum Cleaner
   "bin/elisheba",
+  "bin/elzhbieta", # gateway between MQTT and Tuya AC
   "bin/elizabeth", # gateway between MQTT and Inspinia
   "bin/isabel", # gateway between MQTT and temperature sensors
 
@@ -16,4 +17,5 @@ members = [
   "lib/str_derive",
   "lib/transport", # MQTT topics and payloads
   "lib/roborock", # Roborock Vacuum Cleaner communication protocol
+  "lib/tuya", # Tuya local protocol
 ]

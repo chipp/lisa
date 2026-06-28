@@ -129,6 +129,15 @@ run_elisheba:
 	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
 	cargo run --bin elisheba
 
+run_elzhbieta: RUST_LOG = elzhbieta=debug,tuya=trace,info
+run_elzhbieta: MQTT_ADDRESS = mqtt://localhost:1883
+run_elzhbieta: MQTT_USER = elzhbieta
+run_elzhbieta: MQTT_PASS = 123mqtt
+run_elzhbieta:
+	@RUST_LOG=${RUST_LOG} ELZHBIETA_DEVICES="$$(op read 'op://private/elzhbieta devices/notesPlain')" \
+	MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
+	cargo run --bin elzhbieta
+
 build_elisheba: IMAGE_ID = ghcr.io/chipp/elisheba
 build_elisheba:
 	docker build . \
@@ -141,7 +150,18 @@ build_elisheba:
 		${IMAGE_ID}:test \
 		cp /root/elisheba /build/elisheba
 
-test: test_alisa test_elizabeth test_elisa test_isabel test_elisheba
+build_elzhbieta: IMAGE_ID = ghcr.io/chipp/elzhbieta
+build_elzhbieta:
+	docker buildx build . --file bin/elzhbieta/Dockerfile \
+		--load \
+		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}" \
+		--build-arg VERSION="0.1.0"
+	docker run --rm -v "$(CURDIR)/build:/build" \
+		${IMAGE_ID}:latest \
+		cp /root/elzhbieta /build/elzhbieta
+
+test: test_alisa test_elizabeth test_elisa test_isabel test_elisheba test_elzhbieta
 
 test_alisa: IMAGE_ID = ghcr.io/chipp/alisa
 test_alisa:
@@ -176,4 +196,10 @@ test_elisheba:
 	docker buildx build . --file bin/elisheba/test.Dockerfile \
 		--output type=cacheonly \
 		--tag ${IMAGE_ID}:latest \
+		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+test_elzhbieta:
+	docker buildx build . --file bin/elzhbieta/test.Dockerfile \
+		--output type=cacheonly \
+		--tag ghcr.io/chipp/elzhbieta:latest \
 		--build-arg RUST_VERSION="${RUST_VERSION}"

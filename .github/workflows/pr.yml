@@ -69,6 +69,7 @@ jobs:
         binary:
           - elisa
           - elisheba
+          - elzhbieta
           - isabel
 
     steps:
@@ -144,6 +145,7 @@ jobs:
           - alisa
           - elisa
           - elisheba
+          - elzhbieta
           - elizabeth
           - isabel
 

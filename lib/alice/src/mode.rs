@@ -8,6 +8,7 @@ pub enum ModeFunction {
     WorkSpeed,
     FanSpeed,
     CleanupMode,
+    Thermostat,
 }
 
 impl std::str::FromStr for ModeFunction {
@@ -22,6 +23,11 @@ impl std::str::FromStr for ModeFunction {
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
 pub enum Mode {
+    Auto,
+    Cool,
+    Heat,
+    Dry,
+    FanOnly,
     Quiet,
     Low,
     #[default]

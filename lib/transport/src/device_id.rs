@@ -36,6 +36,13 @@ impl DeviceId {
         }
     }
 
+    pub fn air_conditioner_at_room(room: Room) -> DeviceId {
+        DeviceId {
+            room,
+            device_type: DeviceType::AirConditioner,
+        }
+    }
+
     pub fn vacuum_cleaner_at_room(room: Room) -> DeviceId {
         DeviceId {
             room,

@@ -1,0 +1,17 @@
+[Unit]
+Description=Elžbieta Tuya AC gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/lisa/elzhbieta.env
+ExecStart=/usr/bin/elzhbieta
+WorkingDirectory=/var/lib/lisa/elzhbieta
+Restart=always
+RestartSec=5
+User=elzhbieta
+Group=elzhbieta
+
+[Install]
+WantedBy=multi-user.target

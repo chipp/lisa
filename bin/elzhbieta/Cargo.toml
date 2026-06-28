@@ -1,0 +1,16 @@
+[package]
+name = "elzhbieta"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+transport = { path = "../../lib/transport" }
+tuya = { path = "../../lib/tuya" }
+
+futures-util = "0.3"
+log = "0.4"
+paho-mqtt = "0.14"
+pretty_env_logger = "0.5"
+serde_json = "1.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }

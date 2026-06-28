@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum Update {
     Elisa(crate::elisa::State),
     Elisheba(crate::elisheba::State),
+    Elzhbieta(crate::elzhbieta::State),
     Elizabeth(crate::elizabeth::State),
     Isabel(crate::isabel::State),
 }

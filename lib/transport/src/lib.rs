@@ -1,6 +1,7 @@
 pub mod elisa;
 pub mod elisheba;
 pub mod elizabeth;
+pub mod elzhbieta;
 pub mod isabel;
 
 pub mod action {
@@ -41,6 +42,7 @@ pub enum DeviceType {
     Recuperator,
     TemperatureSensor,
     Thermostat,
+    AirConditioner,
     VacuumCleaner,
     Light,
 }

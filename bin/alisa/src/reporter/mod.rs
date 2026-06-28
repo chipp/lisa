@@ -1,9 +1,11 @@
+mod air_conditioner;
 mod light;
 mod recuperator;
 mod temperature_sensor;
 mod thermostat;
 mod vacuum_cleaner;
 
+pub use air_conditioner::prepare_air_conditioner_state;
 pub use light::prepare_light_update;
 pub use recuperator::{prepare_recuperator_current_state, prepare_recuperator_update};
 pub use temperature_sensor::prepare_sensor_update;
@@ -107,6 +109,7 @@ fn device_from_update(update: StateUpdate) -> Option<Vec<StateDevice>> {
         StateUpdate::Elisa(state) => Some(prepare_vacuum_updates(state)),
         StateUpdate::Isabel(state) => Some(vec![prepare_sensor_update(state)]),
         StateUpdate::Elisheba(state) => Some(vec![prepare_light_update(state)]),
+        StateUpdate::Elzhbieta(state) => Some(vec![prepare_air_conditioner_state(state)]),
     }
 }
 

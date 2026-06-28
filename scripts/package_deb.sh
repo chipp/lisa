@@ -14,7 +14,7 @@ arch="${ARCH:-arm64}"
 package_name="lisa-$service"
 
 case "$service" in
-  elisa|elisheba|isabel) ;;
+  elisa|elisheba|elzhbieta|isabel) ;;
   *)
     echo "unsupported service: $service" >&2
     exit 64

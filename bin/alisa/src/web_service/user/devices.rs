@@ -35,6 +35,8 @@ pub async fn devices(headers: HeaderMap) -> Result<impl IntoResponse> {
                 thermostat_device(Room::HomeOffice),
                 thermostat_device(Room::LivingRoom),
                 thermostat_device(Room::Nursery),
+                air_conditioner_device(Room::Bedroom),
+                air_conditioner_device(Room::LivingRoom),
                 recuperator_device(),
                 light_device(Room::Corridor),
                 light_device(Room::Nursery),
@@ -129,6 +131,42 @@ fn thermostat_device(room: Room) -> Device {
                     precision: 0.5,
                 },
             )
+            .reportable(),
+        ],
+    }
+}
+
+fn air_conditioner_device(room: Room) -> Device {
+    let room_name = name_for_room(&room).to_string();
+
+    Device {
+        id: DeviceId::air_conditioner_at_room(room),
+        name: "Кондиционер".to_string(),
+        description: format!("в {}", room_name),
+        room: room_name,
+        device_type: DeviceType::ThermostatAc,
+        properties: vec![
+            DeviceProperty::temperature().reportable(),
+            DeviceProperty::humidity().reportable(),
+        ],
+        capabilities: vec![
+            DeviceCapability::on_off(false).retrievable().reportable(),
+            DeviceCapability::mode(
+                ModeFunction::Thermostat,
+                vec![Mode::Auto, Mode::Cool, Mode::Heat, Mode::Dry, Mode::FanOnly],
+            )
+            .retrievable()
+            .reportable(),
+            DeviceCapability::range(
+                RangeFunction::Temperature,
+                TemperatureUnit::Celsius,
+                Range {
+                    min: 16.0,
+                    max: 31.0,
+                    precision: 0.5,
+                },
+            )
+            .retrievable()
             .reportable(),
         ],
     }

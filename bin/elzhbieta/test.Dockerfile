@@ -20,40 +20,40 @@ RUN USER=rust \
   cargo new --bin /home/rust/src/bin/elizabeth && \
   cargo new --bin /home/rust/src/bin/isabel
 
-COPY ./bin/elisa/Cargo.toml ./bin/elisa/Cargo.toml
+COPY ./bin/elzhbieta/Cargo.toml ./bin/elzhbieta/Cargo.toml
 COPY ./lib/crypto/Cargo.toml ./lib/crypto/Cargo.toml
 COPY ./lib/str_derive/Cargo.toml ./lib/str_derive/Cargo.toml
 COPY ./lib/str_derive/fake_macro.rs ./lib/str_derive/src/lib.rs
 COPY ./lib/transport/Cargo.toml ./lib/transport/Cargo.toml
-COPY ./lib/roborock/Cargo.toml ./lib/roborock/Cargo.toml
+COPY ./lib/tuya/Cargo.toml ./lib/tuya/Cargo.toml
 
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
 RUN cargo build \
-  -p elisa \
+  -p elzhbieta \
   -p crypto \
   -p str_derive \
   -p transport \
-  -p roborock && \
+  -p tuya && \
   cargo clean \
-  -p elisa \
+  -p elzhbieta \
   -p crypto \
   -p str_derive \
   -p transport \
-  -p roborock \
+  -p tuya \
   --target aarch64-unknown-linux-musl && \
-  rm ./bin/elisa/src/*.rs \
+  rm ./bin/elzhbieta/src/*.rs \
   ./lib/crypto/src/*.rs \
   ./lib/str_derive/src/*.rs \
   ./lib/transport/src/*.rs \
-  ./lib/roborock/src/*.rs
+  ./lib/tuya/src/*.rs
 
 COPY ./lib/crypto/src ./lib/crypto/src
 COPY ./lib/str_derive/src ./lib/str_derive/src
 COPY ./lib/transport/src ./lib/transport/src
-COPY ./lib/roborock/src ./lib/roborock/src
-COPY ./bin/elisa/src ./bin/elisa/src
+COPY ./lib/tuya/src ./lib/tuya/src
+COPY ./bin/elzhbieta/src ./bin/elzhbieta/src
 
-RUN cargo test -p elisa -p crypto -p str_derive -p transport -p roborock && \
+RUN cargo test -p elzhbieta -p crypto -p str_derive -p transport -p tuya && \
   rm -rf target/aarch64-unknown-linux-musl/debug/ target/debug/

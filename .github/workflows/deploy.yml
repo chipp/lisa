@@ -19,6 +19,8 @@ jobs:
             mode: binary
           - binary: elisheba
             mode: binary
+          - binary: elzhbieta
+            mode: binary
           - binary: elizabeth
             mode: image
           - binary: isabel
@@ -153,12 +155,17 @@ jobs:
         with:
           name: elisheba
 
+      - name: Download elzhbieta
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: elzhbieta
+
       - name: Download isabel
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: isabel
 
-      - name: Deploy elisa, elisheba, isabel
+      - name: Deploy elisa, elisheba, elzhbieta, isabel
         run: |
           eval `ssh-agent -s`
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
@@ -172,7 +179,7 @@ jobs:
           ssh chipp@pi4.chipp.dev "mkdir -p /tmp/lisa-deploy"
           rsync -av --delete lisa-deploy/ chipp@pi4.chipp.dev:/tmp/lisa-deploy/
 
-          ssh chipp@pi4.chipp.dev "sudo systemctl stop elisa elisheba isabel || true"
+          ssh chipp@pi4.chipp.dev "sudo systemctl stop elisa elisheba elzhbieta isabel || true"
           ssh chipp@pi4.chipp.dev "sudo dpkg -i /tmp/lisa-deploy/*.deb"
 
-          ssh chipp@pi4.chipp.dev "sudo systemctl start elisa elisheba isabel"
+          ssh chipp@pi4.chipp.dev "sudo systemctl start elisa elisheba elzhbieta isabel"

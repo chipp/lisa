@@ -47,7 +47,7 @@ impl fmt::Debug for Data<'_> {
             "[{}]",
             self.bytes
                 .iter()
-                .map(|i| format!("{:#02x}", i))
+                .map(|i| format!("{:#x}", i))
                 .collect::<Vec<_>>()
                 .join(", ")
         )

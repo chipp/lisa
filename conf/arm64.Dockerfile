@@ -1,4 +1,4 @@
-FROM alpine:3.19.1
+FROM alpine:3.24.3
 
 RUN apk --no-cache add ca-certificates && update-ca-certificates
 RUN apk --no-cache add tzdata && \

@@ -9,7 +9,7 @@ license = "MIT"
 [dependencies]
 aes = "0.9"
 cbc = "0.2"
-ecb = "0.2.0"
+ecb = "0.2.1"
 cipher = { version = "0.5", features = ["block-padding"] }
 
 md-5 = "0.11"

@@ -25,6 +25,7 @@ use uuid::Uuid;
 use crate::web_service::auth::validate_autorization;
 use crate::web_service::ServiceError;
 
+#[allow(clippy::result_large_err)]
 pub async fn action(
     headers: HeaderMap,
     Json(action): Json<UpdateStateRequest>,

@@ -15,6 +15,7 @@ use crate::reporter;
 use crate::web_service::auth::validate_autorization;
 use crate::web_service::ServiceError;
 
+#[allow(clippy::result_large_err)]
 pub async fn query(
     headers: HeaderMap,
     Json(query): Json<StateRequest>,

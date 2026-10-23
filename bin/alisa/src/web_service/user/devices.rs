@@ -10,6 +10,7 @@ use serde_json::json;
 
 use crate::web_service::auth::validate_autorization;
 
+#[allow(clippy::result_large_err)]
 pub async fn devices(headers: HeaderMap) -> Result<impl IntoResponse> {
     validate_autorization(&headers, "devices")?;
 

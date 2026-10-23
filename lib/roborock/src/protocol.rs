@@ -504,10 +504,10 @@ fn encrypt_gcm_l01(
     let aad = l01_aad(timestamp, nonce, sequence, connect_nonce, ack_nonce);
 
     let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| Error::CryptoKeyLength)?;
-    let nonce = Nonce::from_slice(&iv);
+    let nonce = Nonce::try_from(&iv[..]).expect("L01 IV has the AES-GCM nonce length");
     let encrypted = cipher
         .encrypt(
-            nonce,
+            &nonce,
             aes_gcm::aead::Payload {
                 msg: payload,
                 aad: &aad,
@@ -532,10 +532,10 @@ fn decrypt_gcm_l01(
     let aad = l01_aad(timestamp, nonce, sequence, connect_nonce, Some(ack_nonce));
 
     let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| Error::CryptoKeyLength)?;
-    let nonce = Nonce::from_slice(&iv);
+    let nonce = Nonce::try_from(&iv[..]).expect("L01 IV has the AES-GCM nonce length");
     let decrypted = cipher
         .decrypt(
-            nonce,
+            &nonce,
             aes_gcm::aead::Payload {
                 msg: payload,
                 aad: &aad,

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use log::{debug, info};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use tokio::net::TcpStream;
@@ -116,7 +116,7 @@ fn device_from_resolved(resolved: ResolvedDevice) -> Result<Device> {
     }
 
     let key = local_key(&resolved.config.local_key)?;
-    info!(
+    debug!(
         "resolved tuya AC {} at {} for {}",
         resolved.config.device_id, resolved.addr, resolved.config.room
     );

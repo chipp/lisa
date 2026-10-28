@@ -25,8 +25,8 @@ impl Storage {
     pub fn apply(&mut self, device: &SonoffDevice) -> Option<State> {
         let state = map_device_to_state(device)?;
 
-        info!(
-            "ligths at {room} are toggled {state}",
+        debug!(
+            "lights at {room} are {state}",
             room = state.room,
             state = if state.is_enabled { "on" } else { "off" }
         );
@@ -104,7 +104,7 @@ pub async fn handle_action_request(msg: Message, mqtt: &mut MqClient, sonoff: &m
 async fn update_state(action: Action, sonoff: &mut Client) -> Result<()> {
     let state = if action.is_enabled { "on" } else { "off" };
 
-    info!("wants to toggle {state} lights at {}", action.room);
+    debug!("wants to toggle {state} lights at {}", action.room);
 
     let device_id = map_room_to_id(action.room).ok_or(Error::UnknownDevice)?;
     sonoff.update_state(device_id, action.is_enabled).await?;

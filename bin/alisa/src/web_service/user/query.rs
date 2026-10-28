@@ -115,6 +115,12 @@ fn handle_message(
     debug!("got response {:?}", response);
 
     match response {
+        StateResponse::Elizaveta(state) => {
+            let state = reporter::prepare_elizaveta_state(state);
+            if device_ids.remove(&state.id()) {
+                devices.push(state);
+            }
+        }
         StateResponse::Elisa(state) => {
             let states = reporter::prepare_vacuum_updates(state);
 

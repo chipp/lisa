@@ -1,0 +1,17 @@
+[Unit]
+Description=Elizaveta Modbus recuperator gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/lisa/elizaveta.env
+ExecStart=/usr/bin/elizaveta
+WorkingDirectory=/var/lib/lisa/elizaveta
+Restart=always
+RestartSec=5
+User=elizaveta
+Group=elizaveta
+
+[Install]
+WantedBy=multi-user.target

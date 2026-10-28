@@ -17,10 +17,12 @@ RUN USER=rust \
   cargo new --lib /home/rust/src/lib/transport && \
   cargo new --lib /home/rust/src/lib/roborock && \
   cargo new --lib /home/rust/src/lib/tuya && \
+  cargo new --lib /home/rust/src/lib/modbus && \
   cargo new --bin /home/rust/src/bin/alisa && \
   cargo new --bin /home/rust/src/bin/elisa && \
   cargo new --bin /home/rust/src/bin/elisheba && \
   cargo new --bin /home/rust/src/bin/elzhbieta && \
+  cargo new --bin /home/rust/src/bin/elizaveta && \
   cargo new --bin /home/rust/src/bin/elizabeth && \
   cargo new --bin /home/rust/src/bin/isabel
 

@@ -7,5 +7,6 @@ pub enum Update {
     Elisheba(crate::elisheba::State),
     Elzhbieta(crate::elzhbieta::State),
     Elizabeth(crate::elizabeth::State),
+    Elizaveta(crate::elizaveta::State),
     Isabel(crate::isabel::State),
 }

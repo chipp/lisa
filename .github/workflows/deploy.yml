@@ -29,6 +29,9 @@ jobs:
           - binary: elzhbieta
             mode: binary
             arch: amd64
+          - binary: elizaveta
+            mode: binary
+            arch: amd64
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -216,7 +219,13 @@ jobs:
           name: elzhbieta
           path: lisa-eq
 
-      - name: Deploy elisa, elisheba and elzhbieta
+      - name: Download elizaveta
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: elizaveta
+          path: lisa-eq
+
+      - name: Deploy elisa, elisheba, elzhbieta and elizaveta
         run: |
           eval "$(ssh-agent -s)"
           echo "${{ secrets.ssh_key_passphrase }}" | ssh-add ~/.ssh/id_rsa
@@ -227,6 +236,6 @@ jobs:
           ssh chipp@eq.chipp.dev "mkdir -p /tmp/lisa-deploy"
           rsync -av --delete lisa-eq/ chipp@eq.chipp.dev:/tmp/lisa-deploy/
 
-          ssh chipp@eq.chipp.dev "sudo systemctl stop elisa elisheba elzhbieta || true"
+          ssh chipp@eq.chipp.dev "sudo systemctl stop elisa elisheba elzhbieta elizaveta || true"
           ssh chipp@eq.chipp.dev "sudo dpkg -i /tmp/lisa-deploy/*.deb"
-          ssh chipp@eq.chipp.dev "sudo systemctl start elisa elisheba elzhbieta"
+          ssh chipp@eq.chipp.dev "sudo systemctl start elisa elisheba elzhbieta elizaveta"

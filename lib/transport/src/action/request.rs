@@ -1,4 +1,4 @@
-use crate::{elisa, elisheba, elizabeth, elzhbieta};
+use crate::{elisa, elisheba, elizabeth, elizaveta, elzhbieta};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -16,6 +16,7 @@ pub enum Action {
     Elisheba(elisheba::Action, Uuid),
     Elzhbieta(elzhbieta::Action, Uuid),
     Elizabeth(elizabeth::Action, Uuid),
+    Elizaveta(elizaveta::Action, Uuid),
 }
 
 impl Action {
@@ -25,6 +26,7 @@ impl Action {
             Action::Elisheba(_, id) => *id,
             Action::Elzhbieta(_, id) => *id,
             Action::Elizabeth(_, id) => *id,
+            Action::Elizaveta(_, id) => *id,
         }
     }
 }

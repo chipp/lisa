@@ -78,6 +78,7 @@ jobs:
           - elisa
           - elisheba
           - elzhbieta
+          - elizaveta
           - isabel
 
     steps:
@@ -154,6 +155,7 @@ jobs:
           - elisa
           - elisheba
           - elzhbieta
+          - elizaveta
           - elizabeth
           - isabel
 

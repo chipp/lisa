@@ -92,12 +92,6 @@ async fn update_state(action: Action, inspinia: &mut Client) -> Result<()> {
     debug!("Action: {:?}", action);
 
     match (action.device_type, action.action_type) {
-        (DeviceType::Recuperator, ActionType::SetIsEnabled(value)) => {
-            inspinia.set_recuperator_enabled(value).await?;
-        }
-        (DeviceType::Recuperator, ActionType::SetFanSpeed(speed)) => {
-            inspinia.set_recuperator_fan_speed(speed).await?;
-        }
         (DeviceType::Thermostat, ActionType::SetIsEnabled(value)) => {
             inspinia.set_thermostat_enabled(value, action.room).await?;
         }
@@ -143,12 +137,10 @@ pub async fn handle_state_request(msg: Message, mqtt: &mut MqClient, inspinia: &
         }
     };
 
-    let ids = request.device_ids.into_iter().filter(|id| {
-        matches!(
-            id.device_type,
-            DeviceType::Recuperator | DeviceType::Thermostat
-        )
-    });
+    let ids = request
+        .device_ids
+        .into_iter()
+        .filter(|id| matches!(id.device_type, DeviceType::Thermostat));
 
     debug!("ids: {:?}", ids.clone().collect::<Vec<_>>());
 

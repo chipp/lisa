@@ -6,12 +6,14 @@ members = [
   "bin/elisa", # gateway between MQTT and Roborock Vacuum Cleaner
   "bin/elisheba",
   "bin/elzhbieta", # gateway between MQTT and Tuya AC
+  "bin/elizaveta",
   "bin/elizabeth", # gateway between MQTT and Inspinia
   "bin/isabel", # gateway between MQTT and temperature sensors
 
   "lib/alice", # Yandex.Alisa API types
   "lib/bluetooth",
   "lib/crypto",
+  "lib/modbus",
   "lib/inspinia", # Inspinia WS API types
   "lib/sonoff", # Sonoff LAN API client
   "lib/str_derive",

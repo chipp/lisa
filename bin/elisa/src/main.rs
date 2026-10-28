@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use paho_mqtt::AsyncClient as MqClient;
 use paho_mqtt::{MessageBuilder, QOS_1};
 use tokio::{task, time};
@@ -127,7 +127,7 @@ async fn subscribe_state(mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Result<()>
                 warn!("roborock issues: {}", issues.join(", "));
             }
             let state = prepare_state(status, &rooms);
-            info!("publishing state: {:?}", state);
+            debug!("publishing state: {:?}", state);
 
             let topic = Topic::StateUpdate;
 

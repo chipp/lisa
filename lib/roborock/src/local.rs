@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use log::{debug, info};
+use log::debug;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
@@ -191,7 +191,7 @@ where
             let response = self.next_message().await?;
             if response.protocol == MessageProtocol::HelloResponse && response.seq == seq {
                 debug!("roborock hello recv: version=L01, seq={}", seq);
-                info!("connected with protocol L01");
+                debug!("connected with protocol L01");
                 return Ok(response.random);
             }
             debug!(

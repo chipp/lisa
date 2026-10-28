@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{debug, error, info};
+use log::{debug, error};
 use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 use tokio::sync::Mutex;
 use transport::{
@@ -126,7 +126,7 @@ pub async fn publish_all_states(mqtt: &MqClient, client: SharedClient) {
 
         match state {
             Ok(state) => {
-                info!("publishing AC state: {:?}", state);
+                debug!("publishing AC state: {:?}", state);
                 publish_state_update(mqtt, state).await;
             }
             Err(err) => error!("Error polling AC state for {room}: {}", err),

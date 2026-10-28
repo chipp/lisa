@@ -7,7 +7,9 @@ mod vacuum_cleaner;
 
 pub use air_conditioner::prepare_air_conditioner_state;
 pub use light::prepare_light_update;
-pub use recuperator::{prepare_recuperator_current_state, prepare_recuperator_update};
+pub use recuperator::{
+    prepare_elizaveta_state, prepare_recuperator_current_state, prepare_recuperator_update,
+};
 pub use temperature_sensor::prepare_sensor_update;
 pub use thermostat::{prepare_thermostat_current_state, prepare_thermostat_update};
 pub use vacuum_cleaner::prepare_vacuum_updates;
@@ -105,6 +107,7 @@ fn parse_state_report_response(
 
 fn device_from_update(update: StateUpdate) -> Option<Vec<StateDevice>> {
     match update {
+        StateUpdate::Elizaveta(state) => Some(vec![prepare_elizaveta_state(state)]),
         StateUpdate::Elizabeth(state) => Some(vec![prepare_elizabeth_device(state)?]),
         StateUpdate::Elisa(state) => Some(prepare_vacuum_updates(state)),
         StateUpdate::Isabel(state) => Some(vec![prepare_sensor_update(state)]),

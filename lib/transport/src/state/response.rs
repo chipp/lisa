@@ -1,4 +1,4 @@
-use crate::{elisa, elisheba, elizabeth, elzhbieta};
+use crate::{elisa, elisheba, elizabeth, elizaveta, elzhbieta};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -8,4 +8,5 @@ pub enum Response {
     Elisheba(elisheba::State),
     Elzhbieta(elzhbieta::State),
     Elizabeth(elizabeth::CurrentState),
+    Elizaveta(elizaveta::State),
 }

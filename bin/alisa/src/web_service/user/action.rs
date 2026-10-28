@@ -63,12 +63,17 @@ pub async fn action(
 
     for device in action.payload.devices {
         match device.id.device_type {
-            DeviceType::Recuperator | DeviceType::Thermostat => {
-                let result = handle_elizabeth_capabilities(
-                    device.id.device_type,
-                    device.id.room,
-                    &device.capabilities,
-                );
+            DeviceType::Recuperator => {
+                let result = handle_elizaveta_capabilities(device.id.room, &device.capabilities);
+
+                for (action, capability) in result {
+                    action_ids.insert(action.id());
+                    response_capabilities.insert(action.id(), (device.id, capability));
+                    actions.push(action);
+                }
+            }
+            DeviceType::Thermostat => {
+                let result = handle_elizabeth_capabilities(device.id.room, &device.capabilities);
 
                 for (action, capability) in result {
                     action_ids.insert(action.id());
@@ -186,7 +191,6 @@ where
 }
 
 fn handle_elizabeth_capabilities(
-    device_type: DeviceType,
     room: Room,
     capabilities: &[StateCapability],
 ) -> Vec<(transport::action::Action, UpdateStateCapability)> {
@@ -198,9 +202,29 @@ fn handle_elizabeth_capabilities(
                     transport::action::Action::Elizabeth(
                         ElizabethAction {
                             room,
-                            device_type,
+                            device_type: DeviceType::Thermostat,
                             action_type,
                         },
+                        Uuid::new_v4(),
+                    ),
+                    prepare_response_capability(capability),
+                )
+            })
+        })
+        .collect()
+}
+
+fn handle_elizaveta_capabilities(
+    room: Room,
+    capabilities: &[StateCapability],
+) -> Vec<(transport::action::Action, UpdateStateCapability)> {
+    capabilities
+        .iter()
+        .filter_map(|capability| {
+            map_elizaveta_action(capability).map(|action_type| {
+                (
+                    transport::action::Action::Elizaveta(
+                        transport::elizaveta::Action { room, action_type },
                         Uuid::new_v4(),
                     ),
                     prepare_response_capability(capability),
@@ -284,10 +308,6 @@ fn handle_elzhbieta_capabilities(
 fn map_elizabeth_action(state_capability: &StateCapability) -> Option<ElizabethActionType> {
     match state_capability {
         StateCapability::OnOff { value } => Some(ElizabethActionType::SetIsEnabled(*value)),
-        StateCapability::Mode {
-            function: ModeFunction::FanSpeed,
-            mode,
-        } => map_mode_to_fan_speed(*mode).map(ElizabethActionType::SetFanSpeed),
         StateCapability::Range {
             function: RangeFunction::Temperature,
             value,
@@ -297,6 +317,24 @@ fn map_elizabeth_action(state_capability: &StateCapability) -> Option<ElizabethA
             error!(
                 "Unsupported state capability for elizabeth: {:?}",
                 state_capability
+            );
+            None
+        }
+    }
+}
+
+fn map_elizaveta_action(capability: &StateCapability) -> Option<transport::elizaveta::ActionType> {
+    use transport::elizaveta::ActionType;
+    match capability {
+        StateCapability::OnOff { value } => Some(ActionType::SetIsEnabled(*value)),
+        StateCapability::Mode {
+            function: ModeFunction::FanSpeed,
+            mode,
+        } => map_mode_to_fan_speed(*mode).map(ActionType::SetFanSpeed),
+        _ => {
+            error!(
+                "Unsupported state capability for elizaveta: {:?}",
+                capability
             );
             None
         }
@@ -384,11 +422,11 @@ fn map_mode_to_ac_mode(mode: alice::Mode) -> Option<ElzhbietaMode> {
     }
 }
 
-fn map_mode_to_fan_speed(mode: alice::Mode) -> Option<transport::elizabeth::FanSpeed> {
+fn map_mode_to_fan_speed(mode: alice::Mode) -> Option<transport::elizaveta::FanSpeed> {
     match mode {
-        alice::Mode::Low => Some(transport::elizabeth::FanSpeed::Low),
-        alice::Mode::Medium => Some(transport::elizabeth::FanSpeed::Medium),
-        alice::Mode::High => Some(transport::elizabeth::FanSpeed::High),
+        alice::Mode::Low => Some(transport::elizaveta::FanSpeed::Low),
+        alice::Mode::Medium => Some(transport::elizaveta::FanSpeed::Medium),
+        alice::Mode::High => Some(transport::elizaveta::FanSpeed::High),
         _ => {
             error!("Unsupported mode {} for recuperator", mode);
             None
@@ -490,15 +528,15 @@ mod tests {
     fn map_fan_speed() {
         assert_eq!(
             map_mode_to_fan_speed(Mode::Low).unwrap(),
-            transport::elizabeth::FanSpeed::Low
+            transport::elizaveta::FanSpeed::Low
         );
         assert_eq!(
             map_mode_to_fan_speed(Mode::Medium).unwrap(),
-            transport::elizabeth::FanSpeed::Medium
+            transport::elizaveta::FanSpeed::Medium
         );
         assert_eq!(
             map_mode_to_fan_speed(Mode::High).unwrap(),
-            transport::elizabeth::FanSpeed::High
+            transport::elizaveta::FanSpeed::High
         );
         assert!(map_mode_to_fan_speed(Mode::Quiet).is_none());
     }
@@ -550,8 +588,8 @@ mod tests {
         let state_capability = StateCapability::OnOff { value: true };
 
         assert_eq!(
-            map_elizabeth_action(&state_capability),
-            Some(ElizabethActionType::SetIsEnabled(true))
+            map_elizaveta_action(&state_capability),
+            Some(transport::elizaveta::ActionType::SetIsEnabled(true))
         );
     }
 
@@ -560,8 +598,8 @@ mod tests {
         let state_capability = StateCapability::OnOff { value: false };
 
         assert_eq!(
-            map_elizabeth_action(&state_capability),
-            Some(ElizabethActionType::SetIsEnabled(false))
+            map_elizaveta_action(&state_capability),
+            Some(transport::elizaveta::ActionType::SetIsEnabled(false))
         );
     }
 
@@ -573,9 +611,9 @@ mod tests {
         };
 
         assert_eq!(
-            map_elizabeth_action(&state_capability),
-            Some(ElizabethActionType::SetFanSpeed(
-                transport::elizabeth::FanSpeed::Low
+            map_elizaveta_action(&state_capability),
+            Some(transport::elizaveta::ActionType::SetFanSpeed(
+                transport::elizaveta::FanSpeed::Low
             ))
         );
     }

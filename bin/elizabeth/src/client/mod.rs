@@ -196,14 +196,10 @@ impl Client {
         Err(Error::UnsupportedDevice(port_id.to_string()).into())
     }
 
-    fn get_devices(db_path: &Path) -> Result<[(DeviceType, Device); 5]> {
+    fn get_devices(db_path: &Path) -> Result<[(DeviceType, Device); 4]> {
         let device_manager = DeviceManager::new(db_path)?;
 
         Ok([
-            (
-                DeviceType::Recuperator,
-                device_manager.get_recuperator_in_room(inspinia::Room::LivingRoom)?,
-            ),
             (
                 DeviceType::Thermostat,
                 device_manager.get_thermostat_in_room(inspinia::Room::Bedroom)?,

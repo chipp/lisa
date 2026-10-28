@@ -609,6 +609,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "elizaveta"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "log",
+ "modbus",
+ "paho-mqtt",
+ "pretty_env_logger",
+ "serde_json",
+ "tokio",
+ "transport",
+]
+
+[[package]]
 name = "elzhbieta"
 version = "0.1.0"
 dependencies = [
@@ -1373,6 +1387,13 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "modbus"
+version = "0.1.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]

@@ -47,3 +47,20 @@ fn map_fan_speed(speed: transport::elizabeth::FanSpeed) -> Mode {
         transport::elizabeth::FanSpeed::High => Mode::High,
     }
 }
+
+pub fn prepare_elizaveta_state(state: transport::elizaveta::State) -> StateDevice {
+    StateDevice::new_with_capabilities(
+        DeviceId::recuperator_at_room(state.room),
+        vec![
+            StateCapability::on_off(state.is_enabled),
+            StateCapability::mode(
+                ModeFunction::FanSpeed,
+                match state.fan_speed {
+                    transport::elizaveta::FanSpeed::Low => Mode::Low,
+                    transport::elizaveta::FanSpeed::Medium => Mode::Medium,
+                    transport::elizaveta::FanSpeed::High => Mode::High,
+                },
+            ),
+        ],
+    )
+}

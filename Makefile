@@ -161,7 +161,7 @@ build_elzhbieta:
 		${IMAGE_ID}:latest \
 		cp /root/elzhbieta /build/elzhbieta
 
-test: test_alisa test_elizabeth test_elisa test_isabel test_elisheba test_elzhbieta
+test: test_alisa test_elizabeth test_elisa test_isabel test_elisheba test_elzhbieta test_elizaveta
 
 test_alisa: IMAGE_ID = ghcr.io/chipp/alisa
 test_alisa:
@@ -203,3 +203,20 @@ test_elzhbieta:
 		--output type=cacheonly \
 		--tag ghcr.io/chipp/elzhbieta:latest \
 		--build-arg RUST_VERSION="${RUST_VERSION}"
+
+run_elizaveta: RUST_LOG = elizaveta=debug,info
+run_elizaveta: MQTT_ADDRESS = mqtt://localhost:1883
+run_elizaveta: MQTT_USER = elizaveta
+run_elizaveta: MQTT_PASS = 123mqtt
+run_elizaveta: MODBUS_ADDRESS ?= 127.0.0.1:1502
+run_elizaveta:
+	@RUST_LOG=${RUST_LOG} MQTT_ADDRESS=${MQTT_ADDRESS} MQTT_USER=${MQTT_USER} MQTT_PASS=${MQTT_PASS} \
+	MODBUS_ADDRESS=${MODBUS_ADDRESS} cargo run --bin elizaveta
+
+build_elizaveta: IMAGE_ID = ghcr.io/chipp/elizaveta
+build_elizaveta:
+	docker buildx build . --file bin/elizaveta/Dockerfile --load --tag ${IMAGE_ID}:latest --build-arg RUST_VERSION="${RUST_VERSION}" --build-arg VERSION="0.1.0"
+	docker run --rm -v "$(CURDIR)/build:/build" ${IMAGE_ID}:latest cp /root/elizaveta /build/elizaveta
+
+test_elizaveta:
+	docker buildx build . --file bin/elizaveta/test.Dockerfile --output type=cacheonly --tag ghcr.io/chipp/elizaveta:latest --build-arg RUST_VERSION="${RUST_VERSION}"

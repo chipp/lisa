@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     let devices: Vec<DeviceConfig> = serde_json::from_str(&devices)?;
     let client = tuya::Client::connect(devices).await?;
     let client = Arc::new(Mutex::new(client));
-    info!("connected tuya devices");
+    info!("discovered tuya devices");
 
     let mqtt_address = std::env::var("MQTT_ADDRESS").expect("set ENV variable MQTT_ADDRESS");
     let mqtt_username = std::env::var("MQTT_USER").expect("set ENV variable MQTT_USER");

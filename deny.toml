@@ -10,11 +10,7 @@ all-features = true
 [advisories]
 unmaintained = "all"
 unsound = "all"
-ignore = [
-    # jsonwebtoken's rust_crypto backend depends on rsa 0.9.x. The project
-    # only issues and validates HS512 tokens, so RSA code paths are not used.
-    "RUSTSEC-2023-0071",
-]
+ignore = []
 
 [bans]
 multiple-versions = "warn"

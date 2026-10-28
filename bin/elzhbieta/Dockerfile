@@ -1,6 +1,6 @@
 ARG RUST_VERSION=1.79.0_3
 
-FROM ghcr.io/chipp/build.rust.arm64_musl:${RUST_VERSION} AS builder
+FROM ghcr.io/chipp/build.rust.x86_64_musl:${RUST_VERSION} AS builder
 
 WORKDIR /home/rust/src
 RUN USER=rust \
@@ -42,7 +42,7 @@ RUN cargo build --release \
   -p str_derive \
   -p transport \
   -p tuya \
-  --target aarch64-unknown-linux-musl && \
+  --target x86_64-unknown-linux-musl && \
   rm ./bin/elzhbieta/src/*.rs \
   ./lib/crypto/src/*.rs \
   ./lib/str_derive/src/*.rs \
@@ -58,9 +58,9 @@ COPY ./bin/elzhbieta/src ./bin/elzhbieta/src
 ARG VERSION=0.1.0
 RUN sed -i "s/version = \"0.1.0\"/version = \"${VERSION}\"/g" bin/elzhbieta/Cargo.toml
 
-RUN cargo build --release -p elzhbieta --target aarch64-unknown-linux-musl && \
-  mv target/aarch64-unknown-linux-musl/release/elzhbieta ./ && \
-  rm -rf target/aarch64-unknown-linux-musl/release/ target/release/
+RUN cargo build --release -p elzhbieta --target x86_64-unknown-linux-musl && \
+  mv target/x86_64-unknown-linux-musl/release/elzhbieta ./ && \
+  rm -rf target/x86_64-unknown-linux-musl/release/ target/release/
 
 FROM alpine:3.18.4
 WORKDIR /root/

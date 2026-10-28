@@ -77,6 +77,7 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Resu
             time::sleep(Duration::from_secs(1)).await;
             error!("Lost MQTT connection. Attempting reconnect.");
 
+            let mut reconnect_failed = false;
             loop {
                 match time::timeout(Duration::from_secs(10), mqtt.reconnect()).await {
                     Ok(Ok(response)) => {
@@ -93,11 +94,17 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Resu
                         break;
                     }
                     Ok(Err(err)) => {
-                        error!("Error MQTT reconnecting: {}", err);
+                        if !reconnect_failed {
+                            reconnect_failed = true;
+                            error!("Error MQTT reconnecting: {}", err);
+                        }
                         time::sleep(Duration::from_secs(5)).await;
                     }
                     Err(err) => {
-                        error!("Error MQTT reconnecting: {}", err);
+                        if !reconnect_failed {
+                            reconnect_failed = true;
+                            error!("Error MQTT reconnecting: {}", err);
+                        }
                         time::sleep(Duration::from_secs(5)).await;
                     }
                 }
@@ -110,6 +117,7 @@ async fn subscribe_actions(mut mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Resu
 
 async fn subscribe_state(mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Result<()> {
     let mut timer = time::interval(Duration::from_secs(10));
+    let mut previous_issues = Vec::new();
 
     loop {
         timer.tick().await;
@@ -123,8 +131,13 @@ async fn subscribe_state(mqtt: MqClient, vacuum: Arc<VacuumQueue>) -> Result<()>
                 issues.push(format!("dock_error={:?}", status.dock_error_status));
             }
 
-            if !issues.is_empty() {
-                warn!("roborock issues: {}", issues.join(", "));
+            if issues != previous_issues {
+                if issues.is_empty() {
+                    info!("roborock issues cleared");
+                } else {
+                    warn!("roborock issues: {}", issues.join(", "));
+                }
+                previous_issues = issues;
             }
             let state = prepare_state(status, &rooms);
             debug!("publishing state: {:?}", state);

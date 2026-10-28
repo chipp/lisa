@@ -162,7 +162,7 @@ impl Client {
                     "404" => {
                         return Err(inspinia::Error::StreamClosed.into());
                     }
-                    _ => info!("unsupported message: {:?}", payload),
+                    _ => debug!("unsupported message: {:?}", payload),
                 },
                 Err(inspinia::Error::Pong) => (),
                 Err(error) => {

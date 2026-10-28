@@ -95,6 +95,7 @@ async fn subscribe_state(mqtt: MqClient, db_path: &str) -> Result<()> {
                         time::sleep(Duration::from_secs(1)).await;
                         error!("Lost MQTT connection. Attempting reconnect.");
 
+                        let mut reconnect_failed = false;
                         loop {
                             match time::timeout(Duration::from_secs(10), mqtt.reconnect()).await {
                                 Ok(Ok(response)) => {
@@ -102,11 +103,17 @@ async fn subscribe_state(mqtt: MqClient, db_path: &str) -> Result<()> {
                                     break;
                                 }
                                 Ok(Err(err)) => {
-                                    error!("Error MQTT reconnecting: {}", err);
+                                    if !reconnect_failed {
+                                        reconnect_failed = true;
+                                        error!("Error MQTT reconnecting: {}", err);
+                                    }
                                     time::sleep(Duration::from_secs(5)).await;
                                 }
                                 Err(err) => {
-                                    error!("Error MQTT reconnecting: {}", err);
+                                    if !reconnect_failed {
+                                        reconnect_failed = true;
+                                        error!("Error MQTT reconnecting: {}", err);
+                                    }
                                     time::sleep(Duration::from_secs(5)).await;
                                 }
                             }

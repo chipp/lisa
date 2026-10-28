@@ -1,13 +1,14 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
-use log::{debug, error};
+use log::{debug, error, info};
 use paho_mqtt::{AsyncClient as MqClient, Message, MessageBuilder, PropertyCode};
 use tokio::sync::Mutex;
 use transport::{
     action::{ActionRequest, ActionResponse, ActionResult},
     elzhbieta::State,
     state::{StateRequest, StateResponse},
-    DeviceType,
+    DeviceType, Room,
 };
 
 mod error;
@@ -112,7 +113,11 @@ pub async fn publish_state_update(mqtt: &MqClient, state: State) {
     }
 }
 
-pub async fn publish_all_states(mqtt: &MqClient, client: SharedClient) {
+pub async fn publish_all_states(
+    mqtt: &MqClient,
+    client: SharedClient,
+    failures: &mut HashSet<Room>,
+) {
     let rooms = {
         let client = client.lock().await;
         client.rooms().collect::<Vec<_>>()
@@ -126,10 +131,17 @@ pub async fn publish_all_states(mqtt: &MqClient, client: SharedClient) {
 
         match state {
             Ok(state) => {
+                if failures.remove(&room) {
+                    info!("AC state polling recovered for {room}");
+                }
                 debug!("publishing AC state: {:?}", state);
                 publish_state_update(mqtt, state).await;
             }
-            Err(err) => error!("Error polling AC state for {room}: {}", err),
+            Err(err) => {
+                if failures.insert(room) {
+                    error!("Error polling AC state for {room}: {}", err);
+                }
+            }
         }
     }
 }

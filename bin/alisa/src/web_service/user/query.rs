@@ -8,7 +8,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Result};
 use axum::Json;
 use futures_util::StreamExt;
-use log::{debug, info};
+use log::debug;
 use paho_mqtt::{Message, MessageBuilder, Properties, PropertyCode, QOS_1};
 
 use crate::reporter;
@@ -38,7 +38,7 @@ pub async fn query(
         .map(|device| device.id)
         .collect::<Vec<_>>();
 
-    info!(
+    debug!(
         "{request_id}/query ({})",
         device_ids
             .iter()

@@ -50,7 +50,7 @@ struct ResponsePayload {
     devices: Vec<ResponseDevice>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ResponseDevice {
     id: DeviceId,
     properties: Vec<Property>,
@@ -60,6 +60,41 @@ pub struct ResponseDevice {
 impl ResponseDevice {
     pub fn id(&self) -> DeviceId {
         self.id
+    }
+
+    /// Apply newer fields while retaining fields absent from the update.
+    pub fn merge(&mut self, newer: ResponseDevice) -> usize {
+        assert_eq!(self.id, newer.id);
+        let mut replaced = 0;
+        for property in newer.properties {
+            let before = self.properties.len();
+            self.properties
+                .retain(|old| std::mem::discriminant(old) != std::mem::discriminant(&property));
+            replaced += before - self.properties.len();
+            self.properties.push(property);
+        }
+        for capability in newer.capabilities {
+            let before = self.capabilities.len();
+            self.capabilities
+                .retain(|old| !same_capability(old, &capability));
+            replaced += before - self.capabilities.len();
+            self.capabilities.push(capability);
+        }
+        replaced
+    }
+
+    pub fn field_count(&self) -> usize {
+        self.properties.len() + self.capabilities.len()
+    }
+}
+
+fn same_capability(a: &Capability, b: &Capability) -> bool {
+    match (a, b) {
+        (Capability::OnOff { .. }, Capability::OnOff { .. }) => true,
+        (Capability::Mode { function: a, .. }, Capability::Mode { function: b, .. }) => a == b,
+        (Capability::Toggle { function: a, .. }, Capability::Toggle { function: b, .. }) => a == b,
+        (Capability::Range { function: a, .. }, Capability::Range { function: b, .. }) => a == b,
+        _ => false,
     }
 }
 

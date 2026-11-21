@@ -8,7 +8,7 @@ use futures_util::StreamExt;
 use log::{error, info};
 use paho_mqtt::{AsyncClient as MqClient, QOS_1};
 use tokio::sync::Mutex;
-use tokio::{task, time};
+use tokio::time;
 use transport::{connect_mqtt, Topic};
 use tuya::DeviceConfig;
 
@@ -32,13 +32,10 @@ async fn main() -> Result<()> {
     let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "elzhbieta").await?;
     info!("connected mqtt");
 
-    let (set_handle, state_handle) = tokio::try_join!(
-        task::spawn(subscribe_requests(mqtt_client.clone(), client.clone())),
-        task::spawn(publish_state_loop(mqtt_client, client))
+    tokio::try_join!(
+        subscribe_requests(mqtt_client.clone(), client.clone()),
+        publish_state_loop(mqtt_client, client),
     )?;
-
-    set_handle?;
-    state_handle?;
 
     Ok(())
 }

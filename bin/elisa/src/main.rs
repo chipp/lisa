@@ -10,7 +10,7 @@ use futures_util::stream::StreamExt;
 use log::{debug, error, info, warn};
 use paho_mqtt::AsyncClient as MqClient;
 use paho_mqtt::{MessageBuilder, QOS_1};
-use tokio::{task, time};
+use tokio::time;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -37,13 +37,10 @@ async fn main() -> Result<()> {
     let mqtt_client = connect_mqtt(mqtt_address, mqtt_username, mqtt_password, "elisa").await?;
     info!("connected mqtt");
 
-    let (set_handle, state_handle) = tokio::try_join!(
-        task::spawn(subscribe_actions(mqtt_client.clone(), vacuum_queue.clone())),
-        task::spawn(subscribe_state(mqtt_client, vacuum_queue))
+    tokio::try_join!(
+        subscribe_actions(mqtt_client.clone(), vacuum_queue.clone()),
+        subscribe_state(mqtt_client, vacuum_queue),
     )?;
-
-    set_handle?;
-    state_handle?;
 
     Ok(())
 }

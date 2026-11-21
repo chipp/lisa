@@ -8,7 +8,7 @@ use futures_util::StreamExt;
 use log::{error, info};
 use paho_mqtt::AsyncClient as MqClient;
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::{task, time};
+use tokio::time;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -28,30 +28,21 @@ async fn main() -> Result<()> {
     let token = std::env::var("ALICE_TOKEN").expect("token is required");
     let reporter = Reporter::new(skill_id, token);
 
-    let web_handle = task::spawn(listen_web());
-    let state_handle = task::spawn(subscribe_state(mqtt_client, reporter));
-
+    let mut sig = signal(SignalKind::terminate())?;
     tokio::select! {
-        _ = try_join(web_handle, state_handle) => {},
-        _ = tokio::spawn(async move {
-            let mut sig = signal(SignalKind::terminate()).unwrap();
-            sig.recv().await
-        }) => { info!("got SIGTERM, exiting...") },
-    };
-
-    Ok(())
-}
-
-async fn try_join(
-    left: task::JoinHandle<Result<()>>,
-    right: task::JoinHandle<Result<()>>,
-) -> Result<()> {
-    let (left, right) = tokio::try_join!(left, right)?;
-
-    left?;
-    right?;
-
-    Ok(())
+        result = async {
+            tokio::try_join!(
+                listen_web(),
+                subscribe_state(mqtt_client, reporter.clone()),
+                reporter.run(),
+            )?;
+            Ok(())
+        } => result,
+        _ = sig.recv() => {
+            info!("got SIGTERM, exiting...");
+            Ok(())
+        },
+    }
 }
 
 async fn listen_web() -> Result<()> {
@@ -74,10 +65,7 @@ async fn subscribe_state(mut mqtt: MqClient, reporter: Reporter) -> Result<()> {
     while let Some(msg_opt) = stream.next().await {
         if let Some(msg) = msg_opt {
             if let Some(event) = parse_update(&msg) {
-                match reporter.report_update(event).await {
-                    Ok(_) => (),
-                    Err(err) => error!("Error updating state: {}", err),
-                }
+                reporter.report_update(event);
             } else {
                 error!("unable to parse topic {}", msg.topic());
             }

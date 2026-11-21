@@ -20,19 +20,21 @@ use transport::elizabeth::State as ElizabethState;
 use transport::state::StateUpdate;
 use transport::DeviceType;
 
-use chipp_http::{HttpClient, HttpMethod, NoInterceptor};
 use jiff::Timestamp;
 use log::{debug, error};
 
 pub struct Reporter {
-    inner: HttpClient<NoInterceptor>,
+    inner: reqwest::Client,
     skill_id: String,
     token: String,
 }
 
 impl Reporter {
     pub fn new(skill_id: String, token: String) -> Self {
-        let inner = HttpClient::new("https://dialogs.yandex.net/api/v1").unwrap();
+        let inner = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("HTTP client");
 
         Self {
             inner,
@@ -56,53 +58,52 @@ impl Reporter {
             serde_json::to_string_pretty(&body).unwrap()
         );
 
-        let mut request = self
-            .inner
-            .new_request(["skills", &self.skill_id, "callback", "state"]);
-
-        request.method = HttpMethod::Post;
-        request.set_json_body(&body);
-        request.add_header("Authorization", format!("OAuth {}", self.token));
-
-        let result = self
-            .inner
-            .perform_request(request, parse_state_report_response)
-            .await;
+        let url = callback_url("https://dialogs.yandex.net/api/v1", &self.skill_id);
+        let result = send_report(&self.inner, url, &self.token, &body).await;
 
         match result {
-            Ok(_) => {
+            Ok(response) if response.status() == reqwest::StatusCode::ACCEPTED => {
                 debug!("successfully notified alice about changes");
             }
-            Err(err) => {
-                if let chipp_http::ErrorKind::HttpError(ref res) = err.kind {
-                    error!("unable to report state changes {}", res.status_code);
-                    debug!("{:#?}", res);
-
-                    if let Ok(json) = std::str::from_utf8(&res.body) {
-                        debug!("{}", json);
-                    } else {
-                        error!("unable to report state changes {}", err)
-                    }
-                } else {
-                    error!("unable to report state changes {}", err)
+            Ok(response) => {
+                error!("unable to report state changes {}", response.status());
+                debug!("{response:#?}");
+                match response.bytes().await {
+                    Ok(body) => match std::str::from_utf8(&body) {
+                        Ok(json) => debug!("{}", json),
+                        Err(err) => error!("unable to report state changes {}", err),
+                    },
+                    Err(err) => error!("unable to report state changes {}", err),
                 }
             }
+            Err(err) => error!("unable to report state changes {}", err),
         }
 
         Ok(())
     }
 }
 
-#[allow(clippy::result_large_err)]
-fn parse_state_report_response(
-    req: chipp_http::Request,
-    res: chipp_http::Response,
-) -> std::result::Result<chipp_http::Response, chipp_http::Error> {
-    if res.status_code == 202 {
-        Ok(res)
-    } else {
-        Err((req, res).into())
-    }
+async fn send_report<T: serde::Serialize>(
+    client: &reqwest::Client,
+    url: url::Url,
+    token: &str,
+    body: &T,
+) -> std::result::Result<reqwest::Response, reqwest::Error> {
+    client
+        .post(url)
+        .header(reqwest::header::AUTHORIZATION, format!("OAuth {token}"))
+        .json(body)
+        .send()
+        .await
+}
+
+fn callback_url(base: &str, skill_id: &str) -> url::Url {
+    let mut url = url::Url::parse(base).unwrap();
+    url.path_segments_mut()
+        .unwrap()
+        .pop_if_empty()
+        .extend(["skills", skill_id, "callback", "state"]);
+    url
 }
 
 fn device_from_update(update: StateUpdate) -> Option<Vec<StateDevice>> {
@@ -121,5 +122,72 @@ fn prepare_elizabeth_device(state: ElizabethState) -> Option<StateDevice> {
         DeviceType::Recuperator => prepare_recuperator_update(state),
         DeviceType::Thermostat => prepare_thermostat_update(state),
         _ => unreachable!(),
+    }
+}
+
+#[cfg(test)]
+mod http_tests {
+    use super::*;
+    fn server(status: &str, body: &str) -> (String, std::thread::JoinHandle<String>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let response = format!("HTTP/1.1 {status}\r\nContent-Length: {}\r\nLocation: /redirected\r\nConnection: close\r\n\r\n{body}", body.len());
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut bytes = Vec::new();
+            let mut buf = [0; 1024];
+            loop {
+                let n = stream.read(&mut buf).unwrap();
+                if n == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&buf[..n]);
+                if let Some(pos) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let headers = String::from_utf8_lossy(&bytes[..pos]);
+                    let len = headers
+                        .lines()
+                        .find_map(|line| {
+                            let (name, value) = line.split_once(':')?;
+                            name.eq_ignore_ascii_case("content-length")
+                                .then(|| value.trim().parse::<usize>().unwrap())
+                        })
+                        .unwrap_or(0);
+                    if bytes.len() >= pos + 4 + len {
+                        break;
+                    }
+                }
+            }
+            stream.write_all(response.as_bytes()).unwrap();
+            String::from_utf8(bytes).unwrap()
+        });
+        (format!("http://{address}"), handle)
+    }
+
+    #[tokio::test]
+    async fn sends_authenticated_report_and_does_not_follow_redirects() {
+        let (base, handle) = server("302 Found", "failure");
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
+        let response = send_report(
+            &client,
+            callback_url(&format!("{base}/api/v1"), "a/b"),
+            "secret",
+            &serde_json::json!({"state": 1}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::FOUND);
+        let request = handle.join().unwrap();
+        assert!(request.starts_with("POST /api/v1/skills/a%2Fb/callback/state HTTP/1.1\r\n"));
+        let request = request.to_lowercase();
+        assert!(request.contains("authorization: oauth secret"));
+        assert!(request.contains("content-type: application/json"));
+        assert!(request.ends_with("\r\n\r\n{\"state\":1}"));
     }
 }

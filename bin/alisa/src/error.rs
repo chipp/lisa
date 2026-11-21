@@ -6,7 +6,7 @@ pub enum Error {
     Json(serde_json::Error),
     Io(std::io::Error),
     Join(tokio::task::JoinError),
-    Http(Box<chipp_http::Error>),
+    Http(reqwest::Error),
 }
 
 impl From<paho_mqtt::Error> for Error {
@@ -33,9 +33,9 @@ impl From<tokio::task::JoinError> for Error {
     }
 }
 
-impl From<chipp_http::Error> for Error {
-    fn from(err: chipp_http::Error) -> Self {
-        Self::Http(Box::new(err))
+impl From<reqwest::Error> for Error {
+    fn from(err: reqwest::Error) -> Self {
+        Self::Http(err)
     }
 }
 

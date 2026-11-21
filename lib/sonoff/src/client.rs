@@ -15,7 +15,6 @@ use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 
-use chipp_http::{HttpClient, HttpMethod, NoInterceptor};
 use crypto::Token;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::StreamExt;
@@ -47,7 +46,7 @@ pub struct Client {
     manager: Arc<Mutex<SonoffDevicesManager>>,
     write: Arc<Mutex<SocketWriter>>,
     read: Arc<Mutex<SocketReader>>,
-    http_client: Arc<HttpClient<NoInterceptor>>,
+    http_client: reqwest::Client,
 }
 
 impl Client {
@@ -56,14 +55,17 @@ impl Client {
         let framed = UdpFramed::new(socket, DnsCoder);
         let (write, read) = framed.split();
 
-        let http_client = HttpClient::new("http://0.0.0.0").unwrap();
+        let http_client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("HTTP client");
 
         Ok(Self {
             keys,
             manager: Arc::new(Mutex::new(SonoffDevicesManager::default())),
             write: Arc::new(Mutex::new(write)),
             read: Arc::new(Mutex::new(read)),
-            http_client: Arc::new(http_client),
+            http_client,
         })
     }
 
@@ -171,19 +173,7 @@ impl Client {
         let body = RequestBody::new(is_enabled, device_id, *key);
 
         let url = format!("http://{}/zeroconf/switches", ip);
-        let mut request = self.http_client.new_request_with_url(url)?;
-
-        request.set_json_body(&body);
-        request.set_method(HttpMethod::Post);
-
-        trace!(
-            "request: {}",
-            String::from_utf8_lossy(&request.body.clone().unwrap_or_default())
-        );
-
-        self.http_client
-            .perform_request(request, parse_update_state_response)
-            .await?;
+        send_switch_request(&self.http_client, &url, &body).await?;
 
         Ok(())
     }
@@ -284,12 +274,21 @@ impl Client {
     }
 }
 
-#[allow(clippy::result_large_err)]
-fn parse_update_state_response(
-    _: chipp_http::Request,
-    response: chipp_http::Response,
-) -> std::result::Result<(), chipp_http::Error> {
-    trace!("response: {}", String::from_utf8_lossy(&response.body));
+async fn send_switch_request<T: serde::Serialize>(
+    client: &reqwest::Client,
+    url: &str,
+    body: &T,
+) -> Result<(), Error> {
+    let json = serde_json::to_vec(body)?;
+    trace!("request: {}", String::from_utf8_lossy(&json));
+    let response = client
+        .post(url)
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(json)
+        .send()
+        .await?;
+    let body = response.bytes().await?;
+    trace!("response: {}", String::from_utf8_lossy(&body));
     Ok(())
 }
 
@@ -303,4 +302,67 @@ fn create_query_packet(host: &str) -> Vec<u8> {
     let mut builder = dns_parser::Builder::new_query(0, false);
     builder.add_question(host, false, QueryType::A, QueryClass::IN);
     builder.build().unwrap()
+}
+
+#[cfg(test)]
+mod http_tests {
+    use super::*;
+    fn server(status: &str, body: &str) -> (String, std::thread::JoinHandle<String>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let response = format!("HTTP/1.1 {status}\r\nContent-Length: {}\r\nLocation: /redirected\r\nConnection: close\r\n\r\n{body}", body.len());
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut bytes = Vec::new();
+            let mut buf = [0; 1024];
+            loop {
+                let n = stream.read(&mut buf).unwrap();
+                if n == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&buf[..n]);
+                if let Some(pos) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let headers = String::from_utf8_lossy(&bytes[..pos]);
+                    let len = headers
+                        .lines()
+                        .find_map(|line| {
+                            let (name, value) = line.split_once(':')?;
+                            name.eq_ignore_ascii_case("content-length")
+                                .then(|| value.trim().parse::<usize>().unwrap())
+                        })
+                        .unwrap_or(0);
+                    if bytes.len() >= pos + 4 + len {
+                        break;
+                    }
+                }
+            }
+            stream.write_all(response.as_bytes()).unwrap();
+            String::from_utf8(bytes).unwrap()
+        });
+        (format!("http://{address}"), handle)
+    }
+
+    #[tokio::test]
+    async fn sends_json_and_accepts_error_status() {
+        let (base, handle) = server("500 Internal Server Error", "failure");
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
+        send_switch_request(
+            &client,
+            &format!("{base}/zeroconf/switches"),
+            &serde_json::json!({"switch": "on"}),
+        )
+        .await
+        .unwrap();
+        let request = handle.join().unwrap().to_lowercase();
+        assert!(request.starts_with("post /zeroconf/switches http/1.1\r\n"));
+        assert!(request.contains("content-type: application/json"));
+        assert!(request.ends_with("\r\n\r\n{\"switch\":\"on\"}"));
+    }
 }

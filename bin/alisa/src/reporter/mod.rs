@@ -14,25 +14,71 @@ pub use temperature_sensor::prepare_sensor_update;
 pub use thermostat::{prepare_thermostat_current_state, prepare_thermostat_update};
 pub use vacuum_cleaner::prepare_vacuum_updates;
 
-use crate::Result;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
 use alice::{StateDevice, StateResponse};
 use transport::elizabeth::State as ElizabethState;
 use transport::state::StateUpdate;
-use transport::DeviceType;
+use transport::{DeviceId, DeviceType};
 
 use jiff::Timestamp;
-use log::{debug, error};
+use log::{debug, error, info, warn};
+use tokio::sync::Notify;
 
+#[derive(Default)]
+struct Pending {
+    devices: HashMap<DeviceId, StateDevice>,
+    coalesced: usize,
+}
+
+impl Pending {
+    fn insert(&mut self, device: StateDevice) {
+        match self.devices.entry(device.id()) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                self.coalesced += entry.get_mut().merge(device);
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(device);
+            }
+        }
+    }
+
+    fn fields(&self) -> usize {
+        self.devices.values().map(StateDevice::field_count).sum()
+    }
+
+    // New arrivals always win over values from a failed request.
+    fn restore(&mut self, mut older: Pending) {
+        let current = std::mem::take(self);
+        older.coalesced += current.coalesced;
+        for device in current.devices.into_values() {
+            older.insert(device);
+        }
+        *self = older;
+    }
+}
+
+#[derive(Default)]
+struct Shared {
+    pending: Mutex<Pending>,
+    notify: Notify,
+}
+
+#[derive(Clone)]
 pub struct Reporter {
     inner: reqwest::Client,
     skill_id: String,
     token: String,
+    shared: Arc<Shared>,
 }
 
 impl Reporter {
     pub fn new(skill_id: String, token: String) -> Self {
         let inner = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(10))
             .build()
             .expect("HTTP client");
 
@@ -40,47 +86,119 @@ impl Reporter {
             inner,
             skill_id,
             token,
+            shared: Arc::default(),
         }
     }
 
-    pub async fn report_update(&self, update: StateUpdate) -> Result<()> {
-        let devices = if let Some(devices) = device_from_update(update) {
-            devices
-        } else {
-            return Ok(());
-        };
+    pub fn report_update(&self, update: StateUpdate) {
+        if let Some(devices) = device_from_update(update) {
+            let mut pending = self.shared.pending.lock().expect("pending state lock");
+            for device in devices {
+                pending.insert(device);
+            }
+            debug!(
+                "pending state fields: {}, coalesced: {}",
+                pending.fields(),
+                pending.coalesced
+            );
+            drop(pending);
+            self.shared.notify.notify_one();
+        }
+    }
 
-        let now = Timestamp::now();
-        let body = StateResponse::notification_body(now.as_second(), "chipp", devices);
-
-        debug!(
-            "state update: {}",
-            serde_json::to_string_pretty(&body).unwrap()
-        );
-
+    pub async fn run(self) -> crate::Result<()> {
         let url = callback_url("https://dialogs.yandex.net/api/v1", &self.skill_id);
-        let result = send_report(&self.inner, url, &self.token, &body).await;
-
-        match result {
-            Ok(response) if response.status() == reqwest::StatusCode::ACCEPTED => {
-                debug!("successfully notified alice about changes");
-            }
-            Ok(response) => {
-                error!("unable to report state changes {}", response.status());
-                debug!("{response:#?}");
-                match response.bytes().await {
-                    Ok(body) => match std::str::from_utf8(&body) {
-                        Ok(json) => debug!("{}", json),
-                        Err(err) => error!("unable to report state changes {}", err),
-                    },
-                    Err(err) => error!("unable to report state changes {}", err),
-                }
-            }
-            Err(err) => error!("unable to report state changes {}", err),
-        }
-
-        Ok(())
+        self.run_at(url).await
     }
+
+    async fn run_at(self, url: url::Url) -> crate::Result<()> {
+        let mut backoff = Duration::from_secs(1);
+        loop {
+            let batch = {
+                let mut pending = self.shared.pending.lock().expect("pending state lock");
+                std::mem::take(&mut *pending)
+            };
+            if batch.devices.is_empty() {
+                self.shared.notify.notified().await;
+                continue;
+            }
+
+            let field_count = batch.fields();
+            let coalesced = batch.coalesced;
+            let body = StateResponse::notification_body(
+                Timestamp::now().as_second(),
+                "chipp",
+                batch.devices.values().cloned().collect(),
+            );
+            debug!(
+                "state update: {}",
+                serde_json::to_string_pretty(&body).unwrap()
+            );
+            let start = Instant::now();
+            let result = send_report(&self.inner, url.clone(), &self.token, &body).await;
+            let (retry, retry_after) = match result {
+                Ok(response) if response.status() == reqwest::StatusCode::ACCEPTED => {
+                    info!(
+                        "state update accepted: {field_count} fields, {coalesced} coalesced, {:?}",
+                        start.elapsed()
+                    );
+                    (false, None)
+                }
+                Ok(response) => {
+                    let status = response.status();
+                    let retry_after = if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        response
+                            .headers()
+                            .get(reqwest::header::RETRY_AFTER)
+                            .and_then(|value| value.to_str().ok())
+                            .and_then(parse_retry_after)
+                    } else {
+                        None
+                    };
+                    error!(
+                        "unable to report state changes {status}, {:?}",
+                        start.elapsed()
+                    );
+                    (
+                        status == reqwest::StatusCode::TOO_MANY_REQUESTS
+                            || status.is_server_error(),
+                        retry_after,
+                    )
+                }
+                Err(err) => {
+                    error!(
+                        "unable to report state changes {err}, {:?}",
+                        start.elapsed()
+                    );
+                    (true, None)
+                }
+            };
+            if retry {
+                {
+                    let mut pending = self.shared.pending.lock().expect("pending state lock");
+                    pending.restore(batch);
+                    warn!(
+                        "retrying state update: {} pending fields, {} coalesced",
+                        pending.fields(),
+                        pending.coalesced
+                    );
+                }
+                let delay = retry_after.map_or(backoff, |after| after.max(backoff));
+                tokio::time::sleep(delay).await;
+                backoff = (backoff * 2).min(Duration::from_secs(60));
+            } else {
+                backoff = Duration::from_secs(1);
+            }
+        }
+    }
+}
+
+fn parse_retry_after(value: &str) -> Option<Duration> {
+    if let Ok(seconds) = value.trim().parse::<u64>() {
+        return Some(Duration::from_secs(seconds));
+    }
+    let date = jiff::fmt::rfc2822::parse(value).ok()?.timestamp();
+    Some(Duration::try_from(date.duration_since(Timestamp::now())).unwrap_or_default())
 }
 
 async fn send_report<T: serde::Serialize>(
@@ -189,5 +307,148 @@ mod http_tests {
         assert!(request.contains("authorization: oauth secret"));
         assert!(request.contains("content-type: application/json"));
         assert!(request.ends_with("\r\n\r\n{\"state\":1}"));
+    }
+}
+
+#[cfg(test)]
+mod pending_tests {
+    use super::*;
+    use alice::{StateCapability, StateProperty};
+    use transport::Room;
+
+    fn sensor(properties: Vec<StateProperty>) -> StateDevice {
+        StateDevice::new_with_properties(
+            DeviceId::temperature_sensor_at_room(Room::HomeOffice),
+            properties,
+        )
+    }
+
+    #[test]
+    fn merges_fields_and_restores_without_overwriting_newer_values() {
+        let mut sent = Pending::default();
+        sent.insert(sensor(vec![
+            StateProperty::humidity(56.0),
+            StateProperty::temperature(20.0),
+        ]));
+        let mut pending = Pending::default();
+        pending.insert(sensor(vec![StateProperty::humidity(58.0)]));
+        pending.insert(sensor(vec![StateProperty::humidity(61.0)]));
+        pending.restore(sent);
+        assert_eq!(pending.fields(), 2);
+        let value = serde_json::to_value(pending.devices.values().next().unwrap()).unwrap();
+        let properties = value["properties"].as_array().unwrap();
+        assert!(properties
+            .iter()
+            .any(|p| p["state"]["instance"] == "humidity" && p["state"]["value"] == 61.0));
+        assert!(properties
+            .iter()
+            .any(|p| p["state"]["instance"] == "temperature" && p["state"]["value"] == 20.0));
+        assert_eq!(pending.coalesced, 2);
+    }
+
+    #[test]
+    fn merging_capabilities_preserves_distinct_functions() {
+        let id = DeviceId::temperature_sensor_at_room(Room::HomeOffice);
+        let mut state =
+            StateDevice::new_with_capabilities(id, vec![StateCapability::on_off(false)]);
+        state.merge(StateDevice::new_with_capabilities(
+            id,
+            vec![StateCapability::on_off(true)],
+        ));
+        assert_eq!(state.field_count(), 1);
+        let value = serde_json::to_value(state).unwrap();
+        assert_eq!(value["capabilities"][0]["state"]["value"], true);
+    }
+
+    #[test]
+    fn retry_after_supports_seconds_and_http_dates() {
+        assert_eq!(parse_retry_after(" 12 "), Some(Duration::from_secs(12)));
+        assert_eq!(
+            parse_retry_after("Wed, 21 Oct 2015 07:28:00 GMT"),
+            Some(Duration::ZERO)
+        );
+        assert_eq!(parse_retry_after("invalid"), None);
+    }
+
+    #[tokio::test]
+    async fn retry_sends_latest_values_received_during_request() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap())
+            .parse()
+            .unwrap();
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let mut requests = Vec::new();
+            let mut started_tx = Some(started_tx);
+            for n in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut bytes = Vec::new();
+                let mut buffer = [0; 2048];
+                loop {
+                    let count = stream.read(&mut buffer).unwrap();
+                    assert!(count > 0);
+                    bytes.extend_from_slice(&buffer[..count]);
+                    if let Some(pos) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+                        let headers = String::from_utf8_lossy(&bytes[..pos]);
+                        let length = headers
+                            .lines()
+                            .find_map(|line| {
+                                let (name, value) = line.split_once(':')?;
+                                name.eq_ignore_ascii_case("content-length")
+                                    .then(|| value.trim().parse::<usize>().unwrap())
+                            })
+                            .unwrap();
+                        if bytes.len() >= pos + 4 + length {
+                            break;
+                        }
+                    }
+                }
+                requests.push(String::from_utf8(bytes).unwrap());
+                if n == 0 {
+                    started_tx.take().unwrap().send(()).ok();
+                    release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                    stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+                } else {
+                    stream.write_all(b"HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+                }
+            }
+            requests
+        });
+        let reporter = Reporter::new("skill".into(), "secret".into());
+        {
+            let mut pending = reporter.shared.pending.lock().unwrap();
+            pending.insert(sensor(vec![
+                StateProperty::humidity(56.0),
+                StateProperty::temperature(20.0),
+            ]));
+        }
+        let worker = tokio::spawn(reporter.clone().run_at(url));
+        started_rx.await.unwrap();
+        {
+            let mut pending = reporter.shared.pending.lock().unwrap();
+            pending.insert(sensor(vec![StateProperty::humidity(61.0)]));
+        }
+        reporter.shared.notify.notify_one();
+        release_tx.send(()).unwrap();
+        let requests = tokio::task::spawn_blocking(|| server.join().unwrap())
+            .await
+            .unwrap();
+        worker.abort();
+        let body = requests[1].split("\r\n\r\n").nth(1).unwrap();
+        let body: serde_json::Value = serde_json::from_str(body).unwrap();
+        let properties = body["payload"]["devices"][0]["properties"]
+            .as_array()
+            .unwrap();
+        assert!(properties
+            .iter()
+            .any(|p| p["state"]["instance"] == "humidity" && p["state"]["value"] == 61.0));
+        assert!(properties
+            .iter()
+            .any(|p| p["state"]["instance"] == "temperature" && p["state"]["value"] == 20.0));
     }
 }

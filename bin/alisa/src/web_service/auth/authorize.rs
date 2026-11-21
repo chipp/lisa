@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
     Form,
 };
-use chrono::Duration;
+use jiff::SignedDuration as Duration;
 use log::{error, info};
 use serde::Deserialize;
 use url::Url;
@@ -40,7 +40,7 @@ fn get_redirect_url_from_params(auth: Credentials) -> Result<Option<Url>, TokenE
         Err(_) => return Ok(None),
     };
 
-    let code = create_token_with_expiration_in(Duration::seconds(30), TokenType::Code)?;
+    let code = create_token_with_expiration_in(Duration::from_secs(30), TokenType::Code)?;
     url.query_pairs_mut()
         .append_pair("state", &auth.state)
         .append_pair("code", &code);

@@ -10,10 +10,12 @@ use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
 use crate::{Error, ReceivedMessage, Result};
-use chrono::{DateTime, Local, TimeDelta};
-use chrono_humanize::{Accuracy, HumanTime, Tense};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
+use jiff::{
+    fmt::friendly::{Designator, Direction, Spacing, SpanPrinter},
+    SignedDuration, ZonedDateTime,
+};
 use log::{debug, info};
 use serde::Serialize;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
@@ -130,13 +132,13 @@ impl WsClient {
 
     async fn log_socket_message(&self, message: &Message) {
         let mut log = self.log.lock().await;
-        let now = Local::now();
+        let now = ZonedDateTime::now();
 
-        log.add(now, message).await.unwrap();
+        log.add(&now, message).await.unwrap();
 
-        let duration = now - log.start;
+        let duration = now.duration_since(&log.start);
 
-        if log.size >= TEN_MIB || duration.num_days() >= 1 {
+        if log.size >= TEN_MIB || duration.as_secs() >= 24 * 60 * 60 {
             let size = format_size(log.size);
             let duration = format_duration(duration);
 
@@ -147,8 +149,15 @@ impl WsClient {
     }
 }
 
-fn format_duration(duration: TimeDelta) -> String {
-    HumanTime::from(duration).to_text_en(Accuracy::Rough, Tense::Past)
+fn format_duration(duration: SignedDuration) -> String {
+    format!(
+        "{} ago",
+        SpanPrinter::new()
+            .designator(Designator::Verbose)
+            .spacing(Spacing::BetweenUnitsAndDesignators)
+            .direction(Direction::Sign)
+            .duration_to_string(&duration)
+    )
 }
 
 fn format_size(size: usize) -> String {
@@ -166,18 +175,18 @@ const ONE_MIB: usize = 1024 * 1024;
 const TEN_MIB: usize = 10 * ONE_MIB;
 
 struct Log {
-    start: DateTime<Local>,
+    start: ZonedDateTime,
     size: usize,
     path: PathBuf,
 }
 
 impl Log {
     fn new(root_path: PathBuf) -> Self {
-        let start = Local::now();
+        let start = ZonedDateTime::now();
         let mut path = root_path;
         path.push(format!(
             "inspinia-{}.txt",
-            start.format("%Y-%m-%d-%H-%M-%S")
+            start.strftime("%Y-%m-%d-%H-%M-%S")
         ));
 
         Self {
@@ -187,9 +196,13 @@ impl Log {
         }
     }
 
-    async fn add(&mut self, ts: DateTime<Local>, message: &Message) -> Result<()> {
+    async fn add(&mut self, ts: &ZonedDateTime, message: &Message) -> Result<()> {
         let entry = format!("{}", LogEntry(message));
-        let string = format!("{}: {}\n", ts.to_rfc2822(), entry);
+        let string = format!(
+            "{}: {}\n",
+            jiff::fmt::rfc2822::to_string(ts).expect("valid RFC 2822 timestamp"),
+            entry
+        );
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -236,19 +249,19 @@ impl Log {
         path.pop();
         path.push(format!(
             "inspinia-{}.zip",
-            self.start.format("%Y-%m-%d-%H-%M-%S")
+            self.start.strftime("%Y-%m-%d-%H-%M-%S")
         ));
 
         let mut file = File::create(path).await.unwrap();
         file.write_all(&buf).await?;
 
-        self.start = Local::now();
+        self.start = ZonedDateTime::now();
         self.size = 0;
 
         self.path.pop();
         self.path.push(format!(
             "inspinia-{}.txt",
-            self.start.format("%Y-%m-%d-%H-%M-%S")
+            self.start.strftime("%Y-%m-%d-%H-%M-%S")
         ));
 
         Ok(())
@@ -288,5 +301,28 @@ fn map_tungstenite_error(error: tokio_tungstenite::tungstenite::error::Error) ->
         Error::StreamClosed
     } else {
         Error::WebSocketError(error)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_duration, SignedDuration, ZonedDateTime};
+
+    #[test]
+    fn log_timestamp_and_filename_formats_are_preserved() {
+        let time: ZonedDateTime = "2026-11-21T15:04:05+02:00[+02:00]".parse().unwrap();
+        assert_eq!(
+            time.strftime("%Y-%m-%d-%H-%M-%S").to_string(),
+            "2026-11-21-15-04-05"
+        );
+        assert_eq!(
+            jiff::fmt::rfc2822::to_string(&time).unwrap(),
+            "Sat, 21 Nov 2026 15:04:05 +0200"
+        );
+    }
+
+    #[test]
+    fn log_duration_is_readable() {
+        assert_eq!(format_duration(SignedDuration::from_hours(1)), "1 hour ago");
     }
 }

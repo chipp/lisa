@@ -21,7 +21,7 @@ use transport::state::StateUpdate;
 use transport::DeviceType;
 
 use chipp_http::{HttpClient, HttpMethod, NoInterceptor};
-use chrono::Utc;
+use jiff::Timestamp;
 use log::{debug, error};
 
 pub struct Reporter {
@@ -48,8 +48,8 @@ impl Reporter {
             return Ok(());
         };
 
-        let now = Utc::now();
-        let body = StateResponse::notification_body(now.timestamp(), "chipp", devices);
+        let now = Timestamp::now();
+        let body = StateResponse::notification_body(now.as_second(), "chipp", devices);
 
         debug!(
             "state update: {}",

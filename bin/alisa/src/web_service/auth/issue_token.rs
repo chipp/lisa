@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use axum::{http::StatusCode, response::IntoResponse, Form, Json};
-use chrono::Duration;
+use jiff::SignedDuration as Duration;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 
@@ -156,17 +156,17 @@ impl Response {
     }
 }
 
-const ACCESS_TOKEN_EXPIRATION: Duration = Duration::hours(1);
-const REFRESH_TOKEN_EXPIRATION: Duration = Duration::weeks(4);
+const ACCESS_TOKEN_EXPIRATION: Duration = Duration::from_hours(1);
+const REFRESH_TOKEN_EXPIRATION: Duration = Duration::from_hours(4 * 7 * 24);
 
 mod duration_ser {
-    use chrono::Duration;
+    use jiff::SignedDuration as Duration;
     use serde::ser;
 
     pub fn serialize<S>(dur: &Duration, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
-        serializer.serialize_i64(dur.num_seconds())
+        serializer.serialize_i64(dur.as_secs())
     }
 }

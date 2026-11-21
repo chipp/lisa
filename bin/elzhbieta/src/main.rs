@@ -16,7 +16,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    pretty_env_logger::init_timed();
+    env_logger::init();
 
     info!("Elžbieta Tuya AC gateway version {VERSION}");
 

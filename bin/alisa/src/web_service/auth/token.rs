@@ -1,6 +1,6 @@
 use std::fmt;
 
-use chrono::Duration;
+use jiff::SignedDuration as Duration;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -114,7 +114,7 @@ fn create_token_with_expiration_in_with_secret_at(
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
     let expiration = now_timestamp
-        .checked_add(expiration.num_seconds())
+        .checked_add(expiration.as_secs())
         .ok_or(TokenError::InvalidExpiration)?;
     let expiration = u64::try_from(expiration).map_err(|_| TokenError::InvalidExpiration)?;
 
@@ -150,7 +150,7 @@ mod tests {
     use super::{
         create_token_with_expiration_in_with_secret_at, is_valid_token_with_secret_at, TokenType,
     };
-    use chrono::Duration;
+    use jiff::SignedDuration as Duration;
 
     const SECRET: &str = "test-secret";
     const NOW: i64 = 1_700_000_000;
@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn access_token_roundtrip_is_valid() {
         let token = create_token_with_expiration_in_with_secret_at(
-            Duration::minutes(1),
+            Duration::from_mins(1),
             TokenType::Access,
             SECRET,
             NOW,
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn token_type_mismatch_is_invalid() {
         let token = create_token_with_expiration_in_with_secret_at(
-            Duration::minutes(1),
+            Duration::from_mins(1),
             TokenType::Access,
             SECRET,
             NOW,
@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn expired_token_is_invalid() {
         let token = create_token_with_expiration_in_with_secret_at(
-            Duration::minutes(-1),
+            Duration::from_mins(-1),
             TokenType::Access,
             SECRET,
             NOW,
@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn token_signed_with_different_secret_is_invalid() {
         let token = create_token_with_expiration_in_with_secret_at(
-            Duration::minutes(1),
+            Duration::from_mins(1),
             TokenType::Access,
             "secret-a",
             NOW,
@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn token_expires_exactly_at_expected_time() {
         let token = create_token_with_expiration_in_with_secret_at(
-            Duration::seconds(30),
+            Duration::from_secs(30),
             TokenType::Access,
             SECRET,
             NOW,
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn invalid_expiration_returns_error() {
         let result = create_token_with_expiration_in_with_secret_at(
-            Duration::seconds(1),
+            Duration::from_secs(1),
             TokenType::Access,
             SECRET,
             i64::MAX,
